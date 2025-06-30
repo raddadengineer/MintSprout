@@ -37,6 +37,7 @@ export const jobs = pgTable("jobs", {
   recurrence: text("recurrence").notNull(), // 'once' | 'daily' | 'weekly' | 'monthly'
   assignedToId: integer("assigned_to_id").notNull(),
   familyId: integer("family_id").notNull(),
+  icon: text("icon").default("briefcase"), // icon name for the job
   createdAt: timestamp("created_at").defaultNow(),
 });
 
