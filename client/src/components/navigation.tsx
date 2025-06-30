@@ -123,7 +123,7 @@ export function Navigation() {
           <Link href="/dashboard" className="flex-1">
             <Button 
               variant="ghost" 
-              className={`w-full h-16 flex flex-col items-center justify-center space-y-1 rounded-none hover:bg-gray-50 ${
+              className={`w-full h-16 flex flex-col items-center justify-center space-y-1 rounded-none hover:bg-gray-50 hover:text-gray-700 ${
                 isActive("/dashboard") ? "text-primary bg-primary/5" : "text-gray-400"
               }`}
             >
@@ -134,7 +134,7 @@ export function Navigation() {
           <Link href="/jobs" className="flex-1">
             <Button 
               variant="ghost" 
-              className={`w-full h-16 flex flex-col items-center justify-center space-y-1 rounded-none hover:bg-gray-50 ${
+              className={`w-full h-16 flex flex-col items-center justify-center space-y-1 rounded-none hover:bg-gray-50 hover:text-gray-700 ${
                 isActive("/jobs") ? "text-primary bg-primary/5" : "text-gray-400"
               }`}
             >
@@ -145,7 +145,7 @@ export function Navigation() {
           <Link href="/learn" className="flex-1">
             <Button 
               variant="ghost" 
-              className={`w-full h-16 flex flex-col items-center justify-center space-y-1 rounded-none hover:bg-gray-50 ${
+              className={`w-full h-16 flex flex-col items-center justify-center space-y-1 rounded-none hover:bg-gray-50 hover:text-gray-700 ${
                 isActive("/learn") ? "text-primary bg-primary/5" : "text-gray-400"
               }`}
             >
@@ -156,7 +156,7 @@ export function Navigation() {
           <Link href="/reports" className="flex-1">
             <Button 
               variant="ghost" 
-              className={`w-full h-16 flex flex-col items-center justify-center space-y-1 rounded-none hover:bg-gray-50 ${
+              className={`w-full h-16 flex flex-col items-center justify-center space-y-1 rounded-none hover:bg-gray-50 hover:text-gray-700 ${
                 isActive("/reports") ? "text-primary bg-primary/5" : "text-gray-400"
               }`}
             >
