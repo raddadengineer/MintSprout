@@ -36,22 +36,47 @@ export function AllocationModal({ isOpen, onClose, childId }: AllocationModalPro
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: currentSettings } = useQuery({
     queryKey: [`/api/allocation/${childId}`],
     enabled: isOpen && !!childId,
   });
 
+  const { data: accountTypes } = useQuery({
+    queryKey: [`/api/account-types/${user?.familyId}`],
+    enabled: isOpen && !!user?.familyId,
+  });
+
   useEffect(() => {
-    if (currentSettings) {
+    if (currentSettings && accountTypes) {
+      // Calculate initial values based on enabled accounts
+      const enabledAccounts = [];
+      if (accountTypes.spendingEnabled) enabledAccounts.push('spending');
+      if (accountTypes.savingsEnabled) enabledAccounts.push('savings');
+      if (accountTypes.rothIraEnabled) enabledAccounts.push('rothIra');
+      if (accountTypes.brokerageEnabled) enabledAccounts.push('brokerage');
+      
+      // Set form data with current settings or distribute equally among enabled accounts
+      const equalPercentage = Math.floor(100 / enabledAccounts.length);
+      const remainder = 100 - (equalPercentage * enabledAccounts.length);
+      
       setFormData({
-        spendingPercentage: currentSettings.spendingPercentage || 20,
-        savingsPercentage: currentSettings.savingsPercentage || 30,
-        rothIraPercentage: currentSettings.rothIraPercentage || 25,
-        brokeragePercentage: currentSettings.brokeragePercentage || 25,
+        spendingPercentage: accountTypes.spendingEnabled 
+          ? (currentSettings.spendingPercentage || equalPercentage + (enabledAccounts[0] === 'spending' ? remainder : 0))
+          : 0,
+        savingsPercentage: accountTypes.savingsEnabled 
+          ? (currentSettings.savingsPercentage || equalPercentage + (enabledAccounts[0] === 'savings' ? remainder : 0))
+          : 0,
+        rothIraPercentage: accountTypes.rothIraEnabled 
+          ? (currentSettings.rothIraPercentage || equalPercentage + (enabledAccounts[0] === 'rothIra' ? remainder : 0))
+          : 0,
+        brokeragePercentage: accountTypes.brokerageEnabled 
+          ? (currentSettings.brokeragePercentage || equalPercentage + (enabledAccounts[0] === 'brokerage' ? remainder : 0))
+          : 0,
       });
     }
-  }, [currentSettings]);
+  }, [currentSettings, accountTypes]);
 
   const updateAllocationMutation = useMutation({
     mutationFn: (data: AllocationSettings) =>
@@ -77,8 +102,12 @@ export function AllocationModal({ isOpen, onClose, childId }: AllocationModalPro
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const total = formData.spendingPercentage + formData.savingsPercentage + 
-                  formData.rothIraPercentage + formData.brokeragePercentage;
+    // Calculate total based only on enabled accounts
+    let total = 0;
+    if (accountTypes?.spendingEnabled) total += formData.spendingPercentage;
+    if (accountTypes?.savingsEnabled) total += formData.savingsPercentage;
+    if (accountTypes?.rothIraEnabled) total += formData.rothIraPercentage;
+    if (accountTypes?.brokerageEnabled) total += formData.brokeragePercentage;
     
     if (total !== 100) {
       toast({
@@ -109,73 +138,81 @@ export function AllocationModal({ isOpen, onClose, childId }: AllocationModalPro
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="block text-sm font-medium text-gray-700 mb-2">
-                Spending %
-              </Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  className="mint-input pr-8"
-                  value={formData.spendingPercentage}
-                  onChange={(e) => handlePercentageChange("spendingPercentage", e.target.value)}
-                />
-                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">%</span>
+            {accountTypes?.spendingEnabled && (
+              <div>
+                <Label className="block text-sm font-medium text-gray-700 mb-2">
+                  Spending %
+                </Label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    className="mint-input pr-8"
+                    value={formData.spendingPercentage}
+                    onChange={(e) => handlePercentageChange("spendingPercentage", e.target.value)}
+                  />
+                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">%</span>
+                </div>
               </div>
-            </div>
+            )}
             
-            <div>
-              <Label className="block text-sm font-medium text-gray-700 mb-2">
-                Savings %
-              </Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  className="mint-input pr-8"
-                  value={formData.savingsPercentage}
-                  onChange={(e) => handlePercentageChange("savingsPercentage", e.target.value)}
-                />
-                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">%</span>
+            {accountTypes?.savingsEnabled && (
+              <div>
+                <Label className="block text-sm font-medium text-gray-700 mb-2">
+                  Savings %
+                </Label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    className="mint-input pr-8"
+                    value={formData.savingsPercentage}
+                    onChange={(e) => handlePercentageChange("savingsPercentage", e.target.value)}
+                  />
+                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">%</span>
+                </div>
               </div>
-            </div>
+            )}
             
-            <div>
-              <Label className="block text-sm font-medium text-gray-700 mb-2">
-                Roth IRA %
-              </Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  className="mint-input pr-8"
-                  value={formData.rothIraPercentage}
-                  onChange={(e) => handlePercentageChange("rothIraPercentage", e.target.value)}
-                />
-                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">%</span>
+            {accountTypes?.rothIraEnabled && (
+              <div>
+                <Label className="block text-sm font-medium text-gray-700 mb-2">
+                  Roth IRA %
+                </Label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    className="mint-input pr-8"
+                    value={formData.rothIraPercentage}
+                    onChange={(e) => handlePercentageChange("rothIraPercentage", e.target.value)}
+                  />
+                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">%</span>
+                </div>
               </div>
-            </div>
+            )}
             
-            <div>
-              <Label className="block text-sm font-medium text-gray-700 mb-2">
-                Brokerage %
-              </Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  className="mint-input pr-8"
-                  value={formData.brokeragePercentage}
-                  onChange={(e) => handlePercentageChange("brokeragePercentage", e.target.value)}
-                />
-                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">%</span>
+            {accountTypes?.brokerageEnabled && (
+              <div>
+                <Label className="block text-sm font-medium text-gray-700 mb-2">
+                  Brokerage %
+                </Label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    className="mint-input pr-8"
+                    value={formData.brokeragePercentage}
+                    onChange={(e) => handlePercentageChange("brokeragePercentage", e.target.value)}
+                  />
+                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">%</span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
           
           <div className="text-center py-2">

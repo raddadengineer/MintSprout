@@ -3,10 +3,10 @@ import { db } from "./db";
 import * as schema from "@shared/schema";
 import { IStorage } from "./storage";
 import {
-  User, Family, Child, Job, Payment, AllocationSettings,
+  User, Family, Child, Job, Payment, AllocationSettings, AccountTypes,
   Lesson, Quiz, LearningProgress, Achievement,
   InsertUser, InsertFamily, InsertChild, InsertJob, InsertPayment,
-  InsertAllocationSettings, InsertLesson, InsertQuiz,
+  InsertAllocationSettings, InsertAccountTypes, InsertLesson, InsertQuiz,
   InsertLearningProgress, InsertAchievement
 } from "@shared/schema";
 import bcrypt from "bcrypt";
