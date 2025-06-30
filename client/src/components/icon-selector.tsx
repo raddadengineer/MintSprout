@@ -83,7 +83,6 @@ export const JOB_ICONS = {
   
   // Repair & Maintenance
   hammer: { icon: Hammer, label: "Fix/Build", category: "Repair" },
-  screwdriver: { icon: Screwdriver, label: "Repairs", category: "Repair" },
   wrench: { icon: Wrench, label: "Tool Work", category: "Repair" },
   scissors: { icon: Scissors, label: "Cutting Tasks", category: "Repair" },
   
@@ -111,7 +110,7 @@ interface IconSelectorProps {
 }
 
 export function IconSelector({ selectedIcon, onIconSelect }: IconSelectorProps) {
-  const categories = [...new Set(Object.values(JOB_ICONS).map(icon => icon.category))];
+  const categories = Array.from(new Set(Object.values(JOB_ICONS).map(icon => icon.category)));
   const SelectedIcon = JOB_ICONS[selectedIcon as keyof typeof JOB_ICONS]?.icon || Briefcase;
 
   return (

@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { IconSelector } from "@/components/icon-selector";
 
 interface JobCreationModalProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ export function JobCreationModal({ isOpen, onClose }: JobCreationModalProps) {
     amount: "",
     recurrence: "once",
     assignedToId: "",
+    icon: "briefcase",
   });
   
   const { toast } = useToast();
@@ -63,6 +65,7 @@ export function JobCreationModal({ isOpen, onClose }: JobCreationModalProps) {
         amount: "",
         recurrence: "once",
         assignedToId: "",
+        icon: "briefcase",
       });
     },
     onError: () => {
@@ -120,6 +123,14 @@ export function JobCreationModal({ isOpen, onClose }: JobCreationModalProps) {
               placeholder="What needs to be done?"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            />
+          </div>
+          
+          <div>
+            <Label className="block text-sm font-medium text-gray-700 mb-2">Job Icon</Label>
+            <IconSelector
+              selectedIcon={formData.icon}
+              onIconSelect={(icon) => setFormData({ ...formData, icon })}
             />
           </div>
           
