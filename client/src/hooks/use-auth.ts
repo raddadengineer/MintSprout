@@ -20,11 +20,12 @@ export function useAuth() {
     onSuccess: (data) => {
       authApi.setToken(data.token);
       queryClient.setQueryData(["/api/auth/me"], data.user);
-      
-      // Force immediate state update and re-render
       setIsAuthenticated(true);
       setForceRender(prev => prev + 1);
       queryClient.invalidateQueries();
+      
+      // Redirect to dashboard after successful login
+      window.location.href = "/dashboard";
     },
     onError: (error) => {
       console.error("Login error:", error);
