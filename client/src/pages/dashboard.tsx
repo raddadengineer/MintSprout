@@ -98,38 +98,61 @@ export default function Dashboard() {
               }
             </p>
           </div>
-          {user?.role === "parent" && (
-            <div className="mt-4 sm:mt-0 flex flex-wrap gap-3">
-              <Button
-                onClick={() => setShowJobModal(true)}
-                className="mint-primary mint-button shadow-lg hover:shadow-xl"
-              >
-                ➕ Create New Job
-              </Button>
-              <Button 
-                onClick={() => {
-                  setSelectedChildId(child?.id || null);
-                  setShowAllocationModal(true);
-                }}
-                variant="outline"
-                className="shadow-lg hover:shadow-xl"
-              >
-                🎛️ Set Allocations
-              </Button>
-              <Button 
-                variant="outline"
-                className="shadow-lg hover:shadow-xl"
-              >
-                📊 View Reports
-              </Button>
-              <Button 
-                variant="outline"
-                className="shadow-lg hover:shadow-xl"
-              >
-                📚 Create Lesson
-              </Button>
-            </div>
-          )}
+          <div className="mt-4 sm:mt-0 flex flex-wrap gap-3">
+            {user?.role === "parent" ? (
+              <>
+                <Button
+                  onClick={() => setShowJobModal(true)}
+                  className="mint-primary mint-button shadow-lg hover:shadow-xl"
+                >
+                  ➕ Create New Job
+                </Button>
+                <Button 
+                  onClick={() => {
+                    setSelectedChildId(child?.id || null);
+                    setShowAllocationModal(true);
+                  }}
+                  variant="outline"
+                  className="shadow-lg hover:shadow-xl"
+                >
+                  🎛️ Set Allocations
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="shadow-lg hover:shadow-xl"
+                >
+                  📊 View Reports
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="shadow-lg hover:shadow-xl"
+                >
+                  📚 Create Lesson
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button 
+                  variant="outline"
+                  className="shadow-lg hover:shadow-xl bg-purple-50 hover:bg-purple-100 border-purple-200"
+                >
+                  ❓ Take Quiz
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="shadow-lg hover:shadow-xl bg-red-50 hover:bg-red-100 border-red-200"
+                >
+                  ▶️ Watch Video
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="shadow-lg hover:shadow-xl bg-green-50 hover:bg-green-100 border-green-200"
+                >
+                  🎯 Set Savings Goal
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -553,48 +576,7 @@ export default function Dashboard() {
             </>
           )}
 
-          {/* Quick Actions - Role Based */}
-          {user?.role === "child" && (
-            <Card className="mint-card">
-              <CardContent className="p-6">
-                <h3 className="text-xl font-bold text-gray-900 mb-4">
-                  ⚡ Quick Actions
-                </h3>
-                
-                <div className="grid grid-cols-1 gap-3">
-                  <Button variant="ghost" className="flex items-center justify-between p-3 bg-purple-50 hover:bg-purple-100 rounded-xl h-auto">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                        <span className="text-purple-600">❓</span>
-                      </div>
-                      <span className="font-medium text-gray-900">Take Quiz</span>
-                    </div>
-                    <span className="text-gray-400">→</span>
-                  </Button>
-                  
-                  <Button variant="ghost" className="flex items-center justify-between p-3 bg-red-50 hover:bg-red-100 rounded-xl h-auto">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                        <span className="text-red-600">▶️</span>
-                      </div>
-                      <span className="font-medium text-gray-900">Watch Video</span>
-                    </div>
-                    <span className="text-gray-400">→</span>
-                  </Button>
-                  
-                  <Button variant="ghost" className="flex items-center justify-between p-3 bg-green-50 hover:bg-green-100 rounded-xl h-auto">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                        <span className="text-green-600">🎯</span>
-                      </div>
-                      <span className="font-medium text-gray-900">Set Savings Goal</span>
-                    </div>
-                    <span className="text-gray-400">→</span>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+
         </div>
       </div>
 
