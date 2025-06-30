@@ -4,6 +4,7 @@ import { authApi, type User } from "@/lib/auth";
 
 export function useAuth() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => authApi.isAuthenticated());
+  const [forceRender, setForceRender] = useState(0);
   const queryClient = useQueryClient();
 
   const { data: user, isLoading, error } = useQuery({
@@ -19,7 +20,10 @@ export function useAuth() {
     onSuccess: (data) => {
       authApi.setToken(data.token);
       queryClient.setQueryData(["/api/auth/me"], data.user);
+      
+      // Force immediate state update and re-render
       setIsAuthenticated(true);
+      setForceRender(prev => prev + 1);
       queryClient.invalidateQueries();
     },
     onError: (error) => {
