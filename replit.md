@@ -131,6 +131,7 @@ The application uses a comprehensive schema with the following key entities:
 ## Changelog
 - June 30, 2025: Initial setup
 - June 30, 2025: Added complete Docker self-hosting solution with PostgreSQL, Nginx, SSL support, and comprehensive deployment documentation
+- June 30, 2025: Integrated PostgreSQL database with automatic initialization, connection retry logic for containers, and hybrid storage system (PostgreSQL for production, in-memory for development)
 
 ## User Preferences
 
