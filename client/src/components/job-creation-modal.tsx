@@ -98,7 +98,7 @@ export function JobCreationModal({ isOpen, onClose }: JobCreationModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md mx-4">
+      <DialogContent className="max-w-md mx-4 max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-gray-900">Create New Job</DialogTitle>
         </DialogHeader>

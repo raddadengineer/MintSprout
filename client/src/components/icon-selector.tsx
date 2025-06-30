@@ -121,7 +121,7 @@ export function IconSelector({ selectedIcon, onIconSelect }: IconSelectorProps) 
           {JOB_ICONS[selectedIcon as keyof typeof JOB_ICONS]?.label || "Select Icon"}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-96 p-4">
+      <PopoverContent className="w-96 p-4 max-h-96 overflow-y-auto">
         <div className="space-y-4">
           <h4 className="font-medium text-sm">Select Job Icon</h4>
           {categories.map((category) => (
