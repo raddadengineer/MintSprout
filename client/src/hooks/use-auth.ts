@@ -17,7 +17,6 @@ export function useAuth() {
     mutationFn: ({ username, password }: { username: string; password: string }) =>
       authApi.login(username, password),
     onSuccess: (data) => {
-      console.log("Login successful, setting token:", data);
       authApi.setToken(data.token);
       setIsAuthenticated(true);
       queryClient.setQueryData(["/api/auth/me"], data.user);
@@ -29,7 +28,6 @@ export function useAuth() {
   });
 
   const logout = useCallback(() => {
-    console.log("Logging out user");
     authApi.logout();
     setIsAuthenticated(false);
     queryClient.clear();
