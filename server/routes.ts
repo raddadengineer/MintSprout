@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { insertJobSchema, insertAllocationSettingsSchema, insertLessonSchema } from "@shared/schema";
+import { insertJobSchema, insertAllocationSettingsSchema, insertLessonSchema, insertChildSchema } from "@shared/schema";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
@@ -82,6 +82,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Child not found" });
       }
       res.json(child);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/children", verifyToken, async (req: any, res) => {
+    try {
+      if (req.user.role !== "parent") {
+        return res.status(403).json({ message: "Only parents can add children" });
+      }
+
+      const childData = insertChildSchema.parse({
+        ...req.body,
+        familyId: req.user.familyId,
+      });
+
+      const child = await storage.createChild(childData);
+
+      // Create default user account for the child
+      const username = child.name.toLowerCase().replace(/\s+/g, '');
+      const defaultPassword = 'password123';
+      const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+
+      await storage.createUser({
+        username,
+        password: hashedPassword,
+        role: "child",
+        familyId: req.user.familyId,
+        name: child.name,
+      });
+
+      // Create default allocation settings
+      await storage.createAllocationSettings({
+        childId: child.id,
+        spendingPercentage: 25,
+        savingsPercentage: 35,
+        rothIraPercentage: 20,
+        brokeragePercentage: 20,
+      });
+
+      res.status(201).json(child);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid child data" });
+    }
+  });
+
+  app.patch("/api/children/:id", verifyToken, async (req: any, res) => {
+    try {
+      if (req.user.role !== "parent") {
+        return res.status(403).json({ message: "Only parents can update children" });
+      }
+
+      const childId = parseInt(req.params.id);
+      const child = await storage.getChild(childId);
+      
+      if (!child || child.familyId !== req.user.familyId) {
+        return res.status(404).json({ message: "Child not found" });
+      }
+
+      const updateData = {
+        name: req.body.name,
+        age: req.body.age,
+      };
+
+      const updatedChild = await storage.updateChild(childId, updateData);
+      res.json(updatedChild);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid child data" });
+    }
+  });
+
+  app.delete("/api/children/:id", verifyToken, async (req: any, res) => {
+    try {
+      if (req.user.role !== "parent") {
+        return res.status(403).json({ message: "Only parents can remove children" });
+      }
+
+      const childId = parseInt(req.params.id);
+      const child = await storage.getChild(childId);
+      
+      if (!child || child.familyId !== req.user.familyId) {
+        return res.status(404).json({ message: "Child not found" });
+      }
+
+      // Note: In a real app, you might want to archive instead of delete
+      // This is a simplified implementation
+      const success = await storage.deleteChild(childId);
+      
+      if (success) {
+        res.json({ message: "Child removed successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to remove child" });
+      }
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
     }

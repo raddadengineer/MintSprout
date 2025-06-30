@@ -19,6 +19,7 @@ export interface IStorage {
   getChildrenByFamily(familyId: number): Promise<Child[]>;
   getChild(id: number): Promise<Child | undefined>;
   updateChild(id: number, updates: Partial<Child>): Promise<Child | undefined>;
+  deleteChild(id: number): Promise<boolean>;
   
   // Jobs
   createJob(job: InsertJob): Promise<Job>;
@@ -247,6 +248,10 @@ export class MemStorage implements IStorage {
     const updatedChild = { ...child, ...updates };
     this.children.set(id, updatedChild);
     return updatedChild;
+  }
+
+  async deleteChild(id: number): Promise<boolean> {
+    return this.children.delete(id);
   }
 
   // Job methods

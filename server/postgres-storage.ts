@@ -63,6 +63,13 @@ export class PostgresStorage implements IStorage {
     return result[0] || undefined;
   }
 
+  async deleteChild(id: number): Promise<boolean> {
+    const result = await db.delete(schema.children)
+      .where(eq(schema.children.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
   async createJob(insertJob: InsertJob): Promise<Job> {
     const result = await db.insert(schema.jobs).values({
       ...insertJob,
