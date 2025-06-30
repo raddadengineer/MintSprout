@@ -1,0 +1,453 @@
+Enhanced Prompt: Build MintSprout – A Financial Literacy Web App for Kids
+
+Project Overview
+
+Build a full-stack, self-hosted web application called MintSprout designed to teach financial literacy to children aged 5–15. The app will help parents assign and track odd jobs, log payments, and guide kids on how money is earned, saved, invested, or donated. It should run in a Docker container with PostgreSQL as the database.
+
+
+
+🎯 Key Features
+
+1. Multiple Kids & Family Support
+
+
+
+
+
+User Authentication:
+
+
+
+
+
+Implement a login system using JWT tokens for session management.
+
+
+
+Define two roles: Parent (full control) and Child (limited access).
+
+
+
+Parents can manage their kids' accounts (e.g., create, edit, delete child profiles).
+
+
+
+Family Structure:
+
+
+
+
+
+Support multiple kids per family.
+
+
+
+Design the system to scale for future support of multiple families by including a family_id in relevant database tables.
+
+2. Job Tracker
+
+
+
+
+
+Job Creation:
+
+
+
+
+
+Parents can assign jobs with recurrence options: once, daily, weekly, or monthly.
+
+
+
+Each job includes fields for title, amount, description, and the assigned child.
+
+
+
+Recurrence Handling:
+
+
+
+
+
+Use a backend scheduled task (e.g., cron job) to auto-generate recurring jobs based on their frequency.
+
+
+
+Job Management:
+
+
+
+
+
+Parents can edit or delete jobs.
+
+
+
+Jobs should have states: assigned, in_progress, completed, approved.
+
+3. Payout System
+
+
+
+
+
+Payment Allocation:
+
+
+
+
+
+Upon job approval, parents allocate payment to: Spending, Savings, Roth IRA, Brokerage.
+
+
+
+Suggest a default split (e.g., 20% Spend, 30% Save, 50% Invest).
+
+
+
+Allow parents to customize the percentage split per job or set defaults per child.
+
+
+
+Data Storage:
+
+
+
+
+
+Store allocation percentages in the database per job or child.
+
+
+
+Validate that allocations sum to 100%.
+
+4. Learn Tab (Financial Literacy)
+
+
+
+
+
+Content Sections:
+
+
+
+
+
+Include sections: Earning, Saving, Spending, Investing, Donating.
+
+
+
+Each section should feature:
+
+
+
+
+
+A simple, kid-friendly explanation.
+
+
+
+An embedded YouTube Kids video.
+
+
+
+An optional quiz (e.g., multiple-choice) with instant feedback.
+
+
+
+A fun fact or scenario-based tip.
+
+
+
+Custom Lessons:
+
+
+
+
+
+Parents can submit custom lessons (text and/or video URL) per category.
+
+
+
+Content Management:
+
+
+
+
+
+Store lessons in the database with fields for text, video URL, quiz questions, and answers.
+
+5. Reports & Insights
+
+
+
+
+
+Parent Dashboard:
+
+
+
+
+
+Display total paid and total jobs completed.
+
+
+
+Show breakdown by category (Spending, Savings, etc.) and by child.
+
+
+
+Include date range filters.
+
+
+
+Visualizations:
+
+
+
+
+
+Bar charts for payout methods over time.
+
+
+
+Pie charts for earnings distribution by category or child.
+
+
+
+Data Export:
+
+
+
+
+
+Provide CSV download of payout data for IRS/Roth tracking, including date, amount, category, and child.
+
+6. Admin Tools
+
+
+
+
+
+Database Management:
+
+
+
+
+
+Admins can import/export the full database (e.g., SQL dumps or CSV for specific tables).
+
+
+
+Deployment:
+
+
+
+
+
+Use Docker and Docker Compose to containerize frontend, backend, and database.
+
+
+
+Use non-standard ports (e.g., 8080 for frontend, 8000 for backend) to avoid conflicts.
+
+
+
+Configure via environment variables (e.g., database credentials).
+
+
+
+🧱 Tech Stack
+
+
+
+
+
+Frontend: React (with Chart.js for charts)
+
+
+
+Backend: FastAPI (Python)
+
+
+
+Database: PostgreSQL
+
+
+
+Containerization: Docker + Docker Compose (ensure data persistence with volume mounts)
+
+
+
+🔐 Security Considerations
+
+
+
+
+
+Self-Hosted Security:
+
+
+
+
+
+Secure Docker containers and the host machine.
+
+
+
+Use HTTPS with self-signed certificates for local deployments.
+
+
+
+Data Protection:
+
+
+
+
+
+Handle sensitive data (e.g., investment details) securely, even locally.
+
+
+
+📈 Scalability
+
+
+
+
+
+Design the database schema with a family_id to support multiple families in the future.
+
+
+
+🧪 Testing
+
+
+
+
+
+Unit Tests: Write tests for frontend and backend components.
+
+
+
+Integration Tests: Ensure the full stack works seamlessly.
+
+
+
+📚 Documentation
+
+
+
+
+
+Deployment Guide: Instructions for setting up and running Docker containers.
+
+
+
+API Documentation: Document all backend API endpoints.
+
+
+
+User Guide: Getting started guide for parents and kids.
+
+
+
+🎨 User Interface
+
+
+
+
+
+Kid-Friendly Design:
+
+
+
+
+
+Use a simple, colorful, engaging UI with icons or images.
+
+
+
+Ensure text is readable and suitable for ages 5–15.
+
+
+
+Accessibility:
+
+
+
+
+
+Follow WCAG guidelines for usability by all children, including those with disabilities.
+
+
+
+✅ Data Validation
+
+
+
+
+
+Input Validation:
+
+
+
+
+
+Validate monetary amounts and percentages.
+
+
+
+Ensure payout percentages sum to 100%.
+
+
+
+🔔 Notifications
+
+
+
+
+
+Reminders:
+
+
+
+
+
+Add notifications for recurring jobs or due dates.
+
+
+
+🚀 Getting Started
+
+
+
+
+
+Set up the environment with Docker and Docker Compose.
+
+
+
+Build the backend with FastAPI, defining APIs for authentication, jobs, payouts, lessons, and reports.
+
+
+
+Develop the frontend with React, integrating APIs and Chart.js for visualizations.
+
+
+
+Design the PostgreSQL schema to support multiple kids and future family scaling.
+
+
+
+Implement security measures for local deployments.
+
+
+
+Write tests for functionality and reliability.
+
+
+
+Create documentation for deployment, APIs, and user guidance.
+
+This enhanced prompt provides a comprehensive guide to building a robust, educational, and user-friendly financial literacy tool for kids.
