@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { JobCreationModal } from "@/components/job-creation-modal";
 import { AllocationModal } from "@/components/allocation-modal";
+import { AccountTypesModal } from "@/components/account-types-modal";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +14,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [showJobModal, setShowJobModal] = useState(false);
   const [showAllocationModal, setShowAllocationModal] = useState(false);
+  const [showAccountTypesModal, setShowAccountTypesModal] = useState(false);
   const [selectedChildId, setSelectedChildId] = useState<number | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -116,6 +118,13 @@ export default function Dashboard() {
                   className="shadow-lg hover:shadow-xl"
                 >
                   🎛️ Set Allocations
+                </Button>
+                <Button 
+                  onClick={() => setShowAccountTypesModal(true)}
+                  variant="outline"
+                  className="shadow-lg hover:shadow-xl"
+                >
+                  🏦 Configure Accounts
                 </Button>
                 <Button 
                   variant="outline"
@@ -589,6 +598,10 @@ export default function Dashboard() {
           childId={selectedChildId}
         />
       )}
+      <AccountTypesModal 
+        isOpen={showAccountTypesModal} 
+        onClose={() => setShowAccountTypesModal(false)} 
+      />
     </main>
   );
 }

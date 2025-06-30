@@ -55,10 +55,7 @@ export function AccountTypesModal({ isOpen, onClose }: AccountTypesModalProps) {
 
   const updateAccountTypesMutation = useMutation({
     mutationFn: (data: AccountTypesSettings) =>
-      apiRequest(`/api/account-types/${user?.familyId}`, {
-        method: "PUT",
-        body: JSON.stringify(data),
-      }),
+      apiRequest("PUT", `/api/account-types/${user?.familyId}`, data),
     onSuccess: () => {
       toast({
         title: "Success",
