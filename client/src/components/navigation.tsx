@@ -118,28 +118,48 @@ export function Navigation() {
       </div>
 
       {/* Mobile Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 z-50">
-        <div className="flex justify-around">
-          <Link href="/dashboard">
-            <Button variant="ghost" className={`flex flex-col items-center space-y-1 ${isActive("/dashboard") ? "text-primary" : "text-gray-400"}`}>
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
+        <div className="flex">
+          <Link href="/dashboard" className="flex-1">
+            <Button 
+              variant="ghost" 
+              className={`w-full h-16 flex flex-col items-center justify-center space-y-1 rounded-none hover:bg-gray-50 ${
+                isActive("/dashboard") ? "text-primary bg-primary/5" : "text-gray-400"
+              }`}
+            >
               <span className="text-lg">🏠</span>
               <span className="text-xs font-medium">Home</span>
             </Button>
           </Link>
-          <Link href="/jobs">
-            <Button variant="ghost" className={`flex flex-col items-center space-y-1 ${isActive("/jobs") ? "text-primary" : "text-gray-400"}`}>
+          <Link href="/jobs" className="flex-1">
+            <Button 
+              variant="ghost" 
+              className={`w-full h-16 flex flex-col items-center justify-center space-y-1 rounded-none hover:bg-gray-50 ${
+                isActive("/jobs") ? "text-primary bg-primary/5" : "text-gray-400"
+              }`}
+            >
               <span className="text-lg">✅</span>
               <span className="text-xs font-medium">Jobs</span>
             </Button>
           </Link>
-          <Link href="/learn">
-            <Button variant="ghost" className={`flex flex-col items-center space-y-1 ${isActive("/learn") ? "text-primary" : "text-gray-400"}`}>
+          <Link href="/learn" className="flex-1">
+            <Button 
+              variant="ghost" 
+              className={`w-full h-16 flex flex-col items-center justify-center space-y-1 rounded-none hover:bg-gray-50 ${
+                isActive("/learn") ? "text-primary bg-primary/5" : "text-gray-400"
+              }`}
+            >
               <span className="text-lg">🎓</span>
               <span className="text-xs font-medium">Learn</span>
             </Button>
           </Link>
-          <Link href="/reports">
-            <Button variant="ghost" className={`flex flex-col items-center space-y-1 ${isActive("/reports") ? "text-primary" : "text-gray-400"}`}>
+          <Link href="/reports" className="flex-1">
+            <Button 
+              variant="ghost" 
+              className={`w-full h-16 flex flex-col items-center justify-center space-y-1 rounded-none hover:bg-gray-50 ${
+                isActive("/reports") ? "text-primary bg-primary/5" : "text-gray-400"
+              }`}
+            >
               <span className="text-lg">📊</span>
               <span className="text-xs font-medium">Reports</span>
             </Button>
