@@ -50,14 +50,7 @@ export default function Jobs() {
     }
   };
 
-  const getJobIcon = (title: string) => {
-    if (title.toLowerCase().includes("clean")) return "🧹";
-    if (title.toLowerCase().includes("water")) return "🌿";
-    if (title.toLowerCase().includes("table")) return "🍽️";
-    if (title.toLowerCase().includes("dishes")) return "🧽";
-    if (title.toLowerCase().includes("laundry")) return "👕";
-    return "✅";
-  };
+
 
   const groupedJobs = jobs?.reduce((acc: any, job: any) => {
     if (!acc[job.status]) acc[job.status] = [];
@@ -111,7 +104,7 @@ export default function Jobs() {
                   <div key={job.id} className="border border-gray-200 rounded-lg p-3">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center space-x-2">
-                        <span className="text-lg">{getJobIcon(job.title)}</span>
+                        <JobIcon iconName={job.icon} className="h-5 w-5 text-gray-600" />
                         <div>
                           <h3 className="font-medium text-gray-900 text-sm">{job.title}</h3>
                           <p className="text-xs text-gray-600">{job.description}</p>
@@ -152,7 +145,7 @@ export default function Jobs() {
                   <div key={job.id} className="border border-gray-200 rounded-lg p-3">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center space-x-2">
-                        <span className="text-lg">{getJobIcon(job.title)}</span>
+                        <JobIcon iconName={job.icon} className="h-5 w-5 text-gray-600" />
                         <div>
                           <h3 className="font-medium text-gray-900 text-sm">{job.title}</h3>
                           <p className="text-xs text-gray-600">{job.description}</p>
@@ -193,7 +186,7 @@ export default function Jobs() {
                   <div key={job.id} className="border border-green-200 bg-green-50 rounded-lg p-3">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center space-x-2">
-                        <span className="text-lg">{getJobIcon(job.title)}</span>
+                        <JobIcon iconName={job.icon} className="h-5 w-5 text-green-600" />
                         <div>
                           <h3 className="font-medium text-gray-900 text-sm">{job.title}</h3>
                           <p className="text-xs text-gray-600">{job.description}</p>
@@ -235,7 +228,7 @@ export default function Jobs() {
               {groupedJobs.approved.map((job: any) => (
                 <div key={job.id} className="border border-gray-200 rounded-lg p-4">
                   <div className="flex items-center space-x-3 mb-2">
-                    <span className="text-lg">{getJobIcon(job.title)}</span>
+                    <JobIcon iconName={job.icon} className="h-5 w-5 text-green-600" />
                     <div className="flex-1">
                       <h3 className="font-medium text-gray-900">{job.title}</h3>
                       <p className="text-sm text-gray-600">{job.description}</p>
