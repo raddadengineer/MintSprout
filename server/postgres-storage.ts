@@ -115,8 +115,9 @@ export class PostgresStorage implements IStorage {
     
     if (childIds.length === 0) return [];
     
-    return await db.select().from(schema.payments)
-      .where(eq(schema.payments.childId, childIds[0])); // This needs improvement for multiple children
+    // Get payments for all children in the family
+    const payments = await db.select().from(schema.payments);
+    return payments.filter(payment => childIds.includes(payment.childId));
   }
 
   async createAllocationSettings(insertSettings: InsertAllocationSettings): Promise<AllocationSettings> {

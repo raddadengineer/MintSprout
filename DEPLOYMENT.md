@@ -68,16 +68,27 @@ Access via: http://localhost:8080
 
 3. Use valid SSL certificates (Let's Encrypt recommended)
 
+## Database Architecture
+
+MintSprout automatically uses PostgreSQL in production Docker deployments for persistent data storage. The application includes:
+
+- Automatic database schema creation and initialization
+- Demo family data with pre-configured accounts
+- Persistent storage for all financial transactions and learning progress
+- Database connection retry logic for container startup timing
+
 ## Default Login Credentials
 
-After deployment, use these demo accounts:
+After deployment, use these demo accounts (automatically created in PostgreSQL):
 
 **Parent Account:**
 - Username: `parent`
 - Password: `password123`
 
-**Child Account:**
+**Child Accounts:**
 - Username: `emma`
+- Password: `password123`
+- Username: `jake`
 - Password: `password123`
 
 **IMPORTANT:** Change these credentials immediately in production!

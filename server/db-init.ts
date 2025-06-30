@@ -6,10 +6,21 @@ export async function initializeDatabase() {
   try {
     console.log("🔄 Initializing database...");
     
-    // Test connection first
-    const connected = await testConnection();
+    // Wait for database to be ready (important for Docker containers)
+    let retries = 10;
+    let connected = false;
+    
+    while (retries > 0 && !connected) {
+      connected = await testConnection();
+      if (!connected) {
+        console.log(`⏳ Waiting for database... (${retries} retries left)`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        retries--;
+      }
+    }
+    
     if (!connected) {
-      throw new Error("Database connection failed");
+      throw new Error("Database connection failed after multiple attempts");
     }
 
     // Check if data already exists

@@ -38,8 +38,8 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Initialize database if using PostgreSQL
-  if (process.env.DATABASE_URL) {
+  // Initialize database if using PostgreSQL (production or when DATABASE_URL is set)
+  if (process.env.NODE_ENV === 'production' || process.env.DATABASE_URL) {
     try {
       await initializeDatabase();
     } catch (error) {
