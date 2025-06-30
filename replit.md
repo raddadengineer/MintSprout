@@ -92,24 +92,45 @@ The application uses a comprehensive schema with the following key entities:
 
 ## Deployment Strategy
 
+### Docker Self-Hosting
+- **Multi-stage Dockerfile**: Optimized production builds with security best practices
+- **Docker Compose**: Complete stack deployment with PostgreSQL and optional Nginx
+- **Database Initialization**: Automated schema creation and demo data seeding
+- **SSL Support**: Self-signed certificates for HTTPS deployment
+- **Health Checks**: Built-in monitoring for application and database containers
+- **Volume Management**: Persistent data storage for database and application logs
+
 ### Build Process
 - **Frontend**: Vite builds optimized static assets to `dist/public`
 - **Backend**: esbuild compiles TypeScript server code to `dist/index.js`
-- **Database**: Drizzle Kit handles schema migrations
+- **Database**: PostgreSQL with automated migration support
+- **Containerization**: Production-ready Docker images with security hardening
 
 ### Production Configuration
 - Environment-based configuration using `NODE_ENV`
-- Database URL configuration via environment variables
+- PostgreSQL database with connection pooling
 - JWT secret management through environment variables
-- Static file serving for production builds
+- CORS and security headers configuration
+- Rate limiting and DDoS protection via Nginx
+- SSL/TLS termination with certificate management
 
 ### Development Setup
 - Hot module replacement via Vite middleware
 - Automatic server restart with tsx
+- In-memory storage for rapid development
 - Database schema synchronization with `drizzle-kit push`
 
+### Self-Hosting Features
+- **Quick Start**: Single command deployment with `docker-compose up -d`
+- **Production Ready**: HTTPS, rate limiting, security headers, and monitoring
+- **Scalable**: Support for multiple application instances and load balancing
+- **Backup Support**: Database backup and restore capabilities
+- **Custom Domains**: Easy configuration for production domains
+- **Resource Management**: Configurable memory and CPU limits
+
 ## Changelog
-- June 30, 2025. Initial setup
+- June 30, 2025: Initial setup
+- June 30, 2025: Added complete Docker self-hosting solution with PostgreSQL, Nginx, SSL support, and comprehensive deployment documentation
 
 ## User Preferences
 
