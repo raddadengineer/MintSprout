@@ -24,6 +24,11 @@ export default function Dashboard() {
     queryKey: ["/api/dashboard-stats"],
   });
 
+  const { data: accountTypes } = useQuery({
+    queryKey: ["/api/account-types", user?.familyId],
+    enabled: !!user?.familyId,
+  });
+
   const updateJobMutation = useMutation({
     mutationFn: ({ id, ...data }: { id: number; [key: string]: any }) =>
       apiRequest("PATCH", `/api/jobs/${id}`, data),
@@ -408,50 +413,77 @@ export default function Dashboard() {
                   🥧 Money Allocation
                 </h3>
                 
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                  <div className="text-center p-4 bg-blue-50 rounded-xl">
-                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                      <span className="text-blue-600 text-lg">🛒</span>
+                <div className={`grid gap-4 mb-6 ${
+                  [
+                    accountTypes?.spendingEnabled,
+                    accountTypes?.savingsEnabled,
+                    accountTypes?.rothIraEnabled,
+                    accountTypes?.brokerageEnabled
+                  ].filter(Boolean).length === 1 ? 'grid-cols-1' :
+                  [
+                    accountTypes?.spendingEnabled,
+                    accountTypes?.savingsEnabled,
+                    accountTypes?.rothIraEnabled,
+                    accountTypes?.brokerageEnabled
+                  ].filter(Boolean).length === 2 ? 'grid-cols-2' :
+                  [
+                    accountTypes?.spendingEnabled,
+                    accountTypes?.savingsEnabled,
+                    accountTypes?.rothIraEnabled,
+                    accountTypes?.brokerageEnabled
+                  ].filter(Boolean).length === 3 ? 'grid-cols-3' : 'grid-cols-2 lg:grid-cols-4'
+                }`}>
+                  {accountTypes?.spendingEnabled && (
+                    <div className="text-center p-4 bg-blue-50 rounded-xl">
+                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                        <span className="text-blue-600 text-lg">🛒</span>
+                      </div>
+                      <p className="text-sm font-medium text-gray-600 mb-1">Spending</p>
+                      <p className="text-2xl font-bold text-blue-600">{allocation.spendingPercentage}%</p>
+                      <p className="text-xs text-gray-500">
+                        ${((parseFloat(child?.totalEarned || "0") * allocation.spendingPercentage) / 100).toFixed(2)}
+                      </p>
                     </div>
-                    <p className="text-sm font-medium text-gray-600 mb-1">Spending</p>
-                    <p className="text-2xl font-bold text-blue-600">{allocation.spendingPercentage}%</p>
-                    <p className="text-xs text-gray-500">
-                      ${((parseFloat(child?.totalEarned || "0") * allocation.spendingPercentage) / 100).toFixed(2)}
-                    </p>
-                  </div>
+                  )}
                   
-                  <div className="text-center p-4 bg-green-50 rounded-xl">
-                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                      <span className="text-green-600 text-lg">🐷</span>
+                  {accountTypes?.savingsEnabled && (
+                    <div className="text-center p-4 bg-green-50 rounded-xl">
+                      <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                        <span className="text-green-600 text-lg">🐷</span>
+                      </div>
+                      <p className="text-sm font-medium text-gray-600 mb-1">Savings</p>
+                      <p className="text-2xl font-bold text-green-600">{allocation.savingsPercentage}%</p>
+                      <p className="text-xs text-gray-500">
+                        ${((parseFloat(child?.totalEarned || "0") * allocation.savingsPercentage) / 100).toFixed(2)}
+                      </p>
                     </div>
-                    <p className="text-sm font-medium text-gray-600 mb-1">Savings</p>
-                    <p className="text-2xl font-bold text-green-600">{allocation.savingsPercentage}%</p>
-                    <p className="text-xs text-gray-500">
-                      ${((parseFloat(child?.totalEarned || "0") * allocation.savingsPercentage) / 100).toFixed(2)}
-                    </p>
-                  </div>
+                  )}
                   
-                  <div className="text-center p-4 bg-purple-50 rounded-xl">
-                    <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                      <span className="text-purple-600 text-lg">📈</span>
+                  {accountTypes?.rothIraEnabled && (
+                    <div className="text-center p-4 bg-purple-50 rounded-xl">
+                      <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                        <span className="text-purple-600 text-lg">📈</span>
+                      </div>
+                      <p className="text-sm font-medium text-gray-600 mb-1">Roth IRA</p>
+                      <p className="text-2xl font-bold text-purple-600">{allocation.rothIraPercentage}%</p>
+                      <p className="text-xs text-gray-500">
+                        ${((parseFloat(child?.totalEarned || "0") * allocation.rothIraPercentage) / 100).toFixed(2)}
+                      </p>
                     </div>
-                    <p className="text-sm font-medium text-gray-600 mb-1">Roth IRA</p>
-                    <p className="text-2xl font-bold text-purple-600">{allocation.rothIraPercentage}%</p>
-                    <p className="text-xs text-gray-500">
-                      ${((parseFloat(child?.totalEarned || "0") * allocation.rothIraPercentage) / 100).toFixed(2)}
-                    </p>
-                  </div>
+                  )}
                   
-                  <div className="text-center p-4 bg-yellow-50 rounded-xl">
-                    <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                      <span className="text-yellow-600 text-lg">📊</span>
+                  {accountTypes?.brokerageEnabled && (
+                    <div className="text-center p-4 bg-yellow-50 rounded-xl">
+                      <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                        <span className="text-yellow-600 text-lg">📊</span>
+                      </div>
+                      <p className="text-sm font-medium text-gray-600 mb-1">Brokerage</p>
+                      <p className="text-2xl font-bold text-yellow-600">{allocation.brokeragePercentage}%</p>
+                      <p className="text-xs text-gray-500">
+                        ${((parseFloat(child?.totalEarned || "0") * allocation.brokeragePercentage) / 100).toFixed(2)}
+                      </p>
                     </div>
-                    <p className="text-sm font-medium text-gray-600 mb-1">Brokerage</p>
-                    <p className="text-2xl font-bold text-yellow-600">{allocation.brokeragePercentage}%</p>
-                    <p className="text-xs text-gray-500">
-                      ${((parseFloat(child?.totalEarned || "0") * allocation.brokeragePercentage) / 100).toFixed(2)}
-                    </p>
-                  </div>
+                  )}
                 </div>
                 
                 {user?.role === "parent" && (
