@@ -17,9 +17,13 @@ export function useAuth() {
     mutationFn: ({ username, password }: { username: string; password: string }) =>
       authApi.login(username, password),
     onSuccess: (data) => {
+      console.log("Login successful, setting token:", data);
       authApi.setToken(data.token);
       setIsAuthenticated(true);
       queryClient.setQueryData(["/api/auth/me"], data.user);
+    },
+    onError: (error) => {
+      console.error("Login error:", error);
     },
   });
 
