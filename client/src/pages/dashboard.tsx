@@ -91,7 +91,12 @@ export default function Dashboard() {
             <h2 className="text-3xl font-bold text-gray-900 mb-2">
               Welcome back, <span className="text-primary">{user?.name}</span>! 🌱
             </h2>
-            <p className="text-gray-600 text-lg">Let's see how your money garden is growing!</p>
+            <p className="text-gray-600 text-lg">
+              {user?.role === "parent" 
+                ? "Here's how your family's financial learning is progressing!" 
+                : "Let's see how your money garden is growing!"
+              }
+            </p>
           </div>
           {user?.role === "parent" && (
             <div className="mt-4 sm:mt-0">
