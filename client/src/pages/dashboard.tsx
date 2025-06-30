@@ -439,9 +439,9 @@ export default function Dashboard() {
                         <span className="text-blue-600 text-lg">🛒</span>
                       </div>
                       <p className="text-sm font-medium text-gray-600 mb-1">Spending</p>
-                      <p className="text-2xl font-bold text-blue-600">{allocation.spendingPercentage}%</p>
+                      <p className="text-2xl font-bold text-blue-600">${parseFloat(child?.spendingBalance || "0").toFixed(2)}</p>
                       <p className="text-xs text-gray-500">
-                        ${((parseFloat(child?.totalEarned || "0") * allocation.spendingPercentage) / 100).toFixed(2)}
+                        {allocation.spendingPercentage}% allocation
                       </p>
                     </div>
                   )}
@@ -452,9 +452,9 @@ export default function Dashboard() {
                         <span className="text-green-600 text-lg">🐷</span>
                       </div>
                       <p className="text-sm font-medium text-gray-600 mb-1">Savings</p>
-                      <p className="text-2xl font-bold text-green-600">{allocation.savingsPercentage}%</p>
+                      <p className="text-2xl font-bold text-green-600">${parseFloat(child?.savingsBalance || "0").toFixed(2)}</p>
                       <p className="text-xs text-gray-500">
-                        ${((parseFloat(child?.totalEarned || "0") * allocation.savingsPercentage) / 100).toFixed(2)}
+                        {allocation.savingsPercentage}% allocation
                       </p>
                     </div>
                   )}
@@ -465,9 +465,9 @@ export default function Dashboard() {
                         <span className="text-purple-600 text-lg">📈</span>
                       </div>
                       <p className="text-sm font-medium text-gray-600 mb-1">Roth IRA</p>
-                      <p className="text-2xl font-bold text-purple-600">{allocation.rothIraPercentage}%</p>
+                      <p className="text-2xl font-bold text-purple-600">${parseFloat(child?.rothIraBalance || "0").toFixed(2)}</p>
                       <p className="text-xs text-gray-500">
-                        ${((parseFloat(child?.totalEarned || "0") * allocation.rothIraPercentage) / 100).toFixed(2)}
+                        {allocation.rothIraPercentage}% allocation
                       </p>
                     </div>
                   )}
@@ -478,9 +478,9 @@ export default function Dashboard() {
                         <span className="text-yellow-600 text-lg">📊</span>
                       </div>
                       <p className="text-sm font-medium text-gray-600 mb-1">Brokerage</p>
-                      <p className="text-2xl font-bold text-yellow-600">{allocation.brokeragePercentage}%</p>
+                      <p className="text-2xl font-bold text-yellow-600">${parseFloat(child?.brokerageBalance || "0").toFixed(2)}</p>
                       <p className="text-xs text-gray-500">
-                        ${((parseFloat(child?.totalEarned || "0") * allocation.brokeragePercentage) / 100).toFixed(2)}
+                        {allocation.brokeragePercentage}% allocation
                       </p>
                     </div>
                   )}

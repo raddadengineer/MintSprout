@@ -202,9 +202,11 @@ export default function Jobs() {
                       <div className="mt-2">
                         <Button
                           size="sm"
-                          onClick={() => handleJobAction(job.id, "approved")}
+                          onClick={() => {
+                            setSelectedJob(job);
+                            setShowPaymentModal(true);
+                          }}
                           className="w-full mint-primary text-xs"
-                          disabled={updateJobMutation.isPending}
                         >
                           Approve & Pay
                         </Button>
@@ -252,6 +254,14 @@ export default function Jobs() {
       )}
 
       <JobCreationModal isOpen={showJobModal} onClose={() => setShowJobModal(false)} />
+      <PaymentApprovalModal 
+        isOpen={showPaymentModal} 
+        onClose={() => {
+          setShowPaymentModal(false);
+          setSelectedJob(null);
+        }} 
+        job={selectedJob}
+      />
     </main>
   );
 }

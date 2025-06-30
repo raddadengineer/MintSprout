@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Navigation } from "@/components/navigation";
 import Dashboard from "@/pages/dashboard";
 import Jobs from "@/pages/jobs";
+import Payments from "@/pages/payments";
 import Learn from "@/pages/learn";
 import Reports from "@/pages/reports";
 import Family from "@/pages/family";
