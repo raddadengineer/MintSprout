@@ -189,6 +189,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/allocation/:childId", verifyToken, async (req: any, res) => {
     try {
+      console.log('PATCH allocation request:', req.params.childId, req.body);
+      
       if (req.user.role !== "parent") {
         return res.status(403).json({ message: "Only parents can update allocation settings" });
       }
@@ -200,11 +202,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Child not found" });
       }
 
-      const allocationData = insertAllocationSettingsSchema.parse(req.body);
+      // Add childId to the request body for schema validation
+      const requestData = { ...req.body, childId };
+      console.log('Request data for schema:', requestData);
+      const allocationData = insertAllocationSettingsSchema.parse(requestData);
       
       // Validate percentages sum to 100
-      const total = allocationData.spendingPercentage! + allocationData.savingsPercentage! + 
-                   allocationData.rothIraPercentage! + allocationData.brokeragePercentage!;
+      const total = (allocationData.spendingPercentage || 0) + (allocationData.savingsPercentage || 0) + 
+                   (allocationData.rothIraPercentage || 0) + (allocationData.brokeragePercentage || 0);
       if (total !== 100) {
         return res.status(400).json({ message: "Percentages must sum to 100" });
       }
@@ -212,7 +217,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedSettings = await storage.updateAllocationSettings(childId, allocationData);
       res.json(updatedSettings);
     } catch (error) {
-      res.status(400).json({ message: "Invalid allocation data" });
+      console.error('Allocation PATCH error:', error);
+      console.error('Request body:', req.body);
+      res.status(400).json({ message: "Invalid allocation data", error: error.message });
     }
   });
 
