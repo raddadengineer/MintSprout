@@ -189,7 +189,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         // Find child ID for this user
         const children = await storage.getChildrenByFamily(req.user.familyId);
-        const child = children.find(c => c.name === req.user.name);
+        const child = children.find(c => c.userId === req.user.id);
         if (!child) {
           return res.status(404).json({ message: "Child profile not found" });
         }
@@ -425,7 +425,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         // Find child ID for this user
         const children = await storage.getChildrenByFamily(req.user.familyId);
-        const child = children.find(c => c.name === req.user.name);
+        const child = children.find(c => c.userId === req.user.id);
         if (!child) {
           return res.status(404).json({ message: "Child profile not found" });
         }
@@ -491,7 +491,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         // Find child ID for this user
         const children = await storage.getChildrenByFamily(req.user.familyId);
-        const child = children.find(c => c.name === req.user.name);
+        const child = children.find(c => c.userId === req.user.id);
         if (!child) {
           return res.status(404).json({ message: "Child profile not found" });
         }
@@ -546,7 +546,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         // Find child ID for this user
         const children = await storage.getChildrenByFamily(req.user.familyId);
-        const child = children.find(c => c.name === req.user.name);
+        const child = children.find(c => c.userId === req.user.id);
         if (!child) {
           return res.status(404).json({ message: "Child profile not found" });
         }
