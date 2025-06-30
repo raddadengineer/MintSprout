@@ -271,12 +271,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Update allocation settings for all children in the family when account types change
       const children = await storage.getChildrenByFamily(familyId);
-      console.log('Updating allocations for children:', children.map(c => c.id));
       
       for (const child of children) {
         // Get current allocation settings
         const currentAllocation = await storage.getAllocationSettings(child.id);
-        console.log(`Current allocation for child ${child.id}:`, currentAllocation);
         
         // Calculate enabled accounts and redistribute percentages
         const enabledAccounts = [];
@@ -284,8 +282,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (accountTypesData.savingsEnabled) enabledAccounts.push('savings');
         if (accountTypesData.rothIraEnabled) enabledAccounts.push('rothIra');
         if (accountTypesData.brokerageEnabled) enabledAccounts.push('brokerage');
-        
-        console.log('Enabled accounts:', enabledAccounts);
         
         if (enabledAccounts.length > 0) {
           // Calculate equal distribution
@@ -307,17 +303,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               : 0,
           };
           
-          console.log('New allocation:', newAllocation);
-          
           if (currentAllocation) {
-            const updated = await storage.updateAllocationSettings(child.id, newAllocation);
-            console.log('Updated allocation result:', updated);
+            await storage.updateAllocationSettings(child.id, newAllocation);
           } else {
-            const created = await storage.createAllocationSettings({
+            await storage.createAllocationSettings({
               childId: child.id,
               ...newAllocation,
             });
-            console.log('Created allocation result:', created);
           }
         }
       }

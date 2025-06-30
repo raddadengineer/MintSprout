@@ -136,7 +136,7 @@ The application uses a comprehensive schema with the following key entities:
 - June 30, 2025: Added comprehensive job icon selection system with 40+ categorized icons and scrollable interfaces for both icon selector and job creation form
 - June 30, 2025: Fixed user name display bug - dashboard now correctly shows logged-in user's name instead of defaulting to child name
 - June 30, 2025: Implemented role-based dashboard content - parents see family management tools and overview stats while children see personal progress and achievements
-- June 30, 2025: Completed configurable investment account types system - parents can now enable/disable specific account types (Spending, Savings, Roth IRA, Brokerage) through a dedicated configuration interface, with payment allocation modal dynamically showing only enabled accounts
+- June 30, 2025: Completed configurable investment account types system - parents can now enable/disable specific account types (Spending, Savings, Roth IRA, Brokerage) through a dedicated configuration interface, with payment allocation modal dynamically showing only enabled accounts. Added automatic allocation redistribution that updates all children's percentage allocations when account types are changed, ensuring the Money Allocation dashboard section updates in real-time
 
 ## User Preferences
 
