@@ -268,6 +268,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!updatedAccountTypes) {
         return res.status(404).json({ message: "Account types not found" });
       }
+
+      // Update allocation settings for all children in the family when account types change
+      const children = await storage.getChildrenByFamily(familyId);
+      console.log('Updating allocations for children:', children.map(c => c.id));
+      
+      for (const child of children) {
+        // Get current allocation settings
+        const currentAllocation = await storage.getAllocationSettings(child.id);
+        console.log(`Current allocation for child ${child.id}:`, currentAllocation);
+        
+        // Calculate enabled accounts and redistribute percentages
+        const enabledAccounts = [];
+        if (accountTypesData.spendingEnabled) enabledAccounts.push('spending');
+        if (accountTypesData.savingsEnabled) enabledAccounts.push('savings');
+        if (accountTypesData.rothIraEnabled) enabledAccounts.push('rothIra');
+        if (accountTypesData.brokerageEnabled) enabledAccounts.push('brokerage');
+        
+        console.log('Enabled accounts:', enabledAccounts);
+        
+        if (enabledAccounts.length > 0) {
+          // Calculate equal distribution
+          const equalPercentage = Math.floor(100 / enabledAccounts.length);
+          const remainder = 100 - (equalPercentage * enabledAccounts.length);
+          
+          const newAllocation = {
+            spendingPercentage: accountTypesData.spendingEnabled 
+              ? equalPercentage + (enabledAccounts[0] === 'spending' ? remainder : 0) 
+              : 0,
+            savingsPercentage: accountTypesData.savingsEnabled 
+              ? equalPercentage + (enabledAccounts[0] === 'savings' ? remainder : 0) 
+              : 0,
+            rothIraPercentage: accountTypesData.rothIraEnabled 
+              ? equalPercentage + (enabledAccounts[0] === 'rothIra' ? remainder : 0) 
+              : 0,
+            brokeragePercentage: accountTypesData.brokerageEnabled 
+              ? equalPercentage + (enabledAccounts[0] === 'brokerage' ? remainder : 0) 
+              : 0,
+          };
+          
+          console.log('New allocation:', newAllocation);
+          
+          if (currentAllocation) {
+            const updated = await storage.updateAllocationSettings(child.id, newAllocation);
+            console.log('Updated allocation result:', updated);
+          } else {
+            const created = await storage.createAllocationSettings({
+              childId: child.id,
+              ...newAllocation,
+            });
+            console.log('Created allocation result:', created);
+          }
+        }
+      }
       
       res.json(updatedAccountTypes);
     } catch (error) {
