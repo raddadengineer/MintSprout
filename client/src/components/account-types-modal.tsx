@@ -61,9 +61,12 @@ export function AccountTypesModal({ isOpen, onClose }: AccountTypesModalProps) {
         title: "Success",
         description: "Account types updated successfully",
       });
+      // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: [`/api/account-types/${user?.familyId}`] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/allocation"] });
+      // Also refetch immediately to ensure data is current
+      queryClient.refetchQueries({ queryKey: [`/api/account-types/${user?.familyId}`] });
       onClose();
     },
     onError: () => {
