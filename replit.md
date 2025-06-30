@@ -133,6 +133,8 @@ The application uses a comprehensive schema with the following key entities:
 - June 30, 2025: Added complete Docker self-hosting solution with PostgreSQL, Nginx, SSL support, and comprehensive deployment documentation
 - June 30, 2025: Integrated PostgreSQL database with automatic initialization, connection retry logic for containers, and hybrid storage system (PostgreSQL for production, in-memory for development)
 - June 30, 2025: Fixed authentication system with immediate login redirect - users are now automatically taken to dashboard after successful login, resolving UI state update issues
+- June 30, 2025: Added comprehensive job icon selection system with 40+ categorized icons and scrollable interfaces for both icon selector and job creation form
+- June 30, 2025: Fixed user name display bug - dashboard now correctly shows logged-in user's name instead of defaulting to child name
 
 ## User Preferences
 

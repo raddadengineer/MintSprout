@@ -89,7 +89,7 @@ export default function Dashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              Welcome back, <span className="text-primary">{child?.name || user?.name}</span>! 🌱
+              Welcome back, <span className="text-primary">{user?.name}</span>! 🌱
             </h2>
             <p className="text-gray-600 text-lg">Let's see how your money garden is growing!</p>
           </div>
