@@ -18,8 +18,8 @@ export function useAuth() {
       authApi.login(username, password),
     onSuccess: (data) => {
       authApi.setToken(data.token);
-      setIsAuthenticated(true);
       queryClient.setQueryData(["/api/auth/me"], data.user);
+      setIsAuthenticated(true);
       queryClient.invalidateQueries();
     },
     onError: (error) => {
@@ -38,25 +38,22 @@ export function useAuth() {
   // Handle auth errors
   useEffect(() => {
     if (error && isAuthenticated) {
-      console.log("Auth check failed, logging out");
       logout();
     }
   }, [error, isAuthenticated, logout]);
 
-  // Sync authentication state with token changes
+  // Sync authentication state with localStorage changes
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === "auth_token") {
         const hasToken = authApi.isAuthenticated();
-        if (hasToken !== isAuthenticated) {
-          setIsAuthenticated(hasToken);
-        }
+        setIsAuthenticated(hasToken);
       }
     };
 
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, [isAuthenticated]);
+  }, []);
 
   return {
     user,
