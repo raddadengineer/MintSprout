@@ -9,6 +9,7 @@ import { AccountTypesModal } from "@/components/account-types-modal";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -500,9 +501,11 @@ export default function Dashboard() {
                     </div>
                   </div>
                   
-                  <Button className="w-full bg-white text-blue-600 hover:bg-gray-50 mt-4">
-                    Manage Family →
-                  </Button>
+                  <Link href="/family">
+                    <Button className="w-full bg-white text-blue-600 hover:bg-gray-50 mt-4">
+                      Manage Family →
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
 
