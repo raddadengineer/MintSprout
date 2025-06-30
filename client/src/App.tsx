@@ -41,6 +41,7 @@ function AppContent() {
         <Route path="/" component={Dashboard} />
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/jobs" component={Jobs} />
+        <Route path="/payments" component={Payments} />
         <Route path="/learn" component={Learn} />
         <Route path="/reports" component={Reports} />
         <Route path="/family" component={Family} />

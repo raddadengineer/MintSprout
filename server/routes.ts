@@ -248,10 +248,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const allocation = await storage.getAllocationSettings(job.assignedToId);
           if (allocation) {
             paymentAmounts = {
-              spendingAmount: ((allocation.spendingPercentage / 100) * amount).toFixed(2),
-              savingsAmount: ((allocation.savingsPercentage / 100) * amount).toFixed(2),
-              rothIraAmount: ((allocation.rothIraPercentage / 100) * amount).toFixed(2),
-              brokerageAmount: ((allocation.brokeragePercentage / 100) * amount).toFixed(2),
+              spendingAmount: (((allocation.spendingPercentage || 0) / 100) * amount).toFixed(2),
+              savingsAmount: (((allocation.savingsPercentage || 0) / 100) * amount).toFixed(2),
+              rothIraAmount: (((allocation.rothIraPercentage || 0) / 100) * amount).toFixed(2),
+              brokerageAmount: (((allocation.brokeragePercentage || 0) / 100) * amount).toFixed(2),
             };
           }
         }
@@ -269,7 +269,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const child = await storage.getChild(job.assignedToId);
           if (child) {
             await storage.updateChild(job.assignedToId, {
-              totalEarned: (parseFloat(child.totalEarned) + amount).toFixed(2),
+              totalEarned: (parseFloat(child.totalEarned || "0") + amount).toFixed(2),
               spendingBalance: (parseFloat(child.spendingBalance || "0") + parseFloat(paymentAmounts.spendingAmount)).toFixed(2),
               savingsBalance: (parseFloat(child.savingsBalance || "0") + parseFloat(paymentAmounts.savingsAmount)).toFixed(2),
               rothIraBalance: (parseFloat(child.rothIraBalance || "0") + parseFloat(paymentAmounts.rothIraAmount)).toFixed(2),
@@ -360,7 +360,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(accountTypes);
     } catch (error) {
       console.error('Account types GET error:', error);
-      res.status(500).json({ message: "Internal server error", error: error.message });
+      res.status(500).json({ message: "Internal server error", error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
@@ -435,7 +435,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedAccountTypes);
     } catch (error) {
       console.error('Account types PUT error:', error);
-      res.status(400).json({ message: "Invalid account types data", error: error.message });
+      res.status(400).json({ message: "Invalid account types data", error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 

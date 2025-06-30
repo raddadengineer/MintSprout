@@ -66,6 +66,14 @@ export function Navigation() {
                     ✅ Jobs
                   </Button>
                 </Link>
+                <Link href="/payments">
+                  <Button
+                    variant={isActive("/payments") ? "default" : "ghost"}
+                    className={isActive("/payments") ? "mint-primary" : "text-gray-600 hover:text-primary"}
+                  >
+                    💰 Payments
+                  </Button>
+                </Link>
                 <Link href="/learn">
                   <Button
                     variant={isActive("/learn") ? "default" : "ghost"}
