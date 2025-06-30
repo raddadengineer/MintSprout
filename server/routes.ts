@@ -231,27 +231,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updatedJob = await storage.updateJob(jobId, req.body);
       
-      // If job is approved and payment allocation is provided, create payment
-      if (req.body.status === "approved" && req.body.allocation) {
-        const allocation = await storage.getAllocationSettings(job.assignedToId);
-        if (allocation) {
-          const amount = parseFloat(job.amount);
+      // If job is approved, process payment
+      if (req.body.status === "approved") {
+        const amount = parseFloat(job.amount);
+        let paymentAmounts;
+
+        // Use custom allocation if provided, otherwise use default settings
+        if (req.body.customAllocation) {
+          paymentAmounts = {
+            spendingAmount: req.body.customAllocation.spendingAmount.toFixed(2),
+            savingsAmount: req.body.customAllocation.savingsAmount.toFixed(2),
+            rothIraAmount: req.body.customAllocation.rothIraAmount.toFixed(2),
+            brokerageAmount: req.body.customAllocation.brokerageAmount.toFixed(2),
+          };
+        } else {
+          const allocation = await storage.getAllocationSettings(job.assignedToId);
+          if (allocation) {
+            paymentAmounts = {
+              spendingAmount: ((allocation.spendingPercentage / 100) * amount).toFixed(2),
+              savingsAmount: ((allocation.savingsPercentage / 100) * amount).toFixed(2),
+              rothIraAmount: ((allocation.rothIraPercentage / 100) * amount).toFixed(2),
+              brokerageAmount: ((allocation.brokeragePercentage / 100) * amount).toFixed(2),
+            };
+          }
+        }
+
+        if (paymentAmounts) {
+          // Create payment record
           const payment = await storage.createPayment({
             jobId: job.id,
             childId: job.assignedToId,
             amount: job.amount,
-            spendingAmount: ((allocation.spendingPercentage / 100) * amount).toFixed(2),
-            savingsAmount: ((allocation.savingsPercentage / 100) * amount).toFixed(2),
-            rothIraAmount: ((allocation.rothIraPercentage / 100) * amount).toFixed(2),
-            brokerageAmount: ((allocation.brokeragePercentage / 100) * amount).toFixed(2),
+            ...paymentAmounts,
           });
 
-          // Update child's total earned and completed jobs
+          // Update child's balances, total earned, and completed jobs
           const child = await storage.getChild(job.assignedToId);
           if (child) {
             await storage.updateChild(job.assignedToId, {
               totalEarned: (parseFloat(child.totalEarned) + amount).toFixed(2),
-              completedJobs: child.completedJobs + 1
+              spendingBalance: (parseFloat(child.spendingBalance || "0") + parseFloat(paymentAmounts.spendingAmount)).toFixed(2),
+              savingsBalance: (parseFloat(child.savingsBalance || "0") + parseFloat(paymentAmounts.savingsAmount)).toFixed(2),
+              rothIraBalance: (parseFloat(child.rothIraBalance || "0") + parseFloat(paymentAmounts.rothIraAmount)).toFixed(2),
+              brokerageBalance: (parseFloat(child.brokerageBalance || "0") + parseFloat(paymentAmounts.brokerageAmount)).toFixed(2),
+              completedJobs: (child.completedJobs || 0) + 1
             });
           }
         }

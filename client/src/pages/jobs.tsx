@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { JobCreationModal } from "@/components/job-creation-modal";
+import { PaymentApprovalModal } from "@/components/payment-approval-modal";
 import { JobIcon } from "@/components/job-icon";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -11,6 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 export default function Jobs() {
   const { user } = useAuth();
   const [showJobModal, setShowJobModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 

@@ -90,9 +90,6 @@ export default function Dashboard() {
   const activeJobs = dashboardData?.activeJobs || [];
   const achievements = dashboardData?.achievements || [];
 
-  // Debug logging
-  console.log('Account types data:', accountTypes);
-
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Dashboard Header */}

@@ -24,6 +24,10 @@ export const children = pgTable("children", {
   name: text("name").notNull(),
   age: integer("age").notNull(),
   totalEarned: decimal("total_earned", { precision: 10, scale: 2 }).default("0.00"),
+  spendingBalance: decimal("spending_balance", { precision: 10, scale: 2 }).default("0.00"),
+  savingsBalance: decimal("savings_balance", { precision: 10, scale: 2 }).default("0.00"),
+  rothIraBalance: decimal("roth_ira_balance", { precision: 10, scale: 2 }).default("0.00"),
+  brokerageBalance: decimal("brokerage_balance", { precision: 10, scale: 2 }).default("0.00"),
   completedJobs: integer("completed_jobs").default(0),
   learningStreak: integer("learning_streak").default(0),
 });
