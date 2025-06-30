@@ -62,6 +62,15 @@ export const allocationSettings = pgTable("allocation_settings", {
   brokeragePercentage: integer("brokerage_percentage").default(25),
 });
 
+export const accountTypes = pgTable("account_types", {
+  id: serial("id").primaryKey(),
+  familyId: integer("family_id").notNull(),
+  spendingEnabled: boolean("spending_enabled").default(true),
+  savingsEnabled: boolean("savings_enabled").default(true),
+  rothIraEnabled: boolean("roth_ira_enabled").default(false),
+  brokerageEnabled: boolean("brokerage_enabled").default(false),
+});
+
 export const lessons = pgTable("lessons", {
   id: serial("id").primaryKey(),
   category: text("category").notNull(), // 'earning' | 'saving' | 'spending' | 'investing' | 'donating'
@@ -104,6 +113,7 @@ export const insertChildSchema = createInsertSchema(children).omit({ id: true, t
 export const insertJobSchema = createInsertSchema(jobs).omit({ id: true, createdAt: true });
 export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true, createdAt: true });
 export const insertAllocationSettingsSchema = createInsertSchema(allocationSettings).omit({ id: true });
+export const insertAccountTypesSchema = createInsertSchema(accountTypes).omit({ id: true });
 export const insertLessonSchema = createInsertSchema(lessons).omit({ id: true });
 export const insertQuizSchema = createInsertSchema(quizzes).omit({ id: true });
 export const insertLearningProgressSchema = createInsertSchema(learningProgress).omit({ id: true });
@@ -116,6 +126,7 @@ export type Child = typeof children.$inferSelect;
 export type Job = typeof jobs.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
 export type AllocationSettings = typeof allocationSettings.$inferSelect;
+export type AccountTypes = typeof accountTypes.$inferSelect;
 export type Lesson = typeof lessons.$inferSelect;
 export type Quiz = typeof quizzes.$inferSelect;
 export type LearningProgress = typeof learningProgress.$inferSelect;
@@ -127,6 +138,7 @@ export type InsertChild = z.infer<typeof insertChildSchema>;
 export type InsertJob = z.infer<typeof insertJobSchema>;
 export type InsertPayment = z.infer<typeof insertPaymentSchema>;
 export type InsertAllocationSettings = z.infer<typeof insertAllocationSettingsSchema>;
+export type InsertAccountTypes = z.infer<typeof insertAccountTypesSchema>;
 export type InsertLesson = z.infer<typeof insertLessonSchema>;
 export type InsertQuiz = z.infer<typeof insertQuizSchema>;
 export type InsertLearningProgress = z.infer<typeof insertLearningProgressSchema>;

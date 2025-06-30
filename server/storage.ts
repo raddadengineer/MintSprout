@@ -1,7 +1,7 @@
 import {
-  families, users, children, jobs, payments, allocationSettings, lessons, quizzes, learningProgress, achievements,
-  type Family, type User, type Child, type Job, type Payment, type AllocationSettings, type Lesson, type Quiz, type LearningProgress, type Achievement,
-  type InsertFamily, type InsertUser, type InsertChild, type InsertJob, type InsertPayment, type InsertAllocationSettings, type InsertLesson, type InsertQuiz, type InsertLearningProgress, type InsertAchievement
+  families, users, children, jobs, payments, allocationSettings, accountTypes, lessons, quizzes, learningProgress, achievements,
+  type Family, type User, type Child, type Job, type Payment, type AllocationSettings, type AccountTypes, type Lesson, type Quiz, type LearningProgress, type Achievement,
+  type InsertFamily, type InsertUser, type InsertChild, type InsertJob, type InsertPayment, type InsertAllocationSettings, type InsertAccountTypes, type InsertLesson, type InsertQuiz, type InsertLearningProgress, type InsertAchievement
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 
@@ -38,6 +38,11 @@ export interface IStorage {
   getAllocationSettings(childId: number): Promise<AllocationSettings | undefined>;
   updateAllocationSettings(childId: number, settings: Partial<AllocationSettings>): Promise<AllocationSettings | undefined>;
   
+  // Account Types
+  createAccountTypes(accountTypes: InsertAccountTypes): Promise<AccountTypes>;
+  getAccountTypes(familyId: number): Promise<AccountTypes | undefined>;
+  updateAccountTypes(familyId: number, accountTypes: Partial<AccountTypes>): Promise<AccountTypes | undefined>;
+  
   // Lessons
   createLesson(lesson: InsertLesson): Promise<Lesson>;
   getLessonsByCategory(category: string): Promise<Lesson[]>;
@@ -64,6 +69,7 @@ export class MemStorage implements IStorage {
   private jobs: Map<number, Job> = new Map();
   private payments: Map<number, Payment> = new Map();
   private allocationSettings: Map<number, AllocationSettings> = new Map();
+  private accountTypes: Map<number, AccountTypes> = new Map();
   private lessons: Map<number, Lesson> = new Map();
   private quizzes: Map<number, Quiz> = new Map();
   private learningProgress: Map<string, LearningProgress> = new Map(); // childId-lessonId as key
