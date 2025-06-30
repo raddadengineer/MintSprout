@@ -99,12 +99,34 @@ export default function Dashboard() {
             </p>
           </div>
           {user?.role === "parent" && (
-            <div className="mt-4 sm:mt-0">
+            <div className="mt-4 sm:mt-0 flex flex-wrap gap-3">
               <Button
                 onClick={() => setShowJobModal(true)}
                 className="mint-primary mint-button shadow-lg hover:shadow-xl"
               >
                 ➕ Create New Job
+              </Button>
+              <Button 
+                onClick={() => {
+                  setSelectedChildId(child?.id || null);
+                  setShowAllocationModal(true);
+                }}
+                variant="outline"
+                className="shadow-lg hover:shadow-xl"
+              >
+                🎛️ Set Allocations
+              </Button>
+              <Button 
+                variant="outline"
+                className="shadow-lg hover:shadow-xl"
+              >
+                📊 View Reports
+              </Button>
+              <Button 
+                variant="outline"
+                className="shadow-lg hover:shadow-xl"
+              >
+                📚 Create Lesson
               </Button>
             </div>
           )}
@@ -452,40 +474,7 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
 
-              {/* Teaching Tools */}
-              <Card className="mint-card">
-                <CardContent className="p-6">
-                  <h3 className="text-xl font-bold text-gray-900 mb-4">
-                    🧑‍🏫 Teaching Tools
-                  </h3>
-                  
-                  <div className="space-y-3">
-                    <Button 
-                      onClick={() => setShowJobModal(true)}
-                      className="w-full justify-start" 
-                      variant="outline"
-                    >
-                      ➕ Create New Job
-                    </Button>
-                    <Button className="w-full justify-start" variant="outline">
-                      📊 View Reports
-                    </Button>
-                    <Button 
-                      onClick={() => {
-                        setSelectedChildId(child?.id || null);
-                        setShowAllocationModal(true);
-                      }}
-                      className="w-full justify-start" 
-                      variant="outline"
-                    >
-                      🎛️ Set Allocations
-                    </Button>
-                    <Button className="w-full justify-start" variant="outline">
-                      📚 Create Lesson
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+
             </>
           ) : (
             // Child Sidebar Content
