@@ -241,13 +241,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(accountTypes);
     } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
+      console.error('Account types GET error:', error);
+      res.status(500).json({ message: "Internal server error", error: error.message });
     }
   });
 
   app.put("/api/account-types/:familyId", verifyToken, async (req: any, res) => {
     try {
       const familyId = parseInt(req.params.familyId);
+      
+      console.log('PUT account-types request:', { familyId, user: req.user, body: req.body });
       
       // Only parents can update account types
       if (req.user.role !== "parent") {
@@ -268,7 +271,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(updatedAccountTypes);
     } catch (error) {
-      res.status(400).json({ message: "Invalid account types data" });
+      console.error('Account types PUT error:', error);
+      res.status(400).json({ message: "Invalid account types data", error: error.message });
     }
   });
 
