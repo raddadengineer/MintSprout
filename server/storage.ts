@@ -81,6 +81,7 @@ export class MemStorage implements IStorage {
   private currentJobId = 1;
   private currentPaymentId = 1;
   private currentAllocationId = 1;
+  private currentAccountTypesId = 1;
   private currentLessonId = 1;
   private currentQuizId = 1;
   private currentProgressId = 1;
@@ -153,6 +154,15 @@ export class MemStorage implements IStorage {
       savingsPercentage: 30,
       rothIraPercentage: 25,
       brokeragePercentage: 25
+    });
+
+    // Create default account types (basic setup - only spending and savings enabled)
+    await this.createAccountTypes({
+      familyId: family.id,
+      spendingEnabled: true,
+      savingsEnabled: true,
+      rothIraEnabled: false,
+      brokerageEnabled: false
     });
 
     // Create default lessons
@@ -317,6 +327,27 @@ export class MemStorage implements IStorage {
     const updatedSettings = { ...settings, ...updates };
     this.allocationSettings.set(settings.id, updatedSettings);
     return updatedSettings;
+  }
+
+  // Account Types methods
+  async createAccountTypes(insertAccountTypes: InsertAccountTypes): Promise<AccountTypes> {
+    const id = this.currentAccountTypesId++;
+    const accountTypes: AccountTypes = { ...insertAccountTypes, id };
+    this.accountTypes.set(id, accountTypes);
+    return accountTypes;
+  }
+
+  async getAccountTypes(familyId: number): Promise<AccountTypes | undefined> {
+    return Array.from(this.accountTypes.values()).find(at => at.familyId === familyId);
+  }
+
+  async updateAccountTypes(familyId: number, updates: Partial<AccountTypes>): Promise<AccountTypes | undefined> {
+    const accountTypes = Array.from(this.accountTypes.values()).find(at => at.familyId === familyId);
+    if (!accountTypes) return undefined;
+    
+    const updatedAccountTypes = { ...accountTypes, ...updates };
+    this.accountTypes.set(accountTypes.id, updatedAccountTypes);
+    return updatedAccountTypes;
   }
 
   // Lesson methods

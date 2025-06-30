@@ -139,6 +139,25 @@ export class PostgresStorage implements IStorage {
     return result[0] || undefined;
   }
 
+  async createAccountTypes(insertAccountTypes: InsertAccountTypes): Promise<AccountTypes> {
+    const result = await db.insert(schema.accountTypes).values(insertAccountTypes).returning();
+    return result[0];
+  }
+
+  async getAccountTypes(familyId: number): Promise<AccountTypes | undefined> {
+    const result = await db.select().from(schema.accountTypes)
+      .where(eq(schema.accountTypes.familyId, familyId));
+    return result[0] || undefined;
+  }
+
+  async updateAccountTypes(familyId: number, updates: Partial<AccountTypes>): Promise<AccountTypes | undefined> {
+    const result = await db.update(schema.accountTypes)
+      .set(updates)
+      .where(eq(schema.accountTypes.familyId, familyId))
+      .returning();
+    return result[0] || undefined;
+  }
+
   async createLesson(insertLesson: InsertLesson): Promise<Lesson> {
     const result = await db.insert(schema.lessons).values(insertLesson).returning();
     return result[0];

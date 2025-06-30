@@ -216,6 +216,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Account Types routes
+  app.get("/api/account-types/:familyId", verifyToken, async (req: any, res) => {
+    try {
+      const familyId = parseInt(req.params.familyId);
+      
+      // Verify user has access to this family
+      if (req.user.familyId !== familyId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const accountTypes = await storage.getAccountTypes(familyId);
+      if (!accountTypes) {
+        // Create default account types if none exist
+        const defaultAccountTypes = await storage.createAccountTypes({
+          familyId,
+          spendingEnabled: true,
+          savingsEnabled: true,
+          rothIraEnabled: false,
+          brokerageEnabled: false
+        });
+        return res.json(defaultAccountTypes);
+      }
+      
+      res.json(accountTypes);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/account-types/:familyId", verifyToken, async (req: any, res) => {
+    try {
+      const familyId = parseInt(req.params.familyId);
+      
+      // Only parents can update account types
+      if (req.user.role !== "parent") {
+        return res.status(403).json({ message: "Only parents can update account types" });
+      }
+
+      // Verify user has access to this family
+      if (req.user.familyId !== familyId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const accountTypesData = req.body;
+      const updatedAccountTypes = await storage.updateAccountTypes(familyId, accountTypesData);
+      
+      if (!updatedAccountTypes) {
+        return res.status(404).json({ message: "Account types not found" });
+      }
+      
+      res.json(updatedAccountTypes);
+    } catch (error) {
+      res.status(400).json({ message: "Invalid account types data" });
+    }
+  });
+
   // Payments routes
   app.get("/api/payments", verifyToken, async (req: any, res) => {
     try {
