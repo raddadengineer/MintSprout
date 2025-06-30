@@ -9,6 +9,7 @@ import Dashboard from "@/pages/dashboard";
 import Jobs from "@/pages/jobs";
 import Learn from "@/pages/learn";
 import Reports from "@/pages/reports";
+import Family from "@/pages/family";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
 
@@ -41,6 +42,7 @@ function AppContent() {
         <Route path="/jobs" component={Jobs} />
         <Route path="/learn" component={Learn} />
         <Route path="/reports" component={Reports} />
+        <Route path="/family" component={Family} />
         <Route component={NotFound} />
       </Switch>
     </div>

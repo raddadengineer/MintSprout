@@ -82,6 +82,16 @@ export function Navigation() {
                     📊 Reports
                   </Button>
                 </Link>
+                {user?.role === "parent" && (
+                  <Link href="/family">
+                    <Button
+                      variant={isActive("/family") ? "default" : "ghost"}
+                      className={isActive("/family") ? "mint-primary" : "text-gray-600 hover:text-primary"}
+                    >
+                      👨‍👩‍👧‍👦 Family
+                    </Button>
+                  </Link>
+                )}
               </div>
             </div>
           </div>
