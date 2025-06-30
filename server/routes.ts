@@ -189,8 +189,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/allocation/:childId", verifyToken, async (req: any, res) => {
     try {
-      console.log('PATCH allocation request:', req.params.childId, req.body);
-      
       if (req.user.role !== "parent") {
         return res.status(403).json({ message: "Only parents can update allocation settings" });
       }
@@ -204,7 +202,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Add childId to the request body for schema validation
       const requestData = { ...req.body, childId };
-      console.log('Request data for schema:', requestData);
       const allocationData = insertAllocationSettingsSchema.parse(requestData);
       
       // Validate percentages sum to 100
@@ -217,9 +214,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedSettings = await storage.updateAllocationSettings(childId, allocationData);
       res.json(updatedSettings);
     } catch (error) {
-      console.error('Allocation PATCH error:', error);
-      console.error('Request body:', req.body);
-      res.status(400).json({ message: "Invalid allocation data", error: error.message });
+      res.status(400).json({ message: "Invalid allocation data" });
     }
   });
 
