@@ -433,7 +433,7 @@ export default function Dashboard() {
                     accountTypes?.brokerageEnabled
                   ].filter(Boolean).length === 3 ? 'grid-cols-3' : 'grid-cols-2 lg:grid-cols-4'
                 }`}>
-                  {accountTypes?.spendingEnabled && (
+                  {accountTypes && accountTypes.spendingEnabled && (
                     <div className="text-center p-4 bg-blue-50 rounded-xl">
                       <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
                         <span className="text-blue-600 text-lg">🛒</span>
@@ -441,12 +441,12 @@ export default function Dashboard() {
                       <p className="text-sm font-medium text-gray-600 mb-1">Spending</p>
                       <p className="text-2xl font-bold text-blue-600">${parseFloat(child?.spendingBalance || "0").toFixed(2)}</p>
                       <p className="text-xs text-gray-500">
-                        {allocation.spendingPercentage}% allocation
+                        {allocation?.spendingPercentage || 0}% allocation
                       </p>
                     </div>
                   )}
                   
-                  {accountTypes?.savingsEnabled && (
+                  {accountTypes && accountTypes.savingsEnabled && (
                     <div className="text-center p-4 bg-green-50 rounded-xl">
                       <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
                         <span className="text-green-600 text-lg">🐷</span>
@@ -454,12 +454,12 @@ export default function Dashboard() {
                       <p className="text-sm font-medium text-gray-600 mb-1">Savings</p>
                       <p className="text-2xl font-bold text-green-600">${parseFloat(child?.savingsBalance || "0").toFixed(2)}</p>
                       <p className="text-xs text-gray-500">
-                        {allocation.savingsPercentage}% allocation
+                        {allocation?.savingsPercentage || 0}% allocation
                       </p>
                     </div>
                   )}
                   
-                  {accountTypes?.rothIraEnabled && (
+                  {accountTypes && accountTypes.rothIraEnabled && (
                     <div className="text-center p-4 bg-purple-50 rounded-xl">
                       <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
                         <span className="text-purple-600 text-lg">📈</span>
@@ -467,12 +467,12 @@ export default function Dashboard() {
                       <p className="text-sm font-medium text-gray-600 mb-1">Roth IRA</p>
                       <p className="text-2xl font-bold text-purple-600">${parseFloat(child?.rothIraBalance || "0").toFixed(2)}</p>
                       <p className="text-xs text-gray-500">
-                        {allocation.rothIraPercentage}% allocation
+                        {allocation?.rothIraPercentage || 0}% allocation
                       </p>
                     </div>
                   )}
                   
-                  {accountTypes?.brokerageEnabled && (
+                  {accountTypes && accountTypes.brokerageEnabled && (
                     <div className="text-center p-4 bg-yellow-50 rounded-xl">
                       <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-2">
                         <span className="text-yellow-600 text-lg">📊</span>
@@ -480,7 +480,7 @@ export default function Dashboard() {
                       <p className="text-sm font-medium text-gray-600 mb-1">Brokerage</p>
                       <p className="text-2xl font-bold text-yellow-600">${parseFloat(child?.brokerageBalance || "0").toFixed(2)}</p>
                       <p className="text-xs text-gray-500">
-                        {allocation.brokeragePercentage}% allocation
+                        {allocation?.brokeragePercentage || 0}% allocation
                       </p>
                     </div>
                   )}
