@@ -111,80 +111,156 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card className="mint-card">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Total Earned</p>
-                <p className="text-3xl font-bold text-gray-900">
-                  ${parseFloat(child?.totalEarned || "0").toFixed(2)}
-                </p>
+      {/* Role-based Stats Overview */}
+      {user?.role === "parent" ? (
+        // Parent Dashboard Stats
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card className="mint-card">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Active Jobs</p>
+                  <p className="text-3xl font-bold text-gray-900">{activeJobs.length}</p>
+                </div>
+                <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center">
+                  <span className="text-blue-500 text-xl">📋</span>
+                </div>
               </div>
-              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                <span className="text-primary text-xl">💰</span>
+              <div className="mt-4 flex items-center text-sm">
+                <span className="text-blue-600 font-medium">Jobs assigned</span>
               </div>
-            </div>
-            <div className="mt-4 flex items-center text-sm">
-              <span className="text-green-600 font-medium">Growing!</span>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card className="mint-card">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Jobs Completed</p>
-                <p className="text-3xl font-bold text-gray-900">{child?.completedJobs || 0}</p>
+          <Card className="mint-card">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Child Progress</p>
+                  <p className="text-3xl font-bold text-gray-900">{child?.completedJobs || 0}</p>
+                </div>
+                <div className="w-12 h-12 bg-green-500/10 rounded-xl flex items-center justify-center">
+                  <span className="text-green-500 text-xl">🏆</span>
+                </div>
               </div>
-              <div className="w-12 h-12 bg-secondary/10 rounded-xl flex items-center justify-center">
-                <span className="text-secondary text-xl">✅</span>
+              <div className="mt-4 flex items-center text-sm">
+                <span className="text-green-600 font-medium">Jobs completed</span>
               </div>
-            </div>
-            <div className="mt-4 flex items-center text-sm">
-              <span className="text-green-600 font-medium">Keep it up!</span>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card className="mint-card">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Savings Goal</p>
-                <p className="text-3xl font-bold text-gray-900">68%</p>
+          <Card className="mint-card">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Family Savings</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    ${parseFloat(child?.totalEarned || "0").toFixed(2)}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
+                  <span className="text-primary text-xl">💰</span>
+                </div>
               </div>
-              <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center">
-                <span className="text-accent text-xl">🐷</span>
+              <div className="mt-4 flex items-center text-sm">
+                <span className="text-primary font-medium">Total earned</span>
               </div>
-            </div>
-            <div className="mt-4">
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-accent h-2 rounded-full" style={{ width: "68%" }}></div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card className="mint-card">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Learning Streak</p>
-                <p className="text-3xl font-bold text-gray-900">{child?.learningStreak || 0} days</p>
+          <Card className="mint-card">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Learning Days</p>
+                  <p className="text-3xl font-bold text-gray-900">{child?.learningStreak || 0}</p>
+                </div>
+                <div className="w-12 h-12 bg-orange-500/10 rounded-xl flex items-center justify-center">
+                  <span className="text-orange-500 text-xl">📚</span>
+                </div>
               </div>
-              <div className="w-12 h-12 bg-orange-500/10 rounded-xl flex items-center justify-center">
-                <span className="text-orange-500 text-xl">🔥</span>
+              <div className="mt-4 flex items-center text-sm">
+                <span className="text-orange-500 font-medium">Learning streak</span>
               </div>
-            </div>
-            <div className="mt-4 flex items-center text-sm">
-              <span className="text-orange-500 font-medium">🔥 On fire!</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        // Child Dashboard Stats
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card className="mint-card">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Total Earned</p>
+                  <p className="text-3xl font-bold text-gray-900">
+                    ${parseFloat(child?.totalEarned || "0").toFixed(2)}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
+                  <span className="text-primary text-xl">💰</span>
+                </div>
+              </div>
+              <div className="mt-4 flex items-center text-sm">
+                <span className="text-green-600 font-medium">Growing!</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="mint-card">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Jobs Completed</p>
+                  <p className="text-3xl font-bold text-gray-900">{child?.completedJobs || 0}</p>
+                </div>
+                <div className="w-12 h-12 bg-secondary/10 rounded-xl flex items-center justify-center">
+                  <span className="text-secondary text-xl">✅</span>
+                </div>
+              </div>
+              <div className="mt-4 flex items-center text-sm">
+                <span className="text-green-600 font-medium">Keep it up!</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="mint-card">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Savings Goal</p>
+                  <p className="text-3xl font-bold text-gray-900">68%</p>
+                </div>
+                <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center">
+                  <span className="text-accent text-xl">🐷</span>
+                </div>
+              </div>
+              <div className="mt-4">
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="bg-accent h-2 rounded-full" style={{ width: "68%" }}></div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="mint-card">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 mb-1">Learning Streak</p>
+                  <p className="text-3xl font-bold text-gray-900">{child?.learningStreak || 0} days</p>
+                </div>
+                <div className="w-12 h-12 bg-orange-500/10 rounded-xl flex items-center justify-center">
+                  <span className="text-orange-500 text-xl">🔥</span>
+                </div>
+              </div>
+              <div className="mt-4 flex items-center text-sm">
+                <span className="text-orange-500 font-medium">🔥 On fire!</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Jobs and Money Allocation */}
@@ -340,79 +416,153 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Right Column: Learning and Progress */}
+        {/* Right Column: Role-based Content */}
         <div className="space-y-8">
-          {/* Learning Progress */}
-          <Card className="bg-gradient-to-br from-primary to-green-600 text-white">
-            <CardContent className="p-6">
-              <h3 className="text-xl font-bold mb-4">
-                🎓 Learning Progress
-              </h3>
-              
-              <div className="space-y-4">
-                <div className="bg-white/20 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium">Earning Money</span>
-                    <span className="text-sm bg-white/30 px-2 py-1 rounded-lg">Complete!</span>
-                  </div>
-                  <div className="w-full bg-white/20 rounded-full h-2">
-                    <div className="bg-white h-2 rounded-full" style={{ width: "100%" }}></div>
-                  </div>
-                </div>
-                
-                <div className="bg-white/20 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium">Saving Money</span>
-                    <span className="text-sm">75%</span>
-                  </div>
-                  <div className="w-full bg-white/20 rounded-full h-2">
-                    <div className="bg-white h-2 rounded-full" style={{ width: "75%" }}></div>
-                  </div>
-                </div>
-                
-                <div className="bg-white/20 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium">Smart Spending</span>
-                    <span className="text-sm">45%</span>
-                  </div>
-                  <div className="w-full bg-white/20 rounded-full h-2">
-                    <div className="bg-white h-2 rounded-full" style={{ width: "45%" }}></div>
-                  </div>
-                </div>
-              </div>
-              
-              <Button className="w-full bg-white text-primary hover:bg-gray-50 mt-4">
-                Continue Learning →
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Recent Achievements */}
-          <Card className="mint-card">
-            <CardContent className="p-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">
-                🏆 Recent Achievements
-              </h3>
-              
-              <div className="space-y-3">
-                {achievements.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">No achievements yet!</p>
-                ) : (
-                  achievements.map((achievement: any) => (
-                    <div key={achievement.id} className="flex items-center space-x-3 p-3 bg-yellow-50 rounded-xl">
-                      <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center">
-                        <span className="text-white text-sm">{achievement.icon}</span>
+          {user?.role === "parent" ? (
+            // Parent Sidebar Content
+            <>
+              {/* Family Overview */}
+              <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                <CardContent className="p-6">
+                  <h3 className="text-xl font-bold mb-4">
+                    👨‍👩‍👧‍👦 Family Overview
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    <div className="bg-white/20 rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium">Children Enrolled</span>
+                        <span className="text-lg font-bold">1</span>
                       </div>
-                      <div className="flex-1">
-                        <p className="font-semibold text-gray-900">{achievement.title}</p>
-                        <p className="text-sm text-gray-600">{achievement.description}</p>
+                      <p className="text-sm text-white/80">Emma is learning financial literacy</p>
+                    </div>
+                    
+                    <div className="bg-white/20 rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium">Active Teaching</span>
+                        <span className="text-lg font-bold">{activeJobs.length}</span>
+                      </div>
+                      <p className="text-sm text-white/80">Jobs currently assigned</p>
+                    </div>
+                  </div>
+                  
+                  <Button className="w-full bg-white text-blue-600 hover:bg-gray-50 mt-4">
+                    Manage Family →
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Teaching Tools */}
+              <Card className="mint-card">
+                <CardContent className="p-6">
+                  <h3 className="text-xl font-bold text-gray-900 mb-4">
+                    🧑‍🏫 Teaching Tools
+                  </h3>
+                  
+                  <div className="space-y-3">
+                    <Button 
+                      onClick={() => setShowJobModal(true)}
+                      className="w-full justify-start" 
+                      variant="outline"
+                    >
+                      ➕ Create New Job
+                    </Button>
+                    <Button className="w-full justify-start" variant="outline">
+                      📊 View Reports
+                    </Button>
+                    <Button 
+                      onClick={() => {
+                        setSelectedChildId(child?.id || null);
+                        setShowAllocationModal(true);
+                      }}
+                      className="w-full justify-start" 
+                      variant="outline"
+                    >
+                      🎛️ Set Allocations
+                    </Button>
+                    <Button className="w-full justify-start" variant="outline">
+                      📚 Create Lesson
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          ) : (
+            // Child Sidebar Content
+            <>
+              {/* Learning Progress */}
+              <Card className="bg-gradient-to-br from-primary to-green-600 text-white">
+                <CardContent className="p-6">
+                  <h3 className="text-xl font-bold mb-4">
+                    🎓 Learning Progress
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    <div className="bg-white/20 rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium">Earning Money</span>
+                        <span className="text-sm bg-white/30 px-2 py-1 rounded-lg">Complete!</span>
+                      </div>
+                      <div className="w-full bg-white/20 rounded-full h-2">
+                        <div className="bg-white h-2 rounded-full" style={{ width: "100%" }}></div>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                    
+                    <div className="bg-white/20 rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium">Saving Money</span>
+                        <span className="text-sm">75%</span>
+                      </div>
+                      <div className="w-full bg-white/20 rounded-full h-2">
+                        <div className="bg-white h-2 rounded-full" style={{ width: "75%" }}></div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-white/20 rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium">Smart Spending</span>
+                        <span className="text-sm">45%</span>
+                      </div>
+                      <div className="w-full bg-white/20 rounded-full h-2">
+                        <div className="bg-white h-2 rounded-full" style={{ width: "45%" }}></div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <Button className="w-full bg-white text-primary hover:bg-gray-50 mt-4">
+                    Continue Learning →
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Recent Achievements */}
+              <Card className="mint-card">
+                <CardContent className="p-6">
+                  <h3 className="text-xl font-bold text-gray-900 mb-4">
+                    🏆 Recent Achievements
+                  </h3>
+                  
+                  <div className="space-y-3">
+                    {achievements.length === 0 ? (
+                      <p className="text-gray-500 text-center py-4">No achievements yet!</p>
+                    ) : (
+                      achievements.map((achievement: any) => (
+                        <div key={achievement.id} className="flex items-center space-x-3 p-3 bg-yellow-50 rounded-xl">
+                          <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center">
+                            <span className="text-white text-sm">{achievement.icon}</span>
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-semibold text-gray-900">{achievement.title}</p>
+                            <p className="text-sm text-gray-600">{achievement.description}</p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
 
           {/* Quick Actions */}
           <Card className="mint-card">
