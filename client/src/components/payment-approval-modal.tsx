@@ -43,6 +43,12 @@ export function PaymentApprovalModal({ isOpen, onClose, job }: PaymentApprovalMo
     enabled: isOpen && !!user?.familyId,
   });
 
+  // Fetch existing payment data for approved jobs
+  const { data: existingPayment } = useQuery({
+    queryKey: [`/api/payments/job/${job?.id}`],
+    enabled: isOpen && !!job?.id && job?.status === "approved",
+  });
+
   useEffect(() => {
     if (job && allocation) {
       const amount = parseFloat(job.amount);
@@ -119,18 +125,80 @@ export function PaymentApprovalModal({ isOpen, onClose, job }: PaymentApprovalMo
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Approve Job & Process Payment</DialogTitle>
+          <DialogTitle>
+            {job.status === "approved" ? "Payment Details" : "Approve Job & Process Payment"}
+          </DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Job Details */}
-          <div className="bg-gray-50 rounded-xl p-4">
-            <h3 className="font-semibold text-gray-900 mb-2">{job.title}</h3>
-            <p className="text-sm text-gray-600 mb-2">{job.description}</p>
-            <p className="text-lg font-bold text-primary">Amount: ${parseFloat(job.amount).toFixed(2)}</p>
-          </div>
+        {job.status === "approved" && existingPayment ? (
+          // Show payment details for approved jobs
+          <div className="space-y-6">
+            {/* Job Details */}
+            <div className="bg-gray-50 rounded-xl p-4">
+              <h3 className="font-semibold text-gray-900 mb-2">{job.title}</h3>
+              <p className="text-sm text-gray-600 mb-2">{job.description}</p>
+              <p className="text-lg font-bold text-primary">Amount: ${parseFloat(job.amount).toFixed(2)}</p>
+              <p className="text-sm text-gray-500 mt-2">
+                Approved on {new Date(existingPayment.createdAt).toLocaleDateString()}
+              </p>
+            </div>
 
-          {/* Allocation Options */}
+            {/* Payment Allocation Details */}
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+              <h4 className="font-semibold text-green-800 mb-3">Payment Allocation</h4>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                {accountTypes?.spendingEnabled && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-700">Spending:</span>
+                    <span className="font-medium text-green-700">
+                      ${parseFloat(existingPayment.spendingAmount).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                {accountTypes?.savingsEnabled && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-700">Savings:</span>
+                    <span className="font-medium text-green-700">
+                      ${parseFloat(existingPayment.savingsAmount).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                {accountTypes?.rothIraEnabled && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-700">Roth IRA:</span>
+                    <span className="font-medium text-green-700">
+                      ${parseFloat(existingPayment.rothIraAmount).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                {accountTypes?.brokerageEnabled && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-700">Brokerage:</span>
+                    <span className="font-medium text-green-700">
+                      ${parseFloat(existingPayment.brokerageAmount).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button type="button" onClick={onClose}>
+                Close
+              </Button>
+            </div>
+          </div>
+        ) : (
+          // Show approval form for non-approved jobs
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Job Details */}
+            <div className="bg-gray-50 rounded-xl p-4">
+              <h3 className="font-semibold text-gray-900 mb-2">{job.title}</h3>
+              <p className="text-sm text-gray-600 mb-2">{job.description}</p>
+              <p className="text-lg font-bold text-primary">Amount: ${parseFloat(job.amount).toFixed(2)}</p>
+            </div>
+
+            {/* Allocation Options */}
           <div className="space-y-4">
             <div>
               <label className="flex items-center space-x-2">
@@ -268,7 +336,8 @@ export function PaymentApprovalModal({ isOpen, onClose, job }: PaymentApprovalMo
               {approveJobMutation.isPending ? "Processing..." : "Approve & Pay"}
             </Button>
           </div>
-        </form>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -312,6 +312,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get payment details for a specific job
+  app.get("/api/payments/job/:jobId", verifyToken, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      const job = await storage.getJob(jobId);
+      
+      if (!job || job.familyId !== req.user.familyId) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      // Get all payments for the family and filter by jobId
+      const payments = await storage.getPaymentsByFamily(req.user.familyId);
+      const jobPayment = payments.find(p => p.jobId === jobId);
+      
+      if (jobPayment) {
+        res.json(jobPayment);
+      } else {
+        res.status(404).json({ message: "Payment not found for this job" });
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Allocation settings routes
   app.get("/api/allocation/:childId", verifyToken, async (req: any, res) => {
     try {
