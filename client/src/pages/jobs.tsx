@@ -21,6 +21,8 @@ export default function Jobs() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedJob, setSelectedJob] = useState<any>(null);
+  const [selectedJobs, setSelectedJobs] = useState<number[]>([]);
+  const [showBulkActions, setShowBulkActions] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [childFilter, setChildFilter] = useState("all");
@@ -385,16 +387,46 @@ export default function Jobs() {
             <div className="space-y-4">
               {user?.role === "parent" && (
                 <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg mb-4">
-                  <div className="text-sm text-gray-600">
-                    <strong>{completedJobs.length}</strong> completed jobs • Total paid: <strong>${completedJobs.reduce((sum: number, job: any) => sum + parseFloat(job.amount), 0).toFixed(2)}</strong>
+                  <div className="flex items-center space-x-4">
+                    <div className="text-sm text-gray-600">
+                      <strong>{completedJobs.length}</strong> completed jobs • Total paid: <strong>${completedJobs.reduce((sum: number, job: any) => sum + parseFloat(job.amount), 0).toFixed(2)}</strong>
+                    </div>
+                    {selectedJobs.length > 0 && (
+                      <div className="text-sm text-blue-600 font-medium">
+                        {selectedJobs.length} selected
+                      </div>
+                    )}
                   </div>
                   <div className="flex space-x-2">
                     <Button 
                       size="sm" 
                       variant="outline"
+                      onClick={() => setShowBulkActions(!showBulkActions)}
+                      className="text-xs"
+                    >
+                      {showBulkActions ? "Cancel Selection" : "Select Multiple"}
+                    </Button>
+                    {selectedJobs.length > 0 && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => {
+                          if (window.confirm(`Delete ${selectedJobs.length} selected jobs? This action cannot be undone.`)) {
+                            selectedJobs.forEach(jobId => handleDeleteJob(jobId));
+                            setSelectedJobs([]);
+                            setShowBulkActions(false);
+                          }
+                        }}
+                        className="text-xs text-red-600 hover:text-red-700"
+                      >
+                        Delete Selected ({selectedJobs.length})
+                      </Button>
+                    )}
+                    <Button 
+                      size="sm" 
+                      variant="outline"
                       onClick={() => {
                         if (window.confirm(`Export ${completedJobs.length} completed jobs to CSV?`)) {
-                          // Export functionality would go here
                           console.log("Exporting completed jobs...");
                         }
                       }}
@@ -410,6 +442,20 @@ export default function Jobs() {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
+                        {showBulkActions && user?.role === "parent" && (
+                          <input
+                            type="checkbox"
+                            checked={selectedJobs.includes(job.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedJobs(prev => [...prev, job.id]);
+                              } else {
+                                setSelectedJobs(prev => prev.filter(id => id !== job.id));
+                              }
+                            }}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                        )}
                         <JobIcon iconName={job.icon} className="h-5 w-5 text-gray-500" />
                         <div>
                           <h4 className="font-medium text-gray-900">{job.title}</h4>
@@ -446,6 +492,18 @@ export default function Jobs() {
                             >
                               <Eye className="h-3 w-3 mr-1" />
                               View Details
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={() => {
+                                setSelectedJob(job);
+                                setShowEditModal(true);
+                              }}
+                              className="text-xs px-3"
+                            >
+                              <Edit className="h-3 w-3 mr-1" />
+                              Edit
                             </Button>
                             <Button 
                               size="sm" 
@@ -495,11 +553,13 @@ export default function Jobs() {
         job={selectedJob}
       />
       
-      {/* Simple Edit Dialog */}
+      {/* Enhanced Edit Dialog */}
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Edit Job</DialogTitle>
+            <DialogTitle>
+              Edit Job {selectedJob?.status === "approved" ? "(Completed)" : ""}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -524,7 +584,21 @@ export default function Jobs() {
                 value={selectedJob?.amount || ""} 
                 onChange={(e) => setSelectedJob((prev: any) => ({ ...prev, amount: e.target.value }))}
               />
+              {selectedJob?.status === "approved" && (
+                <p className="text-xs text-orange-600 mt-1">
+                  ⚠️ Changing the amount of a completed job will not update payment balances
+                </p>
+              )}
             </div>
+            
+            {selectedJob?.status === "approved" && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <p className="text-sm text-yellow-800">
+                  <strong>Note:</strong> This is a completed job. Editing will update the job record but won't modify payment allocations or child balances. If you need to adjust payments, consider creating a new adjustment job.
+                </p>
+              </div>
+            )}
+            
             <div className="flex justify-end space-x-2 pt-4">
               <Button variant="outline" onClick={() => setShowEditModal(false)}>
                 Cancel
@@ -541,7 +615,7 @@ export default function Jobs() {
                 }}
                 disabled={updateJobMutation.isPending}
               >
-                Save Changes
+                {updateJobMutation.isPending ? "Saving..." : "Save Changes"}
               </Button>
             </div>
           </div>
