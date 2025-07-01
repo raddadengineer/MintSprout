@@ -242,16 +242,10 @@ export default function Jobs() {
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header with Stats */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Job Management</h1>
-          <div className="flex items-center space-x-6 text-sm text-gray-600">
-            <span>{stats.total} Total Jobs</span>
-            <span>{stats.pending} Active</span>
-            <span>{stats.completed} Completed</span>
-            <span className="font-medium">${stats.totalEarnings.toFixed(2)} Total Paid</span>
-          </div>
         </div>
         {user?.role === "parent" && (
           <Button
