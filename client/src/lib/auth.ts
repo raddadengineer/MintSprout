@@ -15,8 +15,17 @@ export interface AuthResponse {
 
 export const authApi = {
   login: async (username: string, password: string): Promise<AuthResponse> => {
-    const res = await apiRequest("POST", "/api/auth/login", { username, password });
-    return res.json();
+    try {
+      const res = await apiRequest("POST", "/api/auth/login", { username, password });
+      if (!res.ok) {
+        const errorData = await res.text();
+        throw new Error(`Login failed: ${errorData}`);
+      }
+      return res.json();
+    } catch (error) {
+      console.error("Login API error:", error);
+      throw error;
+    }
   },
 
   getCurrentUser: async (): Promise<User> => {

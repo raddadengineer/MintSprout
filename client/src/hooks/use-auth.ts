@@ -15,17 +15,29 @@ export function useAuth() {
   });
 
   const loginMutation = useMutation({
-    mutationFn: ({ username, password }: { username: string; password: string }) =>
-      authApi.login(username, password),
+    mutationFn: async ({ username, password }: { username: string; password: string }) => {
+      try {
+        return await authApi.login(username, password);
+      } catch (error) {
+        console.error("Login mutation error:", error);
+        throw error;
+      }
+    },
     onSuccess: (data) => {
-      authApi.setToken(data.token);
-      queryClient.setQueryData(["/api/auth/me"], data.user);
-      setIsAuthenticated(true);
-      setForceRender(prev => prev + 1);
-      queryClient.invalidateQueries();
-      
-      // Redirect to dashboard after successful login
-      window.location.href = "/dashboard";
+      try {
+        authApi.setToken(data.token);
+        queryClient.setQueryData(["/api/auth/me"], data.user);
+        setIsAuthenticated(true);
+        setForceRender(prev => prev + 1);
+        queryClient.invalidateQueries().catch(err => {
+          console.error("Error invalidating queries:", err);
+        });
+        
+        // Redirect to dashboard after successful login
+        window.location.href = "/dashboard";
+      } catch (error) {
+        console.error("Login success handler error:", error);
+      }
     },
     onError: (error) => {
       console.error("Login error:", error);
