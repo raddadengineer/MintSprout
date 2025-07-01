@@ -286,6 +286,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/jobs/:id", verifyToken, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.id);
+      const job = await storage.getJob(jobId);
+      
+      if (!job || job.familyId !== req.user.familyId) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      // Only parents can delete jobs
+      if (req.user.role !== "parent") {
+        return res.status(403).json({ message: "Only parents can delete jobs" });
+      }
+
+      const success = await storage.deleteJob(jobId);
+      
+      if (success) {
+        res.json({ message: "Job deleted successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to delete job" });
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Allocation settings routes
   app.get("/api/allocation/:childId", verifyToken, async (req: any, res) => {
     try {

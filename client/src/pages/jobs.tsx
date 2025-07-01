@@ -19,6 +19,7 @@ export default function Jobs() {
   const { user } = useAuth();
   const [showJobModal, setShowJobModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -207,7 +208,15 @@ export default function Jobs() {
           
           {user?.role === "parent" && job.status !== "approved" && (
             <div className="flex space-x-1">
-              <Button size="sm" variant="outline" className="text-xs px-2">
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => {
+                  setSelectedJob(job);
+                  setShowEditModal(true);
+                }}
+                className="text-xs px-2"
+              >
                 <Edit className="h-3 w-3" />
               </Button>
               <Button 
@@ -310,7 +319,7 @@ export default function Jobs() {
             <SelectItem value="approved">Approved</SelectItem>
           </SelectContent>
         </Select>
-        {user?.role === "parent" && children && Array.isArray(children) && (
+        {user?.role === "parent" && children && Array.isArray(children) && children.length > 0 && (
           <Select value={childFilter} onValueChange={setChildFilter}>
             <SelectTrigger className="w-full sm:w-48">
               <SelectValue placeholder="Filter by child" />
@@ -485,6 +494,59 @@ export default function Jobs() {
         }} 
         job={selectedJob}
       />
+      
+      {/* Simple Edit Dialog */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Job</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Title</label>
+              <Input 
+                value={selectedJob?.title || ""} 
+                onChange={(e) => setSelectedJob((prev: any) => ({ ...prev, title: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Description</label>
+              <Input 
+                value={selectedJob?.description || ""} 
+                onChange={(e) => setSelectedJob((prev: any) => ({ ...prev, description: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Amount ($)</label>
+              <Input 
+                type="number"
+                step="0.01"
+                value={selectedJob?.amount || ""} 
+                onChange={(e) => setSelectedJob((prev: any) => ({ ...prev, amount: e.target.value }))}
+              />
+            </div>
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button variant="outline" onClick={() => setShowEditModal(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => {
+                  updateJobMutation.mutate({
+                    id: selectedJob.id,
+                    title: selectedJob.title,
+                    description: selectedJob.description,
+                    amount: selectedJob.amount
+                  });
+                  setShowEditModal(false);
+                }}
+                disabled={updateJobMutation.isPending}
+              >
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
