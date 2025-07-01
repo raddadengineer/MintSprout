@@ -13,7 +13,7 @@ import { PaymentApprovalModal } from "@/components/payment-approval-modal";
 import { JobIcon } from "@/components/job-icon";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Filter, Edit, Trash2, Calendar, DollarSign, User, MoreHorizontal } from "lucide-react";
+import { Search, Filter, Edit, Trash2, Calendar, DollarSign, User, MoreHorizontal, Eye } from "lucide-react";
 
 export default function Jobs() {
   const { user } = useAuth();
@@ -374,6 +374,28 @@ export default function Jobs() {
         <TabsContent value="completed" className="mt-6">
           {completedJobs.length > 0 ? (
             <div className="space-y-4">
+              {user?.role === "parent" && (
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg mb-4">
+                  <div className="text-sm text-gray-600">
+                    <strong>{completedJobs.length}</strong> completed jobs • Total paid: <strong>${completedJobs.reduce((sum: number, job: any) => sum + parseFloat(job.amount), 0).toFixed(2)}</strong>
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        if (window.confirm(`Export ${completedJobs.length} completed jobs to CSV?`)) {
+                          // Export functionality would go here
+                          console.log("Exporting completed jobs...");
+                        }
+                      }}
+                      className="text-xs"
+                    >
+                      Export Data
+                    </Button>
+                  </div>
+                </div>
+              )}
               {completedJobs.map((job: any) => (
                 <Card key={job.id} className="hover:shadow-sm transition-shadow">
                   <CardContent className="p-4">
@@ -395,11 +417,42 @@ export default function Jobs() {
                           </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-lg font-bold text-green-600 mb-1">
-                          ${parseFloat(job.amount).toFixed(2)}
+                      <div className="flex items-center space-x-4">
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-green-600 mb-1">
+                            ${parseFloat(job.amount).toFixed(2)}
+                          </div>
+                          {getStatusBadge(job.status)}
                         </div>
-                        {getStatusBadge(job.status)}
+                        {user?.role === "parent" && (
+                          <div className="flex space-x-2">
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={() => {
+                                setSelectedJob(job);
+                                setShowPaymentModal(true);
+                              }}
+                              className="text-xs px-3"
+                            >
+                              <Eye className="h-3 w-3 mr-1" />
+                              View Details
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={() => {
+                                if (window.confirm(`Are you sure you want to remove "${job.title}" from the job history? This action cannot be undone.`)) {
+                                  handleDeleteJob(job.id);
+                                }
+                              }}
+                              className="text-xs px-3 text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />
+                              Remove
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </CardContent>
