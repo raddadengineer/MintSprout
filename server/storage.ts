@@ -33,6 +33,7 @@ export interface IStorage {
   createPayment(payment: InsertPayment): Promise<Payment>;
   getPaymentsByChild(childId: number): Promise<Payment[]>;
   getPaymentsByFamily(familyId: number): Promise<Payment[]>;
+  updatePayment(id: number, updates: Partial<Payment>): Promise<Payment | undefined>;
   
   // Allocation Settings
   createAllocationSettings(settings: InsertAllocationSettings): Promise<AllocationSettings>;
@@ -311,6 +312,15 @@ export class MemStorage implements IStorage {
     const children = await this.getChildrenByFamily(familyId);
     const childIds = children.map(child => child.id);
     return Array.from(this.payments.values()).filter(payment => childIds.includes(payment.childId));
+  }
+
+  async updatePayment(id: number, updates: Partial<Payment>): Promise<Payment | undefined> {
+    const payment = this.payments.get(id);
+    if (!payment) return undefined;
+    
+    const updatedPayment = { ...payment, ...updates };
+    this.payments.set(id, updatedPayment);
+    return updatedPayment;
   }
 
   // Allocation settings methods

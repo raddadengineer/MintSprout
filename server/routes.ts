@@ -391,12 +391,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Update payment record (this would need to be implemented in storage)
-      // For now, we'll create a new payment record and mark the old one as updated
-      const updatedPayment = await storage.createPayment({
-        jobId: job.id,
-        childId: job.assignedToId,
-        amount: job.amount,
+      // Update the existing payment record
+      const updatedPayment = await storage.updatePayment(existingPayment.id, {
         spendingAmount: spendingAmount.toString(),
         savingsAmount: savingsAmount.toString(),
         rothIraAmount: rothIraAmount.toString(),

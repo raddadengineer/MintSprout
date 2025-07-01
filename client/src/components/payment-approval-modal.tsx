@@ -44,10 +44,19 @@ export function PaymentApprovalModal({ isOpen, onClose, job }: PaymentApprovalMo
   });
 
   // Fetch existing payment data for approved jobs
-  const { data: existingPayment } = useQuery({
+  const { data: existingPayment, refetch: refetchPayment } = useQuery({
     queryKey: [`/api/payments/job/${job?.id}`],
     enabled: isOpen && !!job?.id && job?.status === "approved",
+    staleTime: 0, // Always fetch fresh data
+    gcTime: 0, // Don't cache this data
   });
+
+  // Refetch payment data when modal opens for approved jobs
+  useEffect(() => {
+    if (isOpen && job?.status === "approved" && job?.id) {
+      refetchPayment();
+    }
+  }, [isOpen, job?.status, job?.id, refetchPayment]);
 
   useEffect(() => {
     if (job && allocation) {
