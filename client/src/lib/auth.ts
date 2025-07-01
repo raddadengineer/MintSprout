@@ -29,8 +29,13 @@ export const authApi = {
   },
 
   getCurrentUser: async (): Promise<User> => {
-    const res = await apiRequest("GET", "/api/auth/me");
-    return res.json();
+    try {
+      const res = await apiRequest("GET", "/api/auth/me");
+      return res.json();
+    } catch (error) {
+      console.error("Get current user error:", error);
+      throw error;
+    }
   },
 
   logout: () => {

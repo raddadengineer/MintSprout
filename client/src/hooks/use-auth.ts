@@ -29,12 +29,11 @@ export function useAuth() {
         queryClient.setQueryData(["/api/auth/me"], data.user);
         setIsAuthenticated(true);
         setForceRender(prev => prev + 1);
-        queryClient.invalidateQueries().catch(err => {
-          console.error("Error invalidating queries:", err);
-        });
         
-        // Redirect to dashboard after successful login
-        window.location.href = "/dashboard";
+        // Use setTimeout to allow state updates to complete before redirect
+        setTimeout(() => {
+          window.location.href = "/dashboard";
+        }, 100);
       } catch (error) {
         console.error("Login success handler error:", error);
       }

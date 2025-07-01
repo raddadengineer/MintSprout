@@ -10,10 +10,16 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const { login, isLoginPending, loginError } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoginPending) return; // Prevent double submission
+    
     console.log("Attempting login with:", { username, password });
-    login({ username, password });
+    try {
+      login({ username, password });
+    } catch (error) {
+      console.error("Login form error:", error);
+    }
   };
 
   return (
