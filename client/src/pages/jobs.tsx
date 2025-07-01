@@ -92,7 +92,8 @@ export default function Jobs() {
   };
 
   const getChildName = (childId: number) => {
-    const child = children?.find((c: any) => c.id === childId);
+    if (!children || !Array.isArray(children)) return "Unknown";
+    const child = children.find((c: any) => c.id === childId);
     return child?.name || "Unknown";
   };
 
@@ -126,16 +127,16 @@ export default function Jobs() {
     });
   };
 
-  const activeJobs = jobs ? sortJobs(filterJobs(jobs.filter((job: any) => 
+  const activeJobs = jobs && Array.isArray(jobs) ? sortJobs(filterJobs(jobs.filter((job: any) => 
     ["assigned", "in_progress", "completed"].includes(job.status)
   ))) : [];
 
-  const completedJobs = jobs ? sortJobs(filterJobs(jobs.filter((job: any) => 
+  const completedJobs = jobs && Array.isArray(jobs) ? sortJobs(filterJobs(jobs.filter((job: any) => 
     job.status === "approved"
   ))) : [];
 
   const getJobStats = () => {
-    if (!jobs) return { total: 0, pending: 0, completed: 0, totalEarnings: 0 };
+    if (!jobs || !Array.isArray(jobs)) return { total: 0, pending: 0, completed: 0, totalEarnings: 0 };
     
     const pending = jobs.filter((job: any) => ["assigned", "in_progress", "completed"].includes(job.status)).length;
     const completed = jobs.filter((job: any) => job.status === "approved").length;
@@ -285,7 +286,7 @@ export default function Jobs() {
           </Card>
           <Card>
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-purple-600">{children?.length || 0}</div>
+              <div className="text-2xl font-bold text-purple-600">{children && Array.isArray(children) ? children.length : 0}</div>
               <div className="text-sm text-gray-600">Children</div>
             </CardContent>
           </Card>
@@ -315,7 +316,7 @@ export default function Jobs() {
             <SelectItem value="approved">Approved</SelectItem>
           </SelectContent>
         </Select>
-        {user?.role === "parent" && children && (
+        {user?.role === "parent" && children && Array.isArray(children) && (
           <Select value={childFilter} onValueChange={setChildFilter}>
             <SelectTrigger className="w-full sm:w-48">
               <SelectValue placeholder="Filter by child" />
