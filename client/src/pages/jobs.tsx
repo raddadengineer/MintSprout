@@ -23,6 +23,13 @@ export default function Jobs() {
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [selectedJobs, setSelectedJobs] = useState<number[]>([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
+  const [editingPayment, setEditingPayment] = useState(false);
+  const [paymentAllocation, setPaymentAllocation] = useState({
+    spendingAmount: 0,
+    savingsAmount: 0,
+    rothIraAmount: 0,
+    brokerageAmount: 0,
+  });
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [childFilter, setChildFilter] = useState("all");
@@ -37,6 +44,17 @@ export default function Jobs() {
 
   const { data: children } = useQuery({
     queryKey: ["/api/children"],
+  });
+
+  const { data: accountTypes } = useQuery({
+    queryKey: [`/api/account-types/${user?.familyId}`],
+    enabled: !!user?.familyId,
+  });
+
+  // Fetch payment data for the selected job when editing
+  const { data: existingPayment } = useQuery({
+    queryKey: [`/api/payments/job/${selectedJob?.id}`],
+    enabled: !!selectedJob?.id && selectedJob?.status === "approved" && editingPayment,
   });
 
   const { data: payments } = useQuery({
@@ -65,6 +83,21 @@ export default function Jobs() {
       toast({
         title: "Success!",
         description: "Job deleted successfully",
+      });
+    },
+  });
+
+  const updatePaymentMutation = useMutation({
+    mutationFn: ({ jobId, allocation }: { jobId: number; allocation: any }) =>
+      apiRequest("PATCH", `/api/payments/job/${jobId}`, allocation),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/payments/job/${selectedJob?.id}`] });
+      toast({
+        title: "Success!",
+        description: "Payment allocation updated successfully",
       });
     },
   });
@@ -498,6 +531,7 @@ export default function Jobs() {
                               variant="outline" 
                               onClick={() => {
                                 setSelectedJob(job);
+                                setEditingPayment(false);
                                 setShowEditModal(true);
                               }}
                               className="text-xs px-3"
@@ -592,10 +626,111 @@ export default function Jobs() {
             </div>
             
             {selectedJob?.status === "approved" && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                <p className="text-sm text-yellow-800">
-                  <strong>Note:</strong> This is a completed job. Editing will update the job record but won't modify payment allocations or child balances. If you need to adjust payments, consider creating a new adjustment job.
-                </p>
+              <div className="space-y-3">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <p className="text-sm text-yellow-800">
+                    <strong>Note:</strong> This is a completed job. You can edit job details or payment allocations.
+                  </p>
+                </div>
+                
+                <div className="flex space-x-2">
+                  <Button 
+                    size="sm" 
+                    variant={!editingPayment ? "default" : "outline"}
+                    onClick={() => setEditingPayment(false)}
+                    className="text-xs"
+                  >
+                    Job Details
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant={editingPayment ? "default" : "outline"}
+                    onClick={() => {
+                      setEditingPayment(true);
+                      if (existingPayment) {
+                        setPaymentAllocation({
+                          spendingAmount: parseFloat(existingPayment.spendingAmount || "0"),
+                          savingsAmount: parseFloat(existingPayment.savingsAmount || "0"),
+                          rothIraAmount: parseFloat(existingPayment.rothIraAmount || "0"),
+                          brokerageAmount: parseFloat(existingPayment.brokerageAmount || "0"),
+                        });
+                      }
+                    }}
+                    className="text-xs"
+                  >
+                    Payment Allocation
+                  </Button>
+                </div>
+
+                {editingPayment && (
+                  <div className="space-y-4 border-t pt-4">
+                    <h4 className="font-medium text-gray-900">Edit Payment Allocation</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      {accountTypes?.spendingEnabled && (
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Spending ($)</label>
+                          <Input 
+                            type="number"
+                            step="0.01"
+                            value={paymentAllocation.spendingAmount} 
+                            onChange={(e) => setPaymentAllocation(prev => ({ 
+                              ...prev, 
+                              spendingAmount: parseFloat(e.target.value) || 0 
+                            }))}
+                          />
+                        </div>
+                      )}
+                      {accountTypes?.savingsEnabled && (
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Savings ($)</label>
+                          <Input 
+                            type="number"
+                            step="0.01"
+                            value={paymentAllocation.savingsAmount} 
+                            onChange={(e) => setPaymentAllocation(prev => ({ 
+                              ...prev, 
+                              savingsAmount: parseFloat(e.target.value) || 0 
+                            }))}
+                          />
+                        </div>
+                      )}
+                      {accountTypes?.rothIraEnabled && (
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Roth IRA ($)</label>
+                          <Input 
+                            type="number"
+                            step="0.01"
+                            value={paymentAllocation.rothIraAmount} 
+                            onChange={(e) => setPaymentAllocation(prev => ({ 
+                              ...prev, 
+                              rothIraAmount: parseFloat(e.target.value) || 0 
+                            }))}
+                          />
+                        </div>
+                      )}
+                      {accountTypes?.brokerageEnabled && (
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Brokerage ($)</label>
+                          <Input 
+                            type="number"
+                            step="0.01"
+                            value={paymentAllocation.brokerageAmount} 
+                            onChange={(e) => setPaymentAllocation(prev => ({ 
+                              ...prev, 
+                              brokerageAmount: parseFloat(e.target.value) || 0 
+                            }))}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <p className="text-sm text-gray-600">
+                        Total: ${(paymentAllocation.spendingAmount + paymentAllocation.savingsAmount + paymentAllocation.rothIraAmount + paymentAllocation.brokerageAmount).toFixed(2)} 
+                        {selectedJob && ` of $${parseFloat(selectedJob.amount).toFixed(2)}`}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             
@@ -605,17 +740,40 @@ export default function Jobs() {
               </Button>
               <Button 
                 onClick={() => {
-                  updateJobMutation.mutate({
-                    id: selectedJob.id,
-                    title: selectedJob.title,
-                    description: selectedJob.description,
-                    amount: selectedJob.amount
-                  });
+                  if (editingPayment) {
+                    // Validate allocation totals
+                    const total = paymentAllocation.spendingAmount + paymentAllocation.savingsAmount + 
+                                 paymentAllocation.rothIraAmount + paymentAllocation.brokerageAmount;
+                    const jobAmount = parseFloat(selectedJob.amount);
+                    
+                    if (Math.abs(total - jobAmount) > 0.01) {
+                      toast({
+                        title: "Invalid Allocation",
+                        description: `Total allocation ($${total.toFixed(2)}) must equal job amount ($${jobAmount.toFixed(2)})`,
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    
+                    updatePaymentMutation.mutate({
+                      jobId: selectedJob.id,
+                      allocation: paymentAllocation
+                    });
+                  } else {
+                    updateJobMutation.mutate({
+                      id: selectedJob.id,
+                      title: selectedJob.title,
+                      description: selectedJob.description,
+                      amount: selectedJob.amount
+                    });
+                  }
                   setShowEditModal(false);
+                  setEditingPayment(false);
                 }}
-                disabled={updateJobMutation.isPending}
+                disabled={updateJobMutation.isPending || updatePaymentMutation.isPending}
               >
-                {updateJobMutation.isPending ? "Saving..." : "Save Changes"}
+                {(updateJobMutation.isPending || updatePaymentMutation.isPending) ? "Saving..." : 
+                 editingPayment ? "Update Payment" : "Save Changes"}
               </Button>
             </div>
           </div>

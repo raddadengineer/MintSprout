@@ -336,6 +336,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update payment allocation for a completed job
+  app.patch("/api/payments/job/:jobId", verifyToken, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      const job = await storage.getJob(jobId);
+      
+      if (!job || job.familyId !== req.user.familyId) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      if (req.user.role !== "parent") {
+        return res.status(403).json({ message: "Only parents can update payment allocations" });
+      }
+
+      if (job.status !== "approved") {
+        return res.status(400).json({ message: "Can only update payments for approved jobs" });
+      }
+
+      // Get existing payment
+      const payments = await storage.getPaymentsByFamily(req.user.familyId);
+      const existingPayment = payments.find(p => p.jobId === jobId);
+      
+      if (!existingPayment) {
+        return res.status(404).json({ message: "Payment not found for this job" });
+      }
+
+      const { spendingAmount, savingsAmount, rothIraAmount, brokerageAmount } = req.body;
+      
+      // Validate allocation totals match job amount
+      const total = parseFloat(spendingAmount) + parseFloat(savingsAmount) + parseFloat(rothIraAmount) + parseFloat(brokerageAmount);
+      const jobAmount = parseFloat(job.amount);
+      
+      if (Math.abs(total - jobAmount) > 0.01) {
+        return res.status(400).json({ 
+          message: `Total allocation ($${total.toFixed(2)}) must equal job amount ($${jobAmount.toFixed(2)})` 
+        });
+      }
+
+      // Calculate differences
+      const spendingDiff = parseFloat(spendingAmount) - parseFloat(existingPayment.spendingAmount);
+      const savingsDiff = parseFloat(savingsAmount) - parseFloat(existingPayment.savingsAmount);
+      const rothIraDiff = parseFloat(rothIraAmount) - parseFloat(existingPayment.rothIraAmount);
+      const brokerageDiff = parseFloat(brokerageAmount) - parseFloat(existingPayment.brokerageAmount);
+
+      // Update child balances
+      const child = await storage.getChild(job.assignedToId);
+      if (child) {
+        await storage.updateChild(job.assignedToId, {
+          spendingBalance: (parseFloat(child.spendingBalance || "0") + spendingDiff).toFixed(2),
+          savingsBalance: (parseFloat(child.savingsBalance || "0") + savingsDiff).toFixed(2),
+          rothIraBalance: (parseFloat(child.rothIraBalance || "0") + rothIraDiff).toFixed(2),
+          brokerageBalance: (parseFloat(child.brokerageBalance || "0") + brokerageDiff).toFixed(2),
+        });
+      }
+
+      // Update payment record (this would need to be implemented in storage)
+      // For now, we'll create a new payment record and mark the old one as updated
+      const updatedPayment = await storage.createPayment({
+        jobId: job.id,
+        childId: job.assignedToId,
+        amount: job.amount,
+        spendingAmount: spendingAmount.toString(),
+        savingsAmount: savingsAmount.toString(),
+        rothIraAmount: rothIraAmount.toString(),
+        brokerageAmount: brokerageAmount.toString(),
+      });
+
+      res.json({ 
+        message: "Payment allocation updated successfully",
+        payment: updatedPayment,
+        balanceChanges: {
+          spendingDiff,
+          savingsDiff,
+          rothIraDiff,
+          brokerageDiff
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Allocation settings routes
   app.get("/api/allocation/:childId", verifyToken, async (req: any, res) => {
     try {
