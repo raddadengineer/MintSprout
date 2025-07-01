@@ -589,13 +589,13 @@ export default function Jobs() {
       
       {/* Enhanced Edit Dialog */}
       <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>
               Edit Job {selectedJob?.status === "approved" ? "(Completed)" : ""}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto flex-1 pr-2">
             <div>
               <label className="block text-sm font-medium mb-2">Title</label>
               <Input 
@@ -734,7 +734,8 @@ export default function Jobs() {
               </div>
             )}
             
-            <div className="flex justify-end space-x-2 pt-4">
+          </div>
+          <div className="flex justify-end space-x-2 pt-4 border-t bg-white dark:bg-gray-800 mt-auto">
               <Button variant="outline" onClick={() => setShowEditModal(false)}>
                 Cancel
               </Button>
@@ -775,7 +776,6 @@ export default function Jobs() {
                 {(updateJobMutation.isPending || updatePaymentMutation.isPending) ? "Saving..." : 
                  editingPayment ? "Update Payment" : "Save Changes"}
               </Button>
-            </div>
           </div>
         </DialogContent>
       </Dialog>
