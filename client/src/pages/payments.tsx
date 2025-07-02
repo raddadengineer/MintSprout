@@ -19,6 +19,10 @@ export default function Payments() {
     enabled: !!user?.familyId,
   });
 
+  const { data: jobs } = useQuery({
+    queryKey: ["/api/jobs"],
+  });
+
   const child = dashboardData?.child;
   const isLoading = paymentsLoading || dashboardLoading;
 

@@ -257,13 +257,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         if (paymentAmounts) {
-          // Create payment record
-          const payment = await storage.createPayment({
-            jobId: job.id,
-            childId: job.assignedToId,
-            amount: job.amount,
-            ...paymentAmounts,
-          });
+          // Check if payment already exists for this job
+          const existingPayments = await storage.getPaymentsByFamily(req.user.familyId);
+          const existingPayment = existingPayments.find(p => p.jobId === job.id);
+          
+          if (!existingPayment) {
+            // Create payment record only if it doesn't exist
+            const payment = await storage.createPayment({
+              jobId: job.id,
+              childId: job.assignedToId,
+              amount: job.amount,
+              ...paymentAmounts,
+            });
+          }
 
           // Update child's balances, total earned, and completed jobs
           const child = await storage.getChild(job.assignedToId);
