@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,15 @@ export default function Jobs() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: jobs, isLoading } = useQuery({
+  // Force refresh all data on component mount to sync with database
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/dashboard-stats"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/children"] });
+  }, [queryClient]);
+
+  const { data: jobs, isLoading, refetch: refetchJobs } = useQuery({
     queryKey: ["/api/jobs"],
   });
 
