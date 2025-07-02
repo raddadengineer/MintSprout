@@ -127,6 +127,14 @@ export class PostgresStorage implements IStorage {
     return payments.filter(payment => childIds.includes(payment.childId));
   }
 
+  async updatePayment(id: number, updates: Partial<Payment>): Promise<Payment | undefined> {
+    const result = await db.update(schema.payments)
+      .set(updates)
+      .where(eq(schema.payments.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
   async createAllocationSettings(insertSettings: InsertAllocationSettings): Promise<AllocationSettings> {
     const result = await db.insert(schema.allocationSettings).values(insertSettings).returning();
     return result[0];

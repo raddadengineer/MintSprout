@@ -90,11 +90,12 @@ export default function Jobs() {
   const updatePaymentMutation = useMutation({
     mutationFn: ({ jobId, allocation }: { jobId: number; allocation: any }) =>
       apiRequest("PATCH", `/api/payments/job/${jobId}`, allocation),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard-stats"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/payments/job/${selectedJob?.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/payments/job/${variables.jobId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/children"] });
       toast({
         title: "Success!",
         description: "Payment allocation updated successfully",
