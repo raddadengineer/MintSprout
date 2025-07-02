@@ -235,9 +235,9 @@ export default function Jobs() {
               <h3 className="font-semibold text-gray-900">{job.title}</h3>
               <p className="text-sm text-gray-600">{job.description}</p>
               <div className="flex items-center space-x-4 mt-1">
-                <span className="text-xs text-gray-500 flex items-center">
-                  <User className="h-3 w-3 mr-1" />
-                  {getChildName(job.childId)}
+                <span className="text-sm text-gray-700 font-medium flex items-center">
+                  <User className="h-4 w-4 mr-1" />
+                  Assigned to: {getChildName(job.childId)}
                 </span>
                 <span className="text-xs text-gray-500 flex items-center">
                   <Calendar className="h-3 w-3 mr-1" />
@@ -529,9 +529,9 @@ export default function Jobs() {
                           <h4 className="font-medium text-gray-900">{job.title}</h4>
                           <p className="text-sm text-gray-600">{job.description}</p>
                           <div className="flex items-center space-x-4 mt-1">
-                            <span className="text-xs text-gray-500 flex items-center">
-                              <User className="h-3 w-3 mr-1" />
-                              {getChildName(job.childId)}
+                            <span className="text-sm text-gray-700 font-medium flex items-center">
+                              <User className="h-4 w-4 mr-1" />
+                              Assigned to: {getChildName(job.childId)}
                             </span>
                             <span className="text-xs text-gray-500 flex items-center">
                               <Calendar className="h-3 w-3 mr-1" />
