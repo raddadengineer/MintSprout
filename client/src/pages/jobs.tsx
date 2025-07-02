@@ -231,14 +231,16 @@ export default function Jobs() {
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center space-x-3">
             <JobIcon iconName={job.icon} className="h-6 w-6 text-gray-600" />
-            <div>
-              <h3 className="font-semibold text-gray-900">{job.title}</h3>
-              <p className="text-sm text-gray-600">{job.description}</p>
-              <div className="flex items-center space-x-4 mt-1">
-                <span className="text-sm text-gray-700 font-medium flex items-center">
-                  <User className="h-4 w-4 mr-1" />
-                  Assigned to: {getChildName(job.childId)}
-                </span>
+            <div className="flex-1">
+              <div className="flex items-start justify-between mb-2">
+                <h3 className="font-semibold text-gray-900">{job.title}</h3>
+                <div className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium flex items-center ml-2 shrink-0">
+                  <User className="h-3 w-3 mr-1" />
+                  {getChildName(job.childId)}
+                </div>
+              </div>
+              <p className="text-sm text-gray-600 mb-2">{job.description}</p>
+              <div className="flex items-center space-x-4">
                 <span className="text-xs text-gray-500 flex items-center">
                   <Calendar className="h-3 w-3 mr-1" />
                   {new Date(job.createdAt).toLocaleDateString()}
@@ -246,7 +248,7 @@ export default function Jobs() {
               </div>
             </div>
           </div>
-          <div className="text-right">
+          <div className="text-right ml-4">
             <div className="text-lg font-bold text-primary mb-1">
               ${parseFloat(job.amount).toFixed(2)}
             </div>
@@ -525,14 +527,16 @@ export default function Jobs() {
                           />
                         )}
                         <JobIcon iconName={job.icon} className="h-5 w-5 text-gray-500" />
-                        <div>
-                          <h4 className="font-medium text-gray-900">{job.title}</h4>
-                          <p className="text-sm text-gray-600">{job.description}</p>
-                          <div className="flex items-center space-x-4 mt-1">
-                            <span className="text-sm text-gray-700 font-medium flex items-center">
-                              <User className="h-4 w-4 mr-1" />
-                              Assigned to: {getChildName(job.childId)}
-                            </span>
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between mb-2">
+                            <h4 className="font-medium text-gray-900">{job.title}</h4>
+                            <div className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium flex items-center ml-2 shrink-0">
+                              <User className="h-3 w-3 mr-1" />
+                              {getChildName(job.childId)}
+                            </div>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-2">{job.description}</p>
+                          <div className="flex items-center space-x-4">
                             <span className="text-xs text-gray-500 flex items-center">
                               <Calendar className="h-3 w-3 mr-1" />
                               Completed {new Date(job.updatedAt || job.createdAt).toLocaleDateString()}
