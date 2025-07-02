@@ -64,9 +64,18 @@ export default function Jobs() {
   const updateJobMutation = useMutation({
     mutationFn: ({ id, ...data }: { id: number; [key: string]: any }) =>
       apiRequest("PATCH", `/api/jobs/${id}`, data),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      // When a job is approved, a payment is created, so invalidate all related data
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/children"] });
+      
+      // If job was approved, also invalidate payment-specific queries
+      if (variables.status === "approved") {
+        queryClient.invalidateQueries({ queryKey: [`/api/payments/job/${variables.id}`] });
+      }
+      
       toast({
         title: "Success!",
         description: "Job updated successfully",
@@ -91,11 +100,28 @@ export default function Jobs() {
     mutationFn: ({ jobId, allocation }: { jobId: number; allocation: any }) =>
       apiRequest("PATCH", `/api/payments/job/${jobId}`, allocation),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      // Invalidate all payment-related queries
       queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: [`/api/payments/job/${variables.jobId}`] });
+      
+      // Invalidate job data to update payment status
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      
+      // Invalidate dashboard stats to reflect new balances
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard-stats"] });
+      
+      // Invalidate children data to update total earned amounts
       queryClient.invalidateQueries({ queryKey: ["/api/children"] });
+      
+      // Invalidate family-level queries that aggregate payment data
+      queryClient.invalidateQueries({ queryKey: ["/api/family"] });
+      
+      // Invalidate any allocation-related queries
+      queryClient.invalidateQueries({ predicate: (query) => {
+        const firstKey = query.queryKey[0];
+        return firstKey ? firstKey.toString().includes('/api/allocation') : false;
+      }});
+      
       toast({
         title: "Success!",
         description: "Payment allocation updated successfully",

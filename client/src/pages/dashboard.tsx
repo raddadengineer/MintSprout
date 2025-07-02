@@ -32,9 +32,22 @@ export default function Dashboard() {
   const updateJobMutation = useMutation({
     mutationFn: ({ id, ...data }: { id: number; [key: string]: any }) =>
       apiRequest("PATCH", `/api/jobs/${id}`, data),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      // When a job is approved, a payment is created, so invalidate all related data
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/children"] });
+      
+      // If job was approved, also invalidate payment-specific queries
+      if (variables.status === "approved") {
+        queryClient.invalidateQueries({ queryKey: [`/api/payments/job/${variables.id}`] });
+        queryClient.invalidateQueries({ predicate: (query) => {
+          const firstKey = query.queryKey[0];
+          return firstKey ? firstKey.toString().includes('/api/allocation') : false;
+        }});
+      }
+      
       toast({
         title: "Success!",
         description: "Job updated successfully",
