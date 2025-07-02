@@ -300,6 +300,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Only parents can delete jobs" });
       }
 
+      // If job was approved, need to reverse the payment and update child balances
+      if (job.status === "approved") {
+        const payments = await storage.getPaymentsByFamily(req.user.familyId);
+        const jobPayment = payments.find(p => p.jobId === jobId);
+        
+        if (jobPayment) {
+          // Reverse the payment amounts from child balances
+          const child = await storage.getChild(job.assignedToId);
+          if (child) {
+            await storage.updateChild(job.assignedToId, {
+              totalEarned: (parseFloat(child.totalEarned || "0") - parseFloat(jobPayment.amount)).toFixed(2),
+              spendingBalance: (parseFloat(child.spendingBalance || "0") - parseFloat(jobPayment.spendingAmount)).toFixed(2),
+              savingsBalance: (parseFloat(child.savingsBalance || "0") - parseFloat(jobPayment.savingsAmount)).toFixed(2),
+              rothIraBalance: (parseFloat(child.rothIraBalance || "0") - parseFloat(jobPayment.rothIraAmount)).toFixed(2),
+              brokerageBalance: (parseFloat(child.brokerageBalance || "0") - parseFloat(jobPayment.brokerageAmount)).toFixed(2),
+              completedJobs: Math.max((child.completedJobs || 0) - 1, 0)
+            });
+          }
+        }
+      }
+
+      // Delete associated payments
+      await storage.deletePaymentsByJob(jobId);
+      
       const success = await storage.deleteJob(jobId);
       
       if (success) {

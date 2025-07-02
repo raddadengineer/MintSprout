@@ -47,7 +47,7 @@ export const jobs = pgTable("jobs", {
 
 export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),
-  jobId: integer("job_id").notNull(),
+  jobId: integer("job_id").notNull().unique(), // Ensure one payment per job
   childId: integer("child_id").notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   spendingAmount: decimal("spending_amount", { precision: 10, scale: 2 }).notNull(),
