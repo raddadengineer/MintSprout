@@ -157,22 +157,31 @@ export default function Payments() {
         <CardContent>
           {payments && payments.length > 0 ? (
             <div className="space-y-4">
-              {payments.map((payment: any) => (
+              {payments.map((payment: any) => {
+                const linkedJob = jobs?.find((job: any) => job.id === payment.jobId);
+                return (
                 <div
                   key={payment.id}
                   className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-center justify-between mb-3">
                     <div>
-                      <h3 className="font-medium text-gray-900">Job Payment</h3>
+                      <h3 className="font-medium text-gray-900">
+                        {linkedJob ? linkedJob.title : 'Job Payment'}
+                      </h3>
                       <p className="text-sm text-gray-600">
-                        {new Date(payment.createdAt).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
+                        {linkedJob && linkedJob.description && (
+                          <span className="block">{linkedJob.description}</span>
+                        )}
+                        <span className="text-xs text-gray-500">
+                          Payment received: {new Date(payment.createdAt).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
                       </p>
                     </div>
                     <Badge variant="secondary" className="bg-green-100 text-green-800">
@@ -210,7 +219,8 @@ export default function Payments() {
                     )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-8">
