@@ -6,8 +6,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { BookOpen, Video, Trophy, Star, CheckCircle, PlayCircle } from "lucide-react";
+import { BookOpen, Video, Trophy, Star, CheckCircle, PlayCircle, Gamepad2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import ElmoJarsActivity from "@/components/ElmoJarsActivity";
 
 const categories = [
   { id: "earning", name: "Earning", icon: "💰", color: "bg-green-500" },
@@ -26,6 +27,7 @@ export default function Learn() {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [quizScore, setQuizScore] = useState(0);
   const [showQuizResults, setShowQuizResults] = useState(false);
+  const [showElmoActivity, setShowElmoActivity] = useState(false);
 
   const { data: lessons = [], isLoading } = useQuery({
     queryKey: ["/api/lessons"],
@@ -133,12 +135,72 @@ export default function Learn() {
     );
   }
 
+  if (showElmoActivity) {
+    return (
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-6">
+          <Button 
+            variant="outline" 
+            onClick={() => setShowElmoActivity(false)}
+            className="mb-4"
+          >
+            ← Back to Learning
+          </Button>
+        </div>
+        <ElmoJarsActivity onComplete={() => {
+          // Mark the Elmo lesson as completed when activity is finished
+          const elmoLesson = Array.isArray(lessons) && lessons.find((l: any) => l.title.includes("Elmo"));
+          if (elmoLesson) {
+            markProgressMutation.mutate({
+              lessonId: elmoLesson.id,
+              completed: true,
+              quizScore: 100
+            });
+          }
+        }} />
+      </main>
+    );
+  }
+
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Learn About Money</h1>
         <p className="text-gray-600 text-lg">Discover the secrets of smart money management!</p>
       </div>
+
+      {/* Featured Interactive Activity */}
+      <Card className="mb-8 bg-gradient-to-r from-red-50 to-blue-50 border-2 border-red-200">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="text-4xl">🔴</div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 mb-1">
+                  NEW! Elmo's Spend, Share, and Save Jars
+                </h2>
+                <p className="text-gray-600 mb-2">
+                  Interactive activity perfect for ages 3-7! Learn with Elmo how to divide money into three special jars.
+                </p>
+                <div className="flex items-center space-x-2">
+                  <Badge variant="outline" className="bg-white">Ages 3-7</Badge>
+                  <Badge className="bg-red-500">Featured Activity</Badge>
+                  <Badge variant="outline" className="bg-white">15 minutes</Badge>
+                </div>
+              </div>
+            </div>
+            <div className="text-center">
+              <Button 
+                onClick={() => setShowElmoActivity(true)}
+                className="bg-red-500 hover:bg-red-600 text-white px-6 py-3"
+              >
+                <Gamepad2 className="h-4 w-4 mr-2" />
+                Start Activity
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="space-y-8">
         <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
@@ -235,14 +297,24 @@ export default function Learn() {
                         )}
 
                         <div className="space-y-3 pt-2">
-                          <Button
-                            className="w-full"
-                            onClick={() => startQuiz(lesson)}
-                            disabled={markProgressMutation.isPending}
-                          >
-                            <Trophy className="h-4 w-4 mr-2" />
-                            {isCompleted ? `Retake Quiz (${score}%)` : "Take Quiz"}
-                          </Button>
+                          {lesson.title.includes("Elmo") ? (
+                            <Button
+                              className="w-full bg-red-500 hover:bg-red-600"
+                              onClick={() => setShowElmoActivity(true)}
+                            >
+                              <Gamepad2 className="h-4 w-4 mr-2" />
+                              Start Interactive Activity
+                            </Button>
+                          ) : (
+                            <Button
+                              className="w-full"
+                              onClick={() => startQuiz(lesson)}
+                              disabled={markProgressMutation.isPending}
+                            >
+                              <Trophy className="h-4 w-4 mr-2" />
+                              {isCompleted ? `Retake Quiz (${score}%)` : "Take Quiz"}
+                            </Button>
+                          )}
                           
                           <div className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
                             <h4 className="font-semibold text-blue-800 mb-1 flex items-center">
