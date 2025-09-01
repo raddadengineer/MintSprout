@@ -350,6 +350,48 @@ export default function Learn() {
                               </p>
                             </div>
                           </div>
+                        ) : lesson.title.includes("Bert and Ernie") ? (
+                          <div className="space-y-3">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <span className="bg-purple-100 text-purple-800 text-xs font-semibold px-2 py-1 rounded">Ages 3–6</span>
+                              <span className="bg-green-100 text-green-800 text-xs font-semibold px-2 py-1 rounded">Spending Choices</span>
+                            </div>
+                            
+                            <p className="text-gray-700 leading-relaxed text-sm">
+                              During a trip to the grocery store, Bert teaches Ernie about the difference between wants (extra treats) and needs (things that keep us healthy, like vegetables). Understanding this helps kids make smart choices and prepare for decision-making later in life.
+                            </p>
+                            
+                            <div className="space-y-2">
+                              <h4 className="font-semibold text-blue-800 text-sm">The Big Idea:</h4>
+                              
+                              <div className="space-y-2">
+                                <div className="flex items-start space-x-2 p-2 bg-green-50 border-l-4 border-green-400 rounded">
+                                  <span className="text-lg">✅</span>
+                                  <div>
+                                    <span className="font-semibold text-green-800">NEEDS</span>
+                                    <span className="text-green-700 text-sm"> – Things we must have to live, stay healthy, and be safe (like food, water, shelter, clothes)</span>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex items-start space-x-2 p-2 bg-purple-50 border-l-4 border-purple-400 rounded">
+                                  <span className="text-lg">💭</span>
+                                  <div>
+                                    <span className="font-semibold text-purple-800">WANTS</span>
+                                    <span className="text-purple-700 text-sm"> – Things that would be nice to have but we can live without (like toys, candy, extra clothes)</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                              <h5 className="font-semibold text-blue-800 text-sm mb-2">Quick Activity:</h5>
+                              <div className="space-y-1 text-blue-700 text-sm">
+                                <p>• Sort items at home into WANTS and NEEDS piles</p>
+                                <p>• Ask: "If you only had money for one, which would you choose?"</p>
+                                <p>• Create a "Wants vs Needs" chart together</p>
+                              </div>
+                            </div>
+                          </div>
                         ) : (
                           <p className="text-gray-700 leading-relaxed text-sm">
                             {lesson.content}

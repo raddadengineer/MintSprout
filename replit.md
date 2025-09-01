@@ -142,6 +142,7 @@ The application uses a comprehensive schema with the following key entities:
 - June 30, 2025: Enhanced Money Allocation display to show only enabled account types - dashboard now dynamically renders allocation cards based on family account type settings, providing cleaner interface that shows only relevant financial categories configured by parents
 - June 30, 2025: Enhanced job assignment visibility - added prominent colored badges to job cards showing which child each job is assigned to, making it immediately clear for parents managing multiple children
 - September 1, 2025: Comprehensive learning page enhancement with interactive financial education - added "Elmo's Spend, Share, and Save Jars" interactive activity for ages 3-7, implemented full quiz system with 15+ questions across all financial categories, enhanced lesson content with age-appropriate explanations, added real-time progress tracking, and created engaging visual learning interface with completion badges and gamification elements
+- September 1, 2025: Added "Wants and Needs with Bert and Ernie" learning module - comprehensive spending education lesson for ages 3-6 featuring structured content with visual formatting, quiz questions, and practical activities to teach children the difference between wants and needs through Sesame Street characters
 
 ## User Preferences
 
