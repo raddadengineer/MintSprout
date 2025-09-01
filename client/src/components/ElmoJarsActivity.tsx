@@ -165,7 +165,7 @@ export default function ElmoJarsActivity({ onComplete }: ElmoJarsActivityProps) 
                 <h3 className="font-semibold text-blue-800 mb-2">🎬 Watch Elmo's Video First!</h3>
                 <div className="aspect-video rounded-lg overflow-hidden border border-gray-200">
                   <iframe
-                    src="https://www.youtube.com/embed/roeeYtf5XBA"
+                    src="https://www.youtube.com/embed/oqgtFqd8nHo?si=_vl4gasq1QfuvJLu"
                     title="Elmo's Spend, Share, and Save Jars"
                     className="w-full h-full"
                     frameBorder="0"
