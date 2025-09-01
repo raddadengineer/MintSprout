@@ -303,9 +303,58 @@ export default function Learn() {
                       </CardHeader>
                       
                       <CardContent className="space-y-4">
-                        <p className="text-gray-700 leading-relaxed text-sm">
-                          {lesson.content}
-                        </p>
+                        {lesson.title.includes("Elmo") ? (
+                          <div className="space-y-3">
+                            <p className="text-gray-700 leading-relaxed text-sm italic">
+                              Learn how to make smart choices with money alongside Elmo, Louie, and Abby! This lesson introduces three special jars that help kids understand the basics of spending, saving, and sharing in a fun, hands-on way.
+                            </p>
+                            
+                            <div className="space-y-2">
+                              <h4 className="font-semibold text-blue-800 text-sm">The Three Magic Jars:</h4>
+                              
+                              <div className="space-y-2">
+                                <div className="flex items-start space-x-2 p-2 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+                                  <span className="text-lg">🏺</span>
+                                  <div>
+                                    <span className="font-semibold text-yellow-800">SPEND Jar</span>
+                                    <span className="text-yellow-700 text-sm"> – Money for things you want to buy soon, like a toy or treat.</span>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex items-start space-x-2 p-2 bg-blue-50 border-l-4 border-blue-400 rounded">
+                                  <span className="text-lg">🐷</span>
+                                  <div>
+                                    <span className="font-semibold text-blue-800">SAVE Jar</span>
+                                    <span className="text-blue-700 text-sm"> – Money to keep for something special you want later, like a bike or game.</span>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex items-start space-x-2 p-2 bg-red-50 border-l-4 border-red-400 rounded">
+                                  <span className="text-lg">❤️</span>
+                                  <div>
+                                    <span className="font-semibold text-red-800">SHARE Jar</span>
+                                    <span className="text-red-700 text-sm"> – Money to help others or give gifts to people you care about.</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <p className="text-gray-700 text-sm">
+                              When you get money, you get to decide how much goes in each jar! There are no wrong choices – it's all about what matters to you.
+                            </p>
+                            
+                            <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
+                              <h5 className="font-semibold text-orange-800 text-sm mb-1">Fun Activity:</h5>
+                              <p className="text-orange-700 text-sm">
+                                Get three containers and decorate them with stickers and drawings. Practice putting play money or real coins into each jar and talk about what you might do with each type of money.
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-gray-700 leading-relaxed text-sm">
+                            {lesson.content}
+                          </p>
+                        )}
 
                         {lesson.videoUrl && (
                           <div className="space-y-2">
