@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { BookOpen, Video, Trophy, Star, CheckCircle, PlayCircle, Gamepad2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
 import ElmoJarsActivity from "@/components/ElmoJarsActivity";
 
 const categories = [
@@ -29,12 +30,31 @@ export default function Learn() {
   const [showQuizResults, setShowQuizResults] = useState(false);
   const [showElmoActivity, setShowElmoActivity] = useState(false);
 
+  const { user } = useAuth();
+
   const { data: lessons = [], isLoading } = useQuery({
     queryKey: ["/api/lessons"],
   });
 
+  const { data: children = [] } = useQuery({
+    queryKey: ["/api/children"],
+    enabled: user?.role === "parent",
+  });
+
+  // For parents, use the first child's ID, for children use their own progress
+  const firstChildId = children.length > 0 ? children[0].id : null;
+  
   const { data: learningProgress = [] } = useQuery({
-    queryKey: ["/api/learning-progress"],
+    queryKey: ["/api/learning-progress", firstChildId],
+    queryFn: () => {
+      if (user?.role === "parent" && firstChildId) {
+        return fetch(`/api/learning-progress?childId=${firstChildId}`).then(res => res.json());
+      } else if (user?.role === "child") {
+        return fetch("/api/learning-progress").then(res => res.json());
+      }
+      return [];
+    },
+    enabled: (user?.role === "parent" && !!firstChildId) || user?.role === "child",
   });
 
   const categoryLessons = Array.isArray(lessons) 
