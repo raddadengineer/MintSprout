@@ -80,7 +80,7 @@ export default function Learn() {
 
   const markProgressMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("/api/learning-progress", "POST", data);
+      return apiRequest("POST", "/api/learning-progress", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/learning-progress"] });
