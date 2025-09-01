@@ -305,7 +305,7 @@ export default function Learn() {
                       <CardContent className="space-y-4">
                         {lesson.title.includes("Elmo") ? (
                           <div className="space-y-3">
-                            <p className="text-gray-700 leading-relaxed text-sm italic">
+                            <p className="text-gray-700 leading-relaxed text-sm">
                               Learn how to make smart choices with money alongside Elmo, Louie, and Abby! This lesson introduces three special jars that help kids understand the basics of spending, saving, and sharing in a fun, hands-on way.
                             </p>
                             
