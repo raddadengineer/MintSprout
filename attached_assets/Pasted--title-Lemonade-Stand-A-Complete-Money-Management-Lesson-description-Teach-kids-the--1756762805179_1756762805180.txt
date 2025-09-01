@@ -1,0 +1,46 @@
+{
+  "title": "Lemonade Stand: A Complete Money Management Lesson",
+  "description": "Teach kids the basics of earning, spending, saving, and sharing money through a hands-on lemonade stand activity. This module includes planning, budgeting, sales tracking, and profit calculation.",
+  "sections": [
+    {
+      "title": "Introduction",
+      "content": "Running a lemonade stand is a fun way to learn about money. Kids will understand how to make choices about spending, saving, and sharing by managing their own mini-business."
+    },
+    {
+      "title": "Step 1: Planning Your Stand",
+      "content": "Decide where to set up your lemonade stand, how many cups to sell, pricing, and what supplies are needed. Include ingredients, cups, signs, and decorations."
+    },
+    {
+      "title": "Step 2: Budgeting Costs",
+      "content": "List all expenses such as lemons, sugar, water, cups, and ice. Calculate the total cost to understand the minimum earnings needed to cover expenses."
+    },
+    {
+      "title": "Step 3: Setting Prices",
+      "content": "Determine the price per cup. Consider costs and how much profit you want to make. Discuss how changing the price might affect sales."
+    },
+    {
+      "title": "Step 4: Selling Lemonade",
+      "content": "Set up your stand and sell lemonade. Track the number of cups sold, money received, and any discounts or free samples given."
+    },
+    {
+      "title": "Step 5: Calculating Profit",
+      "content": "Subtract total costs from total earnings to find profit. Discuss how to allocate earnings: how much to spend, save, and share."
+    },
+    {
+      "title": "Step 6: Reflecting on Lessons Learned",
+      "content": "Talk about what worked well and what could be improved. Consider pricing, location, marketing, and product quality."
+    },
+    {
+      "title": "Fun Activity: Mini Ledger",
+      "content": "Create a ledger to record daily sales, costs, and profit. Encourage kids to visualize growth, track goals, and make decisions based on their records."
+    },
+    {
+      "title": "Optional Extension: Sharing and Giving",
+      "content": "Decide together how to share some of the profits with a charity, friend, or community project. Reinforce the concept of sharing and giving."
+    },
+    {
+      "title": "Learning Outcomes",
+      "content": "By completing this module, kids will learn: budgeting and cost tracking, making spending decisions, calculating profit, saving and sharing money, and reflecting on business decisions."
+    }
+  ]
+}

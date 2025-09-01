@@ -397,6 +397,64 @@ export default function Learn() {
                               </div>
                             </div>
                           </div>
+                        ) : lesson.title.includes("Lemonade Stand") ? (
+                          <div className="space-y-3">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <span className="bg-yellow-100 text-yellow-800 text-xs font-semibold px-2 py-1 rounded">Ages 6–12</span>
+                              <span className="bg-green-100 text-green-800 text-xs font-semibold px-2 py-1 rounded">Complete Business Lesson</span>
+                            </div>
+                            
+                            <p className="text-gray-700 leading-relaxed text-sm">
+                              Teach kids the basics of earning, spending, saving, and sharing money through a hands-on lemonade stand activity. This module includes planning, budgeting, sales tracking, and profit calculation.
+                            </p>
+                            
+                            <div className="space-y-2">
+                              <h4 className="font-semibold text-green-800 text-sm">Business Steps:</h4>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                <div className="flex items-start space-x-2 p-2 bg-blue-50 border-l-4 border-blue-400 rounded">
+                                  <span className="text-sm font-bold text-blue-600">1.</span>
+                                  <div>
+                                    <span className="font-semibold text-blue-800 text-sm">Planning</span>
+                                    <p className="text-blue-700 text-xs">Location, supplies, pricing</p>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex items-start space-x-2 p-2 bg-purple-50 border-l-4 border-purple-400 rounded">
+                                  <span className="text-sm font-bold text-purple-600">2.</span>
+                                  <div>
+                                    <span className="font-semibold text-purple-800 text-sm">Budgeting</span>
+                                    <p className="text-purple-700 text-xs">Calculate all costs</p>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex items-start space-x-2 p-2 bg-orange-50 border-l-4 border-orange-400 rounded">
+                                  <span className="text-sm font-bold text-orange-600">3.</span>
+                                  <div>
+                                    <span className="font-semibold text-orange-800 text-sm">Pricing</span>
+                                    <p className="text-orange-700 text-xs">Set profitable prices</p>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex items-start space-x-2 p-2 bg-green-50 border-l-4 border-green-400 rounded">
+                                  <span className="text-sm font-bold text-green-600">4.</span>
+                                  <div>
+                                    <span className="font-semibold text-green-800 text-sm">Profit</span>
+                                    <p className="text-green-700 text-xs">Calculate earnings</p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                              <h5 className="font-semibold text-yellow-800 text-sm mb-2">Key Learning:</h5>
+                              <div className="space-y-1 text-yellow-700 text-sm">
+                                <p>• Track expenses and sales in a mini ledger</p>
+                                <p>• Learn to allocate profits: spend, save, and share</p>
+                                <p>• Reflect on business decisions and improvements</p>
+                              </div>
+                            </div>
+                          </div>
                         ) : (
                           <p className="text-gray-700 leading-relaxed text-sm">
                             {lesson.content}
