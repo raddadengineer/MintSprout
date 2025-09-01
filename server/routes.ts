@@ -660,6 +660,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Quiz routes
+  app.get("/api/quizzes/:lessonId", verifyToken, async (req: any, res) => {
+    try {
+      const lessonId = parseInt(req.params.lessonId);
+      const quizzes = await storage.getQuizzesByLesson(lessonId);
+      res.json(quizzes);
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/learning-progress", verifyToken, async (req: any, res) => {
+    try {
+      let childId;
+      
+      if (req.user.role === "child") {
+        // Find child ID for this user
+        const children = await storage.getChildrenByFamily(req.user.familyId);
+        const child = children.find(c => c.userId === req.user.id);
+        if (!child) {
+          return res.status(404).json({ message: "Child profile not found" });
+        }
+        childId = child.id;
+      } else {
+        return res.status(403).json({ message: "Only children can submit quiz progress" });
+      }
+
+      const { lessonId, completed, quizScore } = req.body;
+      
+      // Check if progress already exists
+      const existingProgress = await storage.getLearningProgress(childId);
+      const existing = existingProgress.find(p => p.lessonId === lessonId);
+      
+      if (existing) {
+        // Update existing progress
+        const updated = await storage.updateLearningProgress(childId, lessonId, {
+          completed: completed || existing.completed,
+          quizScore: quizScore !== undefined ? quizScore : existing.quizScore
+        });
+        res.json(updated);
+      } else {
+        // Create new progress
+        const progress = await storage.createLearningProgress({
+          childId,
+          lessonId,
+          completed: completed || false,
+          quizScore: quizScore || null
+        });
+        res.json(progress);
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Learning progress routes
   app.get("/api/learning-progress", verifyToken, async (req: any, res) => {
     try {

@@ -1,8 +1,13 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { BookOpen, Video, Trophy, Star, CheckCircle, PlayCircle } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 const categories = [
   { id: "earning", name: "Earning", icon: "💰", color: "bg-green-500" },
@@ -15,15 +20,101 @@ const categories = [
 export default function Learn() {
   const [selectedCategory, setSelectedCategory] = useState("earning");
   const [watchedVideos, setWatchedVideos] = useState<Set<number>>(new Set());
+  const [showQuiz, setShowQuiz] = useState(false);
+  const [selectedLesson, setSelectedLesson] = useState<any>(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+  const [quizScore, setQuizScore] = useState(0);
+  const [showQuizResults, setShowQuizResults] = useState(false);
 
-  const { data: lessons, isLoading } = useQuery({
+  const { data: lessons = [], isLoading } = useQuery({
     queryKey: ["/api/lessons"],
   });
 
-  const categoryLessons = lessons?.filter((lesson: any) => lesson.category === selectedCategory) || [];
+  const { data: learningProgress = [] } = useQuery({
+    queryKey: ["/api/learning-progress"],
+  });
+
+  const categoryLessons = Array.isArray(lessons) 
+    ? lessons.filter((lesson: any) => lesson.category === selectedCategory) 
+    : [];
+
+  const markProgressMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest("/api/learning-progress", "POST", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/learning-progress"] });
+    },
+  });
+
+  const { data: currentQuizzes = [] } = useQuery({
+    queryKey: ["/api/quizzes", selectedLesson?.id],
+    enabled: !!selectedLesson?.id,
+  });
 
   const handleVideoWatched = (lessonId: number) => {
-    setWatchedVideos(prev => new Set([...prev, lessonId]));
+    setWatchedVideos(prev => new Set(Array.from(prev).concat([lessonId])));
+  };
+
+  const startQuiz = (lesson: any) => {
+    setSelectedLesson(lesson);
+    setCurrentQuestionIndex(0);
+    setQuizScore(0);
+    setSelectedAnswer(null);
+    setShowQuizResults(false);
+    setShowQuiz(true);
+  };
+
+  const handleAnswerSelect = (answerIndex: number) => {
+    setSelectedAnswer(answerIndex);
+  };
+
+  const nextQuestion = () => {
+    if (selectedAnswer !== null && Array.isArray(currentQuizzes) && currentQuizzes.length > 0) {
+      const currentQuiz = currentQuizzes[currentQuestionIndex] as any;
+      const isCorrect = selectedAnswer === currentQuiz.correctAnswer - 1;
+      if (isCorrect) {
+        setQuizScore(prev => prev + 1);
+      }
+      
+      if (currentQuestionIndex < currentQuizzes.length - 1) {
+        setCurrentQuestionIndex(prev => prev + 1);
+        setSelectedAnswer(null);
+      } else {
+        // Quiz complete
+        const finalScore = quizScore + (isCorrect ? 1 : 0);
+        const percentage = Math.round((finalScore / currentQuizzes.length) * 100);
+        
+        markProgressMutation.mutate({
+          lessonId: selectedLesson.id,
+          completed: true,
+          quizScore: percentage
+        });
+        
+        setShowQuizResults(true);
+      }
+    }
+  };
+
+  const closeQuiz = () => {
+    setShowQuiz(false);
+    setSelectedLesson(null);
+    setCurrentQuestionIndex(0);
+    setQuizScore(0);
+    setSelectedAnswer(null);
+    setShowQuizResults(false);
+  };
+
+  const isLessonCompleted = (lessonId: number) => {
+    return Array.isArray(learningProgress) && 
+           learningProgress.some((p: any) => p.lessonId === lessonId && p.completed);
+  };
+
+  const getLessonScore = (lessonId: number) => {
+    const progress = Array.isArray(learningProgress) && 
+                    learningProgress.find((p: any) => p.lessonId === lessonId);
+    return progress?.quizScore || 0;
   };
 
   if (isLoading) {
@@ -85,58 +176,92 @@ export default function Learn() {
                   <p className="text-gray-500">No lessons available for this category yet.</p>
                 </div>
               ) : (
-                categoryLessons.map((lesson: any) => (
-                  <Card key={lesson.id} className="mint-card">
-                    <CardContent className="p-6">
-                      <h3 className="text-xl font-bold text-gray-900 mb-4">{lesson.title}</h3>
-                      
-                      <div className="mb-4">
-                        <p className="text-gray-700 leading-relaxed">{lesson.content}</p>
-                      </div>
-
-                      {lesson.videoUrl && (
-                        <div className="mb-4">
-                          <div className="aspect-video rounded-lg overflow-hidden border border-gray-200">
-                            <iframe
-                              src={lesson.videoUrl}
-                              title={lesson.title}
-                              className="w-full h-full"
-                              frameBorder="0"
-                              allowFullScreen
-                              onLoad={() => handleVideoWatched(lesson.id)}
-                            />
-                          </div>
-                          {watchedVideos.has(lesson.id) && (
-                            <div className="mt-2 flex items-center text-green-600 text-sm">
-                              <span className="mr-1">✅</span>
-                              Video watched!
-                            </div>
-                          )}
+                categoryLessons.map((lesson: any) => {
+                  const isCompleted = isLessonCompleted(lesson.id);
+                  const score = getLessonScore(lesson.id);
+                  
+                  return (
+                    <Card key={lesson.id} className="mint-card relative overflow-hidden">
+                      {isCompleted && (
+                        <div className="absolute top-3 right-3">
+                          <Badge className="bg-green-500 text-white">
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            {score}% Complete
+                          </Badge>
                         </div>
                       )}
+                      
+                      <CardHeader>
+                        <CardTitle className="flex items-center space-x-2">
+                          <BookOpen className="h-5 w-5 text-primary" />
+                          <span>{lesson.title}</span>
+                        </CardTitle>
+                      </CardHeader>
+                      
+                      <CardContent className="space-y-4">
+                        <p className="text-gray-700 leading-relaxed text-sm">
+                          {lesson.content}
+                        </p>
 
-                      <div className="space-y-3">
-                        <Button
-                          className="w-full mint-primary"
-                          onClick={() => handleVideoWatched(lesson.id)}
-                        >
-                          📝 Take Quiz
-                        </Button>
-                        
-                        <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                          <h4 className="font-semibold text-yellow-800 mb-1">💡 Fun Fact!</h4>
-                          <p className="text-yellow-700 text-sm">
-                            {category.id === "earning" && "Did you know? The first piggy banks were made of clay and shaped like pigs!"}
-                            {category.id === "saving" && "Albert Einstein called compound interest 'the eighth wonder of the world.'"}
-                            {category.id === "spending" && "The 50/30/20 rule suggests spending 50% on needs, 30% on wants, and saving 20%."}
-                            {category.id === "investing" && "If you invested $1 in the stock market 100 years ago, it would be worth over $1,000 today!"}
-                            {category.id === "donating" && "Studies show that giving to others makes us happier than spending on ourselves!"}
-                          </p>
+                        {lesson.videoUrl && (
+                          <div className="space-y-2">
+                            <div className="aspect-video rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center">
+                              {watchedVideos.has(lesson.id) ? (
+                                <iframe
+                                  src={lesson.videoUrl}
+                                  title={lesson.title}
+                                  className="w-full h-full"
+                                  frameBorder="0"
+                                  allowFullScreen
+                                />
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  onClick={() => handleVideoWatched(lesson.id)}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <PlayCircle className="h-5 w-5" />
+                                  <span>Watch Video</span>
+                                </Button>
+                              )}
+                            </div>
+                            {watchedVideos.has(lesson.id) && (
+                              <div className="flex items-center text-green-600 text-sm">
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                Video watched!
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="space-y-3 pt-2">
+                          <Button
+                            className="w-full"
+                            onClick={() => startQuiz(lesson)}
+                            disabled={markProgressMutation.isPending}
+                          >
+                            <Trophy className="h-4 w-4 mr-2" />
+                            {isCompleted ? `Retake Quiz (${score}%)` : "Take Quiz"}
+                          </Button>
+                          
+                          <div className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
+                            <h4 className="font-semibold text-blue-800 mb-1 flex items-center">
+                              <Star className="h-4 w-4 mr-1" />
+                              Fun Fact!
+                            </h4>
+                            <p className="text-blue-700 text-sm">
+                              {category.id === "earning" && "The first coins were made over 2,600 years ago in ancient Turkey!"}
+                              {category.id === "saving" && "If you save just $1 per day, you'll have $365 in a year - enough for something special!"}
+                              {category.id === "spending" && "The average person makes over 35,000 decisions per day - including many about money!"}
+                              {category.id === "investing" && "Warren Buffett bought his first stock at age 11 and wishes he had started even earlier!"}
+                              {category.id === "donating" && "Kids who learn to give early in life are happier and more successful as adults!"}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
+                      </CardContent>
+                    </Card>
+                  );
+                })
               )}
             </div>
           </TabsContent>
@@ -146,11 +271,21 @@ export default function Learn() {
       {/* Learning Progress */}
       <Card className="mint-card mt-8">
         <CardContent className="p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">🎯 Your Learning Progress</h3>
+          <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
+            <Trophy className="h-5 w-5 mr-2 text-primary" />
+            Your Learning Progress
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             {categories.map((category) => {
-              const categoryLessonsCount = lessons?.filter((l: any) => l.category === category.id).length || 0;
-              const completedCount = Math.floor(Math.random() * (categoryLessonsCount + 1)); // Simulated progress
+              const categoryLessonsCount = Array.isArray(lessons) 
+                ? lessons.filter((l: any) => l.category === category.id).length 
+                : 0;
+              const completedCount = Array.isArray(learningProgress) 
+                ? learningProgress.filter((p: any) => {
+                    const lesson = Array.isArray(lessons) && lessons.find((l: any) => l.id === p.lessonId);
+                    return lesson && lesson.category === category.id && p.completed;
+                  }).length 
+                : 0;
               const progress = categoryLessonsCount > 0 ? (completedCount / categoryLessonsCount) * 100 : 0;
               
               return (
@@ -172,6 +307,100 @@ export default function Learn() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Quiz Modal */}
+      <Dialog open={showQuiz} onOpenChange={setShowQuiz}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <Trophy className="h-5 w-5" />
+              <span>{selectedLesson?.title} Quiz</span>
+            </DialogTitle>
+          </DialogHeader>
+          
+          {!showQuizResults ? (
+            Array.isArray(currentQuizzes) && currentQuizzes.length > 0 ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between text-sm text-gray-600">
+                  <span>Question {currentQuestionIndex + 1} of {currentQuizzes.length}</span>
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: currentQuizzes.length }).map((_, i) => (
+                      <div
+                        key={i}
+                        className={`w-2 h-2 rounded-full ${
+                          i < currentQuestionIndex ? 'bg-green-500' : 
+                          i === currentQuestionIndex ? 'bg-blue-500' : 'bg-gray-300'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+                
+                <Progress value={((currentQuestionIndex + 1) / currentQuizzes.length) * 100} />
+                
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">
+                    {(currentQuizzes[currentQuestionIndex] as any)?.question}
+                  </h3>
+                  
+                  <div className="space-y-2">
+                    {(currentQuizzes[currentQuestionIndex] as any)?.options?.map((option: string, index: number) => (
+                      <Button
+                        key={index}
+                        variant={selectedAnswer === index ? "default" : "outline"}
+                        className="w-full text-left justify-start"
+                        onClick={() => handleAnswerSelect(index)}
+                      >
+                        {String.fromCharCode(65 + index)}. {option}
+                      </Button>
+                    ))}
+                  </div>
+                  
+                  <div className="flex justify-between mt-6">
+                    <Button variant="outline" onClick={closeQuiz}>
+                      Cancel
+                    </Button>
+                    <Button 
+                      onClick={nextQuestion}
+                      disabled={selectedAnswer === null}
+                    >
+                      {currentQuestionIndex < currentQuizzes.length - 1 ? "Next" : "Finish"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500">Loading quiz questions...</p>
+              </div>
+            )
+          ) : (
+            <div className="text-center space-y-4">
+              <div className="text-6xl">
+                {quizScore / (currentQuizzes as any[]).length >= 0.8 ? '🎉' : 
+                 quizScore / (currentQuizzes as any[]).length >= 0.6 ? '👏' : '💪'}
+              </div>
+              <h3 className="text-2xl font-bold">
+                Quiz Complete!
+              </h3>
+              <p className="text-lg">
+                You scored {quizScore} out of {(currentQuizzes as any[]).length} questions correct!
+              </p>
+              <div className="text-3xl font-bold text-primary">
+                {Math.round((quizScore / (currentQuizzes as any[]).length) * 100)}%
+              </div>
+              <p className="text-gray-600">
+                {quizScore / (currentQuizzes as any[]).length >= 0.8 ? "Excellent work! You really understand this topic!" :
+                 quizScore / (currentQuizzes as any[]).length >= 0.6 ? "Good job! You're getting the hang of it!" :
+                 "Keep practicing! You'll get better with more learning!"}
+              </p>
+              <Button onClick={closeQuiz} className="w-full">
+                Continue Learning
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
