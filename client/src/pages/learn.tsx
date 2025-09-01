@@ -527,10 +527,12 @@ export default function Learn() {
                             <Button
                               className="w-full"
                               onClick={() => startQuiz(lesson)}
-                              disabled={markProgressMutation.isPending}
+                              disabled={markProgressMutation.isPending || (lesson.videoUrl && !watchedVideos.has(lesson.id))}
                             >
                               <Trophy className="h-4 w-4 mr-2" />
-                              {isCompleted ? `Retake Quiz (${score}%)` : "Take Quiz"}
+                              {lesson.videoUrl && !watchedVideos.has(lesson.id) 
+                                ? "Watch Video First" 
+                                : isCompleted ? `Retake Quiz (${score}%)` : "Take Quiz"}
                             </Button>
                           )}
                           
