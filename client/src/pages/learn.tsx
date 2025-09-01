@@ -168,7 +168,6 @@ export default function Learn() {
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Learn About Money</h1>
         <p className="text-gray-600 text-lg">Discover the secrets of smart money management!</p>
       </div>
-
       {/* Featured Interactive Activity */}
       <Card className="mb-8 bg-gradient-to-r from-red-50 to-blue-50 border-2 border-red-200">
         <CardContent className="p-6">
@@ -201,7 +200,6 @@ export default function Learn() {
           </div>
         </CardContent>
       </Card>
-
       <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="space-y-8">
         <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
           {categories.map((category) => (
@@ -252,16 +250,14 @@ export default function Learn() {
                           </Badge>
                         </div>
                       )}
-                      
                       <CardHeader>
                         <CardTitle className="flex items-center space-x-2">
                           <BookOpen className="h-5 w-5 text-primary" />
                           <span>{lesson.title}</span>
                         </CardTitle>
                       </CardHeader>
-                      
                       <CardContent className="space-y-4">
-                        <p className="text-gray-700 leading-relaxed text-sm">
+                        <p className="text-gray-700 text-sm ml-[1px] mr-[1px]">
                           {lesson.content}
                         </p>
 
@@ -339,7 +335,6 @@ export default function Learn() {
           </TabsContent>
         ))}
       </Tabs>
-
       {/* Learning Progress */}
       <Card className="mint-card mt-8">
         <CardContent className="p-6">
@@ -379,7 +374,6 @@ export default function Learn() {
           </div>
         </CardContent>
       </Card>
-
       {/* Quiz Modal */}
       <Dialog open={showQuiz} onOpenChange={setShowQuiz}>
         <DialogContent className="sm:max-w-lg">
