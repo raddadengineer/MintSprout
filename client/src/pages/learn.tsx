@@ -42,17 +42,34 @@ export default function Learn() {
   });
 
   // For parents, use the first child's ID, for children use their own progress
-  const firstChildId = children.length > 0 ? children[0].id : null;
+  const firstChildId = Array.isArray(children) && children.length > 0 ? children[0].id : null;
   
   const { data: learningProgress = [] } = useQuery({
-    queryKey: ["/api/learning-progress", firstChildId],
-    queryFn: () => {
-      if (user?.role === "parent" && firstChildId) {
-        return fetch(`/api/learning-progress?childId=${firstChildId}`).then(res => res.json());
-      } else if (user?.role === "child") {
-        return fetch("/api/learning-progress").then(res => res.json());
+    queryKey: user?.role === "parent" ? ["/api/learning-progress", firstChildId] : ["/api/learning-progress"],
+    queryFn: async () => {
+      const token = localStorage.getItem("auth_token");
+      const headers: Record<string, string> = {};
+      
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
       }
-      return [];
+
+      let url = "/api/learning-progress";
+      if (user?.role === "parent" && firstChildId) {
+        url += `?childId=${firstChildId}`;
+      }
+
+      const res = await fetch(url, {
+        headers,
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text}`);
+      }
+
+      return await res.json();
     },
     enabled: (user?.role === "parent" && !!firstChildId) || user?.role === "child",
   });
