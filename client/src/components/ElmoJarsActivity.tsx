@@ -7,9 +7,10 @@ import { Coins, Heart, PiggyBank, ShoppingCart, Gift, Target, Users } from "luci
 
 interface ElmoJarsActivityProps {
   onComplete?: () => void;
+  onBackToLearning?: () => void;
 }
 
-export default function ElmoJarsActivity({ onComplete }: ElmoJarsActivityProps) {
+export default function ElmoJarsActivity({ onComplete, onBackToLearning }: ElmoJarsActivityProps) {
   const [totalMoney, setTotalMoney] = useState(10); // Starting with $10 for the activity
   const [spendJar, setSpendJar] = useState(0);
   const [saveJar, setSaveJar] = useState(0);
@@ -128,7 +129,7 @@ export default function ElmoJarsActivity({ onComplete }: ElmoJarsActivityProps) 
             <Button onClick={resetActivity} variant="outline" className="flex-1">
               Try Again
             </Button>
-            <Button onClick={() => setStep(0)} className="flex-1">
+            <Button onClick={onBackToLearning} className="flex-1">
               Continue Learning
             </Button>
           </div>

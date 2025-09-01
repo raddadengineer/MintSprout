@@ -184,17 +184,22 @@ export default function Learn() {
             ← Back to Learning
           </Button>
         </div>
-        <ElmoJarsActivity onComplete={() => {
-          // Mark the Elmo lesson as completed when activity is finished
-          const elmoLesson = Array.isArray(lessons) && lessons.find((l: any) => l.title.includes("Elmo"));
-          if (elmoLesson) {
-            markProgressMutation.mutate({
-              lessonId: elmoLesson.id,
-              completed: true,
-              quizScore: 100
-            });
-          }
-        }} />
+        <ElmoJarsActivity 
+          onComplete={() => {
+            // Only mark progress for child users, parents are just viewing
+            if (user?.role === "child") {
+              const elmoLesson = Array.isArray(lessons) && lessons.find((l: any) => l.title.includes("Elmo"));
+              if (elmoLesson) {
+                markProgressMutation.mutate({
+                  lessonId: elmoLesson.id,
+                  completed: true,
+                  quizScore: 100
+                });
+              }
+            }
+          }}
+          onBackToLearning={() => setShowElmoActivity(false)}
+        />
       </main>
     );
   }
