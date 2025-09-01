@@ -89,6 +89,28 @@ export default function Learn() {
 
   const { data: currentQuizzes = [] } = useQuery({
     queryKey: ["/api/quizzes", selectedLesson?.id],
+    queryFn: async () => {
+      if (!selectedLesson?.id) return [];
+      
+      const token = localStorage.getItem("auth_token");
+      const headers: Record<string, string> = {};
+      
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(`/api/quizzes/${selectedLesson.id}`, {
+        headers,
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text}`);
+      }
+
+      return await res.json();
+    },
     enabled: !!selectedLesson?.id,
   });
 
