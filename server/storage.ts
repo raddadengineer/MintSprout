@@ -190,34 +190,68 @@ export class MemStorage implements IStorage {
       brokerageEnabled: false
     });
 
-    // Create default lessons
-    await this.createLesson({
+    // Create default lessons + quizzes
+    const lesson1 = await this.createLesson({
       category: "earning",
       title: "How to Earn Money",
       content: "Money is earned by doing work and providing value to others. When you complete chores or help your family, you earn money as a reward for your hard work!",
-      videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      videoUrl: "https://www.youtube.com/embed/0iRbD5rM5qc",
       isCustom: false,
       familyId: undefined
     });
+    await this.createQuiz({ lessonId: lesson1.id, question: "What does it mean to EARN money?", options: ["Finding money on the ground", "Getting money for doing work or a job", "Borrowing money from a friend", "Printing your own money"], correctAnswer: 1 });
+    await this.createQuiz({ lessonId: lesson1.id, question: "Which is a good example of earning money?", options: ["Wishing for money", "Doing your chores to get your allowance", "Taking money without asking", "Winning a prize every day"], correctAnswer: 1 });
+    await this.createQuiz({ lessonId: lesson1.id, question: "Why is earning money important?", options: ["So you can buy everything you see", "So you never have to go to school", "So you can pay for things you need and save for goals", "So adults leave you alone"], correctAnswer: 2 });
 
-    await this.createLesson({
+    const lesson2 = await this.createLesson({
       category: "saving",
       title: "Why Save Money?",
       content: "Saving money means keeping some of your earnings for later. It's like planting seeds that will grow into bigger plants! When you save money, you can buy bigger things you want in the future.",
-      videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      videoUrl: "https://www.youtube.com/embed/oqgtFqd8nHo",
       isCustom: false,
       familyId: undefined
     });
+    await this.createQuiz({ lessonId: lesson2.id, question: "What does saving money mean?", options: ["Spending all your money right away", "Keeping some money for later", "Giving all your money away", "Hiding money under your bed forever"], correctAnswer: 1 });
+    await this.createQuiz({ lessonId: lesson2.id, question: "If Emma earns $10 and saves $3, how much did she save?", options: ["$10", "$7", "$3", "$13"], correctAnswer: 2 });
+    await this.createQuiz({ lessonId: lesson2.id, question: "Which is the BEST reason to save money?", options: ["To never spend any money again", "So you can buy something special you want later", "To make your piggy bank look full", "Because adults told you to"], correctAnswer: 1 });
 
-    await this.createLesson({
+    const lesson3 = await this.createLesson({
       category: "spending",
       title: "Smart Spending",
       content: "Spending money wisely means thinking before you buy. Ask yourself: Do I really need this? Will it make me happy for a long time? Smart spending helps you get the most value from your money!",
-      videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      videoUrl: "https://www.youtube.com/embed/6OAqNtueu0U",
       isCustom: false,
       familyId: undefined
     });
+    await this.createQuiz({ lessonId: lesson3.id, question: "What is the difference between a NEED and a WANT?", options: ["They are exactly the same thing", "A need is something required to live; a want is something extra", "A want is more important than a need", "Needs cost more than wants"], correctAnswer: 1 });
+    await this.createQuiz({ lessonId: lesson3.id, question: "Which is a NEED?", options: ["A new video game", "A pair of shoes to wear to school", "A toy from the store", "A second bicycle"], correctAnswer: 1 });
+    await this.createQuiz({ lessonId: lesson3.id, question: "Jake has $5. A snack costs $2 and a toy costs $6. What should Jake do first?", options: ["Buy the toy by borrowing money", "Buy the snack since he can afford it", "Spend nothing and keep all $5", "Ask for more money immediately"], correctAnswer: 1 });
+
+    const lesson4 = await this.createLesson({
+      category: "investing",
+      title: "Growing Your Money",
+      content: "Investing is like planting a money tree! When you invest, you put your money to work so it can grow over time. The earlier you start, the more your money can grow!",
+      videoUrl: "https://www.youtube.com/embed/jTW777ENc3c",
+      isCustom: false,
+      familyId: undefined
+    });
+    await this.createQuiz({ lessonId: lesson4.id, question: "What does investing mean?", options: ["Spending all your money at once", "Putting money to work so it can grow over time", "Giving money to a friend to hold", "Spending money on food"], correctAnswer: 1 });
+    await this.createQuiz({ lessonId: lesson4.id, question: "Why is it better to start investing EARLY?", options: ["Because you get a trophy", "Because the earlier you start, the more time your money has to grow", "Because older people are not allowed to invest", "It does not matter when you start"], correctAnswer: 1 });
+    await this.createQuiz({ lessonId: lesson4.id, question: "Investing is like…", options: ["Throwing money in a trash can", "Planting a seed that grows into a tree", "Spending money at the store", "Keeping money under your mattress"], correctAnswer: 1 });
+
+    const lesson5 = await this.createLesson({
+      category: "donating",
+      title: "Sharing is Caring",
+      content: "Donating means giving some of your money to help others. It feels good to help people in need and makes the world a better place!",
+      videoUrl: "https://www.youtube.com/embed/BbYRAK_eCvo",
+      isCustom: false,
+      familyId: undefined
+    });
+    await this.createQuiz({ lessonId: lesson5.id, question: "What does it mean to donate?", options: ["To loan money and expect it back", "To give some of your money or things to help others", "To spend money on yourself", "To save money in a bank"], correctAnswer: 1 });
+    await this.createQuiz({ lessonId: lesson5.id, question: "Why do people donate to charity?", options: ["To get more allowance", "To help others and make the world a better place", "Because they have too much money", "To buy things for themselves"], correctAnswer: 1 });
+    await this.createQuiz({ lessonId: lesson5.id, question: "Which of these is a way to donate?", options: ["Spending money on candy", "Giving food to a food bank", "Buying the newest game", "Saving money for a bike"], correctAnswer: 1 });
   }
+
 
   // Auth methods
   async getUserByUsername(username: string): Promise<User | undefined> {

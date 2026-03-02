@@ -214,3 +214,110 @@ INSERT INTO lessons (category, title, content, video_url, is_custom, family_id) 
     ('donating', 'Donating Strategically', 'Did you know you can research charities before donating? Websites like Charity Navigator show how well organizations use their donations. A strategic donor asks: Does this charity use money efficiently? What is their impact? Strategic giving makes your dollars go even further!', 'https://www.youtube.com/embed/osCUTGkKVRg', FALSE, NULL),
     ('investing', 'Roth IRA for Kids — Tax-Free Future', 'A Roth IRA is a special retirement account with a huge bonus: the money grows TAX-FREE! If you earn money from chores, you can contribute to a custodial Roth IRA. If you invest $1,000 at age 13 and leave it until age 65, it could grow to over $88,000 — all tax free!', 'https://www.youtube.com/embed/3bruQxLmGvY', FALSE, NULL)
 ON CONFLICT DO NOTHING;
+
+-- ─── Quiz Questions ────────────────────────────────────────────────────────
+-- 3 questions per lesson, referenced by lesson insertion order (lessons 1-17).
+-- NOTE: lesson_id values assume sequential inserts starting at 1.
+-- If your DB already has lessons, adjust the lesson_id numbers accordingly.
+
+-- Lesson 1: How to Earn Money
+INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
+    (1, 'What does it mean to EARN money?', ARRAY['Finding money on the ground', 'Getting money for doing work or a job', 'Borrowing money from a friend', 'Printing your own money'], 1),
+    (1, 'Which of these is a good example of earning money?', ARRAY['Wishing for money', 'Doing your chores to get your allowance', 'Taking money without asking', 'Winning a prize every day'], 1),
+    (1, 'Why is earning money important?', ARRAY['So you can buy everything you see', 'So you never have to go to school', 'So you can pay for things you need and save for goals', 'So adults leave you alone'], 2);
+
+-- Lesson 2: Why Save Money?
+INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
+    (2, 'What does saving money mean?', ARRAY['Spending all your money right away', 'Keeping some money for later', 'Giving all your money away', 'Hiding money under your bed forever'], 1),
+    (2, 'If Emma earns $10 and saves $3, how much did she save?', ARRAY['$10', '$7', '$3', '$13'], 2),
+    (2, 'Which is the BEST reason to save money?', ARRAY['To never spend any money again', 'So you can buy something special you want later', 'To make your piggy bank look full', 'Because adults told you to'], 1);
+
+-- Lesson 3: Smart Spending
+INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
+    (3, 'What is the difference between a NEED and a WANT?', ARRAY['They are exactly the same thing', 'A need is something required to live; a want is something extra you would like', 'A want is more important than a need', 'Needs cost more than wants'], 1),
+    (3, 'Which is a NEED?', ARRAY['A new video game', 'A pair of shoes to wear to school', 'A toy from the store', 'A second bicycle'], 1),
+    (3, 'Jake has $5. A snack costs $2 and a toy costs $6. What should Jake do first?', ARRAY['Buy the toy by borrowing money', 'Buy the snack since he can afford it', 'Spend nothing and keep all $5 in the jar', 'Ask for more money immediately'], 1);
+
+-- Lesson 4: Growing Your Money (Investing intro)
+INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
+    (4, 'What does investing mean?', ARRAY['Spending all your money at once', 'Putting money to work so it can grow over time', 'Giving money to a friend to hold', 'Spending money on food'], 1),
+    (4, 'Why is it better to start investing EARLY?', ARRAY['Because you get a trophy', 'Because the earlier you start, the more time your money has to grow', 'Because older people are not allowed to invest', 'It does not matter when you start'], 1),
+    (4, 'Investing is like…', ARRAY['Throwing money in a trash can', 'Planting a seed that grows into a tree', 'Spending money at the store', 'Keeping money under your mattress'], 1);
+
+-- Lesson 5: Sharing is Caring (Donating intro)
+INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
+    (5, 'What does it mean to donate?', ARRAY['To loan money and expect it back', 'To give some of your money or things to help others', 'To spend money on yourself', 'To save money in a bank'], 1),
+    (5, 'Why do people donate to charity?', ARRAY['To get more allowance', 'To help others and make the world a better place', 'Because they have too much money', 'To buy things for themselves'], 1),
+    (5, 'Which of these is a way to donate?', ARRAY['Spending money on candy', 'Giving food to a food bank', 'Buying the newest game', 'Saving money for a bike'], 1);
+
+-- Lesson 6: Making Change — Coin Math
+INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
+    (6, 'How many cents is a quarter worth?', ARRAY['10 cents', '5 cents', '25 cents', '50 cents'], 2),
+    (6, 'You buy a snack for 30 cents and pay with 2 quarters. How much change do you get back?', ARRAY['10 cents', '20 cents', '30 cents', '5 cents'], 1),
+    (6, 'Which coins add up to exactly 50 cents?', ARRAY['5 dimes', '1 quarter and 3 nickels', '2 quarters', 'All of the above'], 3);
+
+-- Lesson 7: Why We Save — The Magic of Goals
+INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
+    (7, 'What is a savings GOAL?', ARRAY['A rule that says you must spend all your money', 'A specific thing you want to save up enough money to buy or do', 'A game you play with coins', 'A type of bank account'], 1),
+    (7, 'Emma wants a bike that costs $40. She saves $5 each week. How many weeks will it take her?', ARRAY['4 weeks', '8 weeks', '10 weeks', '6 weeks'], 1),
+    (7, 'What happens to your savings jar each time you add money?', ARRAY['It gets smaller', 'It stays the same', 'It grows bigger toward your goal', 'The money disappears'], 2);
+
+-- Lesson 8: Earning More Ways
+INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
+    (8, 'Which of these is a creative way a kid can earn money?', ARRAY['Printing fake money', 'Setting up a lemonade stand', 'Taking money from a parent''s wallet without asking', 'Waiting for money to appear'], 1),
+    (8, 'What does it mean to be an entrepreneur?', ARRAY['Someone who spends all their money', 'A person who starts their own small business to earn money', 'A person who goes to school', 'Someone who never works'], 1),
+    (8, 'If you sell 10 cups of lemonade for $1 each, how much do you earn?', ARRAY['$1', '$5', '$10', '$100'], 2);
+
+-- Lesson 9: Giving Goals — Pick a Cause
+INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
+    (9, 'What is a "cause" when it comes to donating?', ARRAY['A type of coin', 'An important issue or group that your donation helps', 'A savings jar label', 'A chore you have to do'], 1),
+    (9, 'Which is a good example of a cause you could support?', ARRAY['Buying yourself a new toy', 'Helping provide food for kids who need it', 'Saving up for a video game', 'Spending money at a movie theater'], 1),
+    (9, 'Why should you pick a cause YOU care about when donating?', ARRAY['Because it doesn''t matter where your money goes', 'Because caring about a cause makes giving feel meaningful and motivating', 'So you can get the money back later', 'Because all charities are the same'], 1);
+
+-- Lesson 10: Comparing Prices — Be a Smart Shopper
+INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
+    (10, 'Store A sells a book for $8. Store B sells the same book for $5. Which is the better deal?', ARRAY['Store A because it is bigger', 'Store B because it is cheaper', 'They are the same price', 'It depends on the color of the store'], 1),
+    (10, 'What does it mean to compare prices?', ARRAY['Buying the first thing you see', 'Looking at different prices for the same item to find the best deal', 'Only shopping at one store forever', 'Spending more money to get better quality always'], 1),
+    (10, 'Before spending your money, what is a good question to ask yourself?', ARRAY['Is this the first thing I saw?', 'Is there a cheaper option somewhere else?', 'Does this cost the most?', 'Should I buy two of these?'], 1);
+
+-- Lesson 11: Banking Basics — Your Money's Safe House
+INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
+    (11, 'What is a bank?', ARRAY['A place where you play games', 'A safe place to store your money that also helps it grow', 'A type of piggy bank', 'A store where you buy money'], 1),
+    (11, 'What is INTEREST in a savings account?', ARRAY['Something you have to pay the bank', 'Extra money the bank pays you just for keeping your money there', 'A fee for spending money', 'A type of loan'], 1),
+    (11, 'Why is keeping money in a bank safer than keeping it at home?', ARRAY['Banks are more colorful', 'Banks are insured and protected, so your money is guaranteed even if something goes wrong', 'Money grows faster at home', 'It isn''t safer — the bank can take your money'], 1);
+
+-- Lesson 12: Compound Interest — Money That Grows Itself
+INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
+    (12, 'What is compound interest?', ARRAY['Paying extra taxes on your money', 'Interest that earns interest — so your money grows faster and faster over time', 'A fee for using a credit card', 'Interest on a loan you owe'], 1),
+    (12, 'You put $100 in an account that earns 10% per year. After 1 year, how much do you have?', ARRAY['$90', '$100', '$110', '$200'], 2),
+    (12, 'Why is it smart to start saving and investing when you are YOUNG?', ARRAY['Because old people cannot save money', 'Because you have more time for compound interest to grow your money', 'Because young people pay no taxes', 'It makes no difference when you start'], 1);
+
+-- Lesson 13: What is a Stock?
+INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
+    (13, 'What is a stock?', ARRAY['A type of soup', 'A tiny piece of ownership in a company', 'A bank savings account', 'Money you borrow from someone'], 1),
+    (13, 'If the company you own shares in grows and does well, what happens to your stock?', ARRAY['It disappears', 'It loses all its value', 'Its value increases, so your investment grows', 'Nothing changes'], 2),
+    (13, 'Why do stocks sometimes go DOWN in value?', ARRAY['Because the company is celebrating', 'Because investors get bored', 'Because the company struggles, or the overall economy weakens', 'Because of the weather'], 2);
+
+-- Lesson 14: The 50/30/20 Rule
+INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
+    (14, 'In the 50/30/20 rule, what does the 50% go toward?', ARRAY['Wants like video games and movies', 'Needs like food, rent, and transportation', 'Savings and investing', 'Donating to charity'], 1),
+    (14, 'You earn $100. Using the 50/30/20 rule, how much should go to savings?', ARRAY['$50', '$30', '$20', '$10'], 2),
+    (14, 'What is the purpose of the 50/30/20 rule?', ARRAY['To make sure you spend all your money', 'To help you budget so you always have money for needs, wants, AND savings', 'To tell you which stores to shop at', 'To decide how much to donate only'], 1);
+
+-- Lesson 15: Good Debt vs Bad Debt
+INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
+    (15, 'Which is an example of GOOD debt?', ARRAY['Using a credit card to buy a luxury watch', 'Taking a student loan to pay for college so you can earn a higher salary', 'Borrowing money to buy candy', 'Buying a gaming system you cannot afford'], 1),
+    (15, 'Which is an example of BAD debt?', ARRAY['A mortgage to buy a home', 'A business loan to start a company', 'Borrowing money on a high-interest credit card to buy things you do not need', 'A student loan for education'], 2),
+    (15, 'What does it mean when a debt has HIGH interest?', ARRAY['You get more money back', 'You have to pay back a lot more than you borrowed', 'The bank is being nice to you', 'You borrowed money for a long time'], 1);
+
+-- Lesson 16: Donating Strategically
+INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
+    (16, 'What does it mean to donate STRATEGICALLY?', ARRAY['Giving money randomly to whoever asks', 'Researching charities to make sure your donation is used effectively', 'Only donating to famous organizations', 'Donating the largest possible amount no matter what'], 1),
+    (16, 'Charity Navigator is a website that helps you…', ARRAY['Play charity-themed video games', 'Evaluate how efficiently charities use donations', 'Find free coupons', 'Set up your own bank account'], 1),
+    (16, 'Before donating to a charity, what is a smart question to ask?', ARRAY['What color is their logo?', 'How do they use the money they receive and what impact do they have?', 'Are they on TV?', 'How many employees do they have?'], 1);
+
+-- Lesson 17: Roth IRA for Kids — Tax-Free Future
+INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
+    (17, 'What is a Roth IRA?', ARRAY['A type of checking account you use every day', 'A retirement savings account where your money grows tax-free', 'A loan from the government', 'A special type of stock'], 1),
+    (17, 'What is the BIG advantage of a Roth IRA compared to a regular savings account?', ARRAY['It has no limits on withdrawals', 'The money and all its growth is tax-free when you retire', 'The bank pays you every month for free', 'You can spend it on anything right away'], 1),
+    (17, 'To contribute to a Roth IRA as a kid, you need to have…', ARRAY['Your parents'' credit card', 'Earned income (money from a job or chores)', 'A college degree', 'At least $10,000 saved already'], 1);
