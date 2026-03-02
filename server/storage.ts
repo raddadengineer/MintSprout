@@ -1,7 +1,7 @@
 import {
-  families, users, children, jobs, payments, allocationSettings, accountTypes, lessons, quizzes, learningProgress, achievements,
-  type Family, type User, type Child, type Job, type Payment, type AllocationSettings, type AccountTypes, type Lesson, type Quiz, type LearningProgress, type Achievement,
-  type InsertFamily, type InsertUser, type InsertChild, type InsertJob, type InsertPayment, type InsertAllocationSettings, type InsertAccountTypes, type InsertLesson, type InsertQuiz, type InsertLearningProgress, type InsertAchievement
+  families, users, children, jobs, payments, allocationSettings, accountTypes, lessons, quizzes, learningProgress, achievements, savingsGoals, spendingLog, donations,
+  type Family, type User, type Child, type Job, type Payment, type AllocationSettings, type AccountTypes, type Lesson, type Quiz, type LearningProgress, type Achievement, type SavingsGoal, type SpendingLog, type Donation,
+  type InsertFamily, type InsertUser, type InsertChild, type InsertJob, type InsertPayment, type InsertAllocationSettings, type InsertAccountTypes, type InsertLesson, type InsertQuiz, type InsertLearningProgress, type InsertAchievement, type InsertSavingsGoal, type InsertSpendingLog, type InsertDonation
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 
@@ -9,18 +9,18 @@ export interface IStorage {
   // Auth
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  
+
   // Families
   createFamily(family: InsertFamily): Promise<Family>;
   getFamily(id: number): Promise<Family | undefined>;
-  
+
   // Children
   createChild(child: InsertChild): Promise<Child>;
   getChildrenByFamily(familyId: number): Promise<Child[]>;
   getChild(id: number): Promise<Child | undefined>;
   updateChild(id: number, updates: Partial<Child>): Promise<Child | undefined>;
   deleteChild(id: number): Promise<boolean>;
-  
+
   // Jobs
   createJob(job: InsertJob): Promise<Job>;
   getJobsByFamily(familyId: number): Promise<Job[]>;
@@ -28,41 +28,57 @@ export interface IStorage {
   getJob(id: number): Promise<Job | undefined>;
   updateJob(id: number, updates: Partial<Job>): Promise<Job | undefined>;
   deleteJob(id: number): Promise<boolean>;
-  
+
   // Payments
   createPayment(payment: InsertPayment): Promise<Payment>;
   getPaymentsByChild(childId: number): Promise<Payment[]>;
   getPaymentsByFamily(familyId: number): Promise<Payment[]>;
   updatePayment(id: number, updates: Partial<Payment>): Promise<Payment | undefined>;
   deletePaymentsByJob(jobId: number): Promise<boolean>;
-  
+
   // Allocation Settings
   createAllocationSettings(settings: InsertAllocationSettings): Promise<AllocationSettings>;
   getAllocationSettings(childId: number): Promise<AllocationSettings | undefined>;
   updateAllocationSettings(childId: number, settings: Partial<AllocationSettings>): Promise<AllocationSettings | undefined>;
-  
+
   // Account Types
   createAccountTypes(accountTypes: InsertAccountTypes): Promise<AccountTypes>;
   getAccountTypes(familyId: number): Promise<AccountTypes | undefined>;
   updateAccountTypes(familyId: number, accountTypes: Partial<AccountTypes>): Promise<AccountTypes | undefined>;
-  
+
   // Lessons
   createLesson(lesson: InsertLesson): Promise<Lesson>;
   getLessonsByCategory(category: string): Promise<Lesson[]>;
   getCustomLessons(familyId: number): Promise<Lesson[]>;
-  
+
   // Quizzes
   createQuiz(quiz: InsertQuiz): Promise<Quiz>;
   getQuizzesByLesson(lessonId: number): Promise<Quiz[]>;
-  
+
   // Learning Progress
   createLearningProgress(progress: InsertLearningProgress): Promise<LearningProgress>;
   getLearningProgress(childId: number): Promise<LearningProgress[]>;
   updateLearningProgress(childId: number, lessonId: number, updates: Partial<LearningProgress>): Promise<LearningProgress | undefined>;
-  
+
   // Achievements
   createAchievement(achievement: InsertAchievement): Promise<Achievement>;
   getAchievements(childId: number): Promise<Achievement[]>;
+
+  // Savings Goals
+  createSavingsGoal(goal: InsertSavingsGoal): Promise<SavingsGoal>;
+  getSavingsGoals(childId: number): Promise<SavingsGoal[]>;
+  updateSavingsGoal(id: number, updates: Partial<SavingsGoal>): Promise<SavingsGoal | undefined>;
+  deleteSavingsGoal(id: number): Promise<boolean>;
+
+  // Spending Log
+  createSpendingLog(entry: InsertSpendingLog): Promise<SpendingLog>;
+  getSpendingLog(childId: number): Promise<SpendingLog[]>;
+  deleteSpendingLog(id: number): Promise<boolean>;
+
+  // Donations
+  createDonation(donation: InsertDonation): Promise<Donation>;
+  getDonations(childId: number): Promise<Donation[]>;
+  deleteDonation(id: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -75,9 +91,12 @@ export class MemStorage implements IStorage {
   private accountTypes: Map<number, AccountTypes> = new Map();
   private lessons: Map<number, Lesson> = new Map();
   private quizzes: Map<number, Quiz> = new Map();
-  private learningProgress: Map<string, LearningProgress> = new Map(); // childId-lessonId as key
+  private learningProgress: Map<string, LearningProgress> = new Map();
   private achievements: Map<number, Achievement> = new Map();
-  
+  private savingsGoals: Map<number, SavingsGoal> = new Map();
+  private spendingLog: Map<number, SpendingLog> = new Map();
+  private donations: Map<number, Donation> = new Map();
+
   private currentFamilyId = 1;
   private currentUserId = 1;
   private currentChildId = 1;
@@ -89,6 +108,9 @@ export class MemStorage implements IStorage {
   private currentQuizId = 1;
   private currentProgressId = 1;
   private currentAchievementId = 1;
+  private currentSavingsGoalId = 1;
+  private currentSpendingLogId = 1;
+  private currentDonationId = 1;
 
   constructor() {
     this.initializeDefaultData();
@@ -97,7 +119,7 @@ export class MemStorage implements IStorage {
   private async initializeDefaultData() {
     // Create default family
     const family = await this.createFamily({ name: "Smith Family" });
-    
+
     // Create parent user
     const hashedPassword = await bcrypt.hash("password123", 10);
     const parent = await this.createUser({
@@ -246,7 +268,7 @@ export class MemStorage implements IStorage {
   async updateChild(id: number, updates: Partial<Child>): Promise<Child | undefined> {
     const child = this.children.get(id);
     if (!child) return undefined;
-    
+
     const updatedChild = { ...child, ...updates };
     this.children.set(id, updatedChild);
     return updatedChild;
@@ -283,7 +305,7 @@ export class MemStorage implements IStorage {
   async updateJob(id: number, updates: Partial<Job>): Promise<Job | undefined> {
     const job = this.jobs.get(id);
     if (!job) return undefined;
-    
+
     const updatedJob = { ...job, ...updates };
     this.jobs.set(id, updatedJob);
     return updatedJob;
@@ -318,7 +340,7 @@ export class MemStorage implements IStorage {
   async updatePayment(id: number, updates: Partial<Payment>): Promise<Payment | undefined> {
     const payment = this.payments.get(id);
     if (!payment) return undefined;
-    
+
     const updatedPayment = { ...payment, ...updates };
     this.payments.set(id, updatedPayment);
     return updatedPayment;
@@ -345,7 +367,7 @@ export class MemStorage implements IStorage {
   async updateAllocationSettings(childId: number, updates: Partial<AllocationSettings>): Promise<AllocationSettings | undefined> {
     const settings = Array.from(this.allocationSettings.values()).find(s => s.childId === childId);
     if (!settings) return undefined;
-    
+
     const updatedSettings = { ...settings, ...updates };
     this.allocationSettings.set(settings.id, updatedSettings);
     return updatedSettings;
@@ -366,7 +388,7 @@ export class MemStorage implements IStorage {
   async updateAccountTypes(familyId: number, updates: Partial<AccountTypes>): Promise<AccountTypes | undefined> {
     const accountTypes = Array.from(this.accountTypes.values()).find(at => at.familyId === familyId);
     if (!accountTypes) return undefined;
-    
+
     const updatedAccountTypes = { ...accountTypes, ...updates };
     this.accountTypes.set(accountTypes.id, updatedAccountTypes);
     return updatedAccountTypes;
@@ -417,7 +439,7 @@ export class MemStorage implements IStorage {
     const key = `${childId}-${lessonId}`;
     const progress = this.learningProgress.get(key);
     if (!progress) return undefined;
-    
+
     const updatedProgress = { ...progress, ...updates };
     this.learningProgress.set(key, updatedProgress);
     return updatedProgress;
@@ -437,6 +459,62 @@ export class MemStorage implements IStorage {
 
   async getAchievements(childId: number): Promise<Achievement[]> {
     return Array.from(this.achievements.values()).filter(achievement => achievement.childId === childId);
+  }
+
+  // Savings Goals
+  async createSavingsGoal(insertGoal: InsertSavingsGoal): Promise<SavingsGoal> {
+    const id = this.currentSavingsGoalId++;
+    const goal: SavingsGoal = { ...insertGoal, id, currentAmount: insertGoal.currentAmount ?? "0.00", completed: false, createdAt: new Date(), deadline: insertGoal.deadline ?? null };
+    this.savingsGoals.set(id, goal);
+    return goal;
+  }
+
+  async getSavingsGoals(childId: number): Promise<SavingsGoal[]> {
+    return Array.from(this.savingsGoals.values()).filter(g => g.childId === childId);
+  }
+
+  async updateSavingsGoal(id: number, updates: Partial<SavingsGoal>): Promise<SavingsGoal | undefined> {
+    const goal = this.savingsGoals.get(id);
+    if (!goal) return undefined;
+    const updated = { ...goal, ...updates };
+    this.savingsGoals.set(id, updated);
+    return updated;
+  }
+
+  async deleteSavingsGoal(id: number): Promise<boolean> {
+    return this.savingsGoals.delete(id);
+  }
+
+  // Spending Log
+  async createSpendingLog(insertEntry: InsertSpendingLog): Promise<SpendingLog> {
+    const id = this.currentSpendingLogId++;
+    const entry: SpendingLog = { ...insertEntry, id, createdAt: new Date() };
+    this.spendingLog.set(id, entry);
+    return entry;
+  }
+
+  async getSpendingLog(childId: number): Promise<SpendingLog[]> {
+    return Array.from(this.spendingLog.values()).filter(e => e.childId === childId);
+  }
+
+  async deleteSpendingLog(id: number): Promise<boolean> {
+    return this.spendingLog.delete(id);
+  }
+
+  // Donations
+  async createDonation(insertDonation: InsertDonation): Promise<Donation> {
+    const id = this.currentDonationId++;
+    const donation: Donation = { ...insertDonation, id, createdAt: new Date() };
+    this.donations.set(id, donation);
+    return donation;
+  }
+
+  async getDonations(childId: number): Promise<Donation[]> {
+    return Array.from(this.donations.values()).filter(d => d.childId === childId);
+  }
+
+  async deleteDonation(id: number): Promise<boolean> {
+    return this.donations.delete(id);
   }
 }
 

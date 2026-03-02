@@ -5,11 +5,11 @@ import bcrypt from "bcrypt";
 export async function initializeDatabase() {
   try {
     console.log("🔄 Initializing database...");
-    
+
     // Wait for database to be ready (important for Docker containers)
     let retries = 10;
     let connected = false;
-    
+
     while (retries > 0 && !connected) {
       connected = await testConnection();
       if (!connected) {
@@ -18,7 +18,7 @@ export async function initializeDatabase() {
         retries--;
       }
     }
-    
+
     if (!connected) {
       throw new Error("Database connection failed after multiple attempts");
     }

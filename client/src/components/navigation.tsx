@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useState } from "react";
+import { useState, createContext, useContext } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 interface Child {
@@ -17,6 +17,13 @@ interface Child {
   name: string;
   age: number;
 }
+
+// Context so other pages can read the selected child
+export const SelectedChildContext = createContext<{ selectedChildId: string; setSelectedChildId: (id: string) => void }>({
+  selectedChildId: "",
+  setSelectedChildId: () => { },
+});
+export const useSelectedChild = () => useContext(SelectedChildContext);
 
 export function Navigation() {
   const { user, logout } = useAuth();
@@ -36,154 +43,109 @@ export function Navigation() {
     return location === path || location.startsWith(path);
   };
 
-  return (
-    <nav className="bg-white shadow-sm border-b-2 border-primary/10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <div className="flex items-center space-x-4">
-            <div className="flex-shrink-0 flex items-center">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center mr-2">
-                <span className="text-white font-bold text-lg">🌱</span>
-              </div>
-              <h1 className="text-xl font-bold text-gray-900">MintSprout</h1>
-            </div>
-            
-            <div className="hidden md:block ml-8">
-              <div className="flex space-x-1">
-                <Link href="/dashboard">
-                  <Button
-                    variant={isActive("/dashboard") ? "default" : "ghost"}
-                    className={isActive("/dashboard") ? "mint-primary" : "text-gray-600 hover:text-primary"}
-                  >
-                    🏠 Dashboard
-                  </Button>
-                </Link>
-                <Link href="/jobs">
-                  <Button
-                    variant={isActive("/jobs") ? "default" : "ghost"}
-                    className={isActive("/jobs") ? "mint-primary" : "text-gray-600 hover:text-primary"}
-                  >
-                    ✅ Jobs
-                  </Button>
-                </Link>
-                <Link href="/payments">
-                  <Button
-                    variant={isActive("/payments") ? "default" : "ghost"}
-                    className={isActive("/payments") ? "mint-primary" : "text-gray-600 hover:text-primary"}
-                  >
-                    💰 Payments
-                  </Button>
-                </Link>
-                <Link href="/learn">
-                  <Button
-                    variant={isActive("/learn") ? "default" : "ghost"}
-                    className={isActive("/learn") ? "mint-primary" : "text-gray-600 hover:text-primary"}
-                  >
-                    🎓 Learn
-                  </Button>
-                </Link>
-                <Link href="/reports">
-                  <Button
-                    variant={isActive("/reports") ? "default" : "ghost"}
-                    className={isActive("/reports") ? "mint-primary" : "text-gray-600 hover:text-primary"}
-                  >
-                    📊 Reports
-                  </Button>
-                </Link>
-                {user?.role === "parent" && (
-                  <Link href="/family">
-                    <Button
-                      variant={isActive("/family") ? "default" : "ghost"}
-                      className={isActive("/family") ? "mint-primary" : "text-gray-600 hover:text-primary"}
-                    >
-                      👨‍👩‍👧‍👦 Family
-                    </Button>
-                  </Link>
-                )}
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            {user?.role === "parent" && children && (
-              <Select value={selectedChildId} onValueChange={setSelectedChildId}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Select child" />
-                </SelectTrigger>
-                <SelectContent>
-                  {children.map((child: Child) => (
-                    <SelectItem key={child.id} value={child.id.toString()}>
-                      {child.name} (Age {child.age})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            
-            <div className="flex items-center space-x-2">
-              <Avatar className="w-8 h-8">
-                <AvatarFallback className="bg-primary text-white font-medium">
-                  {getInitials(user?.name || "")}
-                </AvatarFallback>
-              </Avatar>
-              <span className="hidden md:block font-medium text-gray-700">{user?.name}</span>
-              <Button variant="ghost" onClick={logout} className="text-gray-600 hover:text-gray-800">
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+  const navItems: { href: string; icon: string; label: string }[] = [
+    { href: "/dashboard", icon: "🏠", label: "Home" },
+    { href: "/jobs", icon: "✅", label: "Jobs" },
+    { href: "/learn", icon: "🎓", label: "Learn" },
+    { href: "/payments", icon: "💰", label: "Money" },
+    { href: "/reports", icon: "📊", label: "Reports" },
+    ...(user?.role === "parent" ? [{ href: "/family", icon: "👨‍👩‍👧‍👦", label: "Family" }] : []),
+  ];
 
-      {/* Mobile Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
-        <div className="flex">
-          <Link href="/dashboard" className="flex-1">
-            <Button 
-              variant="ghost" 
-              className={`w-full h-16 flex flex-col items-center justify-center space-y-1 rounded-none hover:bg-gray-50 hover:text-gray-700 ${
-                isActive("/dashboard") ? "text-primary bg-primary/5" : "text-gray-400"
-              }`}
-            >
-              <span className="text-lg">🏠</span>
-              <span className="text-xs font-medium">Home</span>
-            </Button>
-          </Link>
-          <Link href="/jobs" className="flex-1">
-            <Button 
-              variant="ghost" 
-              className={`w-full h-16 flex flex-col items-center justify-center space-y-1 rounded-none hover:bg-gray-50 hover:text-gray-700 ${
-                isActive("/jobs") ? "text-primary bg-primary/5" : "text-gray-400"
-              }`}
-            >
-              <span className="text-lg">✅</span>
-              <span className="text-xs font-medium">Jobs</span>
-            </Button>
-          </Link>
-          <Link href="/learn" className="flex-1">
-            <Button 
-              variant="ghost" 
-              className={`w-full h-16 flex flex-col items-center justify-center space-y-1 rounded-none hover:bg-gray-50 hover:text-gray-700 ${
-                isActive("/learn") ? "text-primary bg-primary/5" : "text-gray-400"
-              }`}
-            >
-              <span className="text-lg">🎓</span>
-              <span className="text-xs font-medium">Learn</span>
-            </Button>
-          </Link>
-          <Link href="/reports" className="flex-1">
-            <Button 
-              variant="ghost" 
-              className={`w-full h-16 flex flex-col items-center justify-center space-y-1 rounded-none hover:bg-gray-50 hover:text-gray-700 ${
-                isActive("/reports") ? "text-primary bg-primary/5" : "text-gray-400"
-              }`}
-            >
-              <span className="text-lg">📊</span>
-              <span className="text-xs font-medium">Reports</span>
-            </Button>
-          </Link>
+  return (
+    <SelectedChildContext.Provider value={{ selectedChildId, setSelectedChildId }}>
+      <nav className="bg-white shadow-sm border-b-2 border-primary/10 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-4">
+              <div className="flex-shrink-0 flex items-center">
+                <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center mr-2 shadow-md">
+                  <span className="text-white font-black text-xl">🌱</span>
+                </div>
+                <h1 className="text-xl font-black text-gray-900">MintSprout</h1>
+              </div>
+
+              <div className="hidden md:block ml-8">
+                <div className="flex space-x-1">
+                  {navItems.map(({ href, icon, label }) => (
+                    <Link key={href} href={href}>
+                      <Button
+                        variant={isActive(href) ? "default" : "ghost"}
+                        className={`font-bold ${isActive(href) ? "mint-primary" : "text-gray-600 hover:text-primary"}`}
+                      >
+                        {icon} {label}
+                      </Button>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              {user?.role === "parent" && children && (
+                <Select value={selectedChildId} onValueChange={setSelectedChildId}>
+                  <SelectTrigger className="w-44 font-bold">
+                    <SelectValue placeholder="👶 Select child" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(children as Child[]).map((child: Child) => (
+                      <SelectItem key={child.id} value={child.id.toString()} className="font-medium">
+                        {child.name} (Age {child.age})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              <div className="flex items-center space-x-2">
+                <Avatar className="w-9 h-9 ring-2 ring-primary/30">
+                  <AvatarFallback className="bg-gradient-to-br from-green-400 to-green-600 text-white font-black text-sm">
+                    {getInitials(user?.name || "")}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="hidden md:block font-bold text-gray-700">{user?.name}</span>
+                <Button variant="ghost" onClick={logout} className="text-gray-500 hover:text-gray-800 font-bold text-sm">
+                  Logout
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    </nav>
+
+        {/* Mobile Bottom Navigation */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t-2 border-gray-100 z-50 shadow-lg">
+          <div className="flex">
+            {navItems.slice(0, 5).map(({ href, icon, label }) => (
+              <Link key={href} href={href} className="flex-1">
+                <Button
+                  variant="ghost"
+                  className={`w-full h-16 flex flex-col items-center justify-center space-y-1 rounded-none ${isActive(href)
+                    ? "text-primary bg-primary/5 font-black"
+                    : "text-gray-400 hover:text-gray-600 font-bold"
+                    }`}
+                >
+                  <span className="text-xl">{icon}</span>
+                  <span className="text-xs font-bold">{label}</span>
+                </Button>
+              </Link>
+            ))}
+            {user?.role === "parent" && (
+              <Link href="/family" className="flex-1">
+                <Button
+                  variant="ghost"
+                  className={`w-full h-16 flex flex-col items-center justify-center space-y-1 rounded-none ${isActive("/family")
+                    ? "text-primary bg-primary/5 font-black"
+                    : "text-gray-400 hover:text-gray-600 font-bold"
+                    }`}
+                >
+                  <span className="text-xl">👪</span>
+                  <span className="text-xs font-bold">Family</span>
+                </Button>
+              </Link>
+            )}
+          </div>
+        </div>
+      </nav>
+    </SelectedChildContext.Provider>
   );
 }

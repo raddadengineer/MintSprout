@@ -58,48 +58,86 @@
   }
 
   body {
-    @apply font-sans antialiased bg-gray-50 text-foreground;
+    @apply antialiased bg-gray-50 text-foreground;
+    font-family: 'Nunito', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
   }
 }
 
 @layer utilities {
   .mint-primary {
-    @apply bg-green-500 hover:bg-green-600 text-white;
+    @apply bg-green-500 hover:bg-green-600 text-white font-bold;
   }
   
   .mint-secondary {
-    @apply bg-blue-500 hover:bg-blue-600 text-white;
+    @apply bg-blue-500 hover:bg-blue-600 text-white font-bold;
   }
   
   .mint-accent {
-    @apply bg-yellow-500 hover:bg-yellow-600 text-white;
+    @apply bg-yellow-500 hover:bg-yellow-600 text-white font-bold;
   }
   
   .mint-card {
-    @apply bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow;
+    @apply bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200;
   }
   
   .mint-button {
-    @apply px-6 py-3 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105;
+    @apply px-6 py-3 rounded-xl font-bold transition-all duration-200 transform hover:scale-105 active:scale-95;
   }
   
   .mint-input {
-    @apply w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+    @apply w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent font-medium;
   }
   
   .mint-badge-assigned {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800;
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800;
   }
   
   .mint-badge-progress {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800;
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800;
   }
   
   .mint-badge-completed {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800;
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800;
   }
   
   .mint-badge-approved {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800;
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800;
   }
+
+  /* Kid-mode larger tap targets */
+  .kid-tap-target {
+    @apply min-h-[56px] min-w-[56px];
+  }
+
+  /* Celebration bounce */
+  .mint-bounce {
+    animation: mintBounce 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  }
+}
+
+@keyframes mintBounce {
+  0%, 100% { transform: scale(1); }
+  30% { transform: scale(1.15); }
+  60% { transform: scale(0.95); }
+  80% { transform: scale(1.05); }
+}
+
+@keyframes confettiFall {
+  0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(120vh) rotate(720deg); opacity: 0; }
+}
+
+.confetti-piece {
+  position: fixed;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  animation: confettiFall 2.5s ease-in forwards;
+  pointer-events: none;
+  z-index: 9999;
 }

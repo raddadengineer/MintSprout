@@ -196,13 +196,13 @@ export default function FamilyPage() {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const totalFamilyEarnings = children?.reduce((total: number, child: Child) => 
+  const totalFamilyEarnings = children?.reduce((total: number, child: Child) =>
     total + parseFloat(child.totalEarned || "0"), 0) || 0;
 
-  const totalActiveJobs = jobs?.filter((job: Job) => 
+  const totalActiveJobs = jobs?.filter((job: Job) =>
     job.status !== "approved").length || 0;
 
-  const totalCompletedJobs = jobs?.filter((job: Job) => 
+  const totalCompletedJobs = jobs?.filter((job: Job) =>
     job.status === "approved").length || 0;
 
   if (childrenLoading || jobsLoading || paymentsLoading) {
@@ -233,7 +233,7 @@ export default function FamilyPage() {
             <div className="text-2xl font-bold">{children?.length || 0}</div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Family Earnings</CardTitle>
@@ -311,8 +311,8 @@ export default function FamilyPage() {
                         <FormItem>
                           <FormLabel>Age</FormLabel>
                           <FormControl>
-                            <Input 
-                              type="number" 
+                            <Input
+                              type="number"
                               placeholder="Enter child's age"
                               {...field}
                               onChange={e => field.onChange(parseInt(e.target.value) || 0)}
@@ -323,16 +323,16 @@ export default function FamilyPage() {
                       )}
                     />
                     <div className="flex gap-2 pt-4">
-                      <Button 
-                        type="submit" 
+                      <Button
+                        type="submit"
                         disabled={createChildMutation.isPending || updateChildMutation.isPending}
                         className="flex-1"
                       >
                         {editingChild ? "Update Child" : "Add Child"}
                       </Button>
-                      <Button 
-                        type="button" 
-                        variant="outline" 
+                      <Button
+                        type="button"
+                        variant="outline"
                         onClick={() => {
                           setIsChildModalOpen(false);
                           setEditingChild(null);

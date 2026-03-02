@@ -10,7 +10,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 // Middleware to verify JWT token
 function verifyToken(req: any, res: any, next: any) {
   const token = req.headers.authorization?.split(' ')[1];
-  
+
   if (!token) {
     return res.status(401).json({ message: "No token provided" });
   }
@@ -29,7 +29,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = req.body;
-      
+
       const user = await storage.getUserByUsername(username);
       if (!user) {
         return res.status(401).json({ message: "Invalid credentials" });
@@ -58,7 +58,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-      
+
       res.json({ id: user.id, username: user.username, role: user.role, familyId: user.familyId, name: user.name });
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
@@ -136,7 +136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const childId = parseInt(req.params.id);
       const child = await storage.getChild(childId);
-      
+
       if (!child || child.familyId !== req.user.familyId) {
         return res.status(404).json({ message: "Child not found" });
       }
@@ -161,7 +161,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const childId = parseInt(req.params.id);
       const child = await storage.getChild(childId);
-      
+
       if (!child || child.familyId !== req.user.familyId) {
         return res.status(404).json({ message: "Child not found" });
       }
@@ -169,7 +169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Note: In a real app, you might want to archive instead of delete
       // This is a simplified implementation
       const success = await storage.deleteChild(childId);
-      
+
       if (success) {
         res.json({ message: "Child removed successfully" });
       } else {
@@ -224,13 +224,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const jobId = parseInt(req.params.id);
       const job = await storage.getJob(jobId);
-      
+
       if (!job || job.familyId !== req.user.familyId) {
         return res.status(404).json({ message: "Job not found" });
       }
 
       const updatedJob = await storage.updateJob(jobId, req.body);
-      
+
       // If job is approved, process payment
       if (req.body.status === "approved") {
         const amount = parseFloat(job.amount);
@@ -260,7 +260,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Check if payment already exists for this job
           const existingPayments = await storage.getPaymentsByFamily(req.user.familyId);
           const existingPayment = existingPayments.find(p => p.jobId === job.id);
-          
+
           if (!existingPayment) {
             // Create payment record only if it doesn't exist
             const payment = await storage.createPayment({
@@ -296,7 +296,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const jobId = parseInt(req.params.id);
       const job = await storage.getJob(jobId);
-      
+
       if (!job || job.familyId !== req.user.familyId) {
         return res.status(404).json({ message: "Job not found" });
       }
@@ -310,7 +310,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (job.status === "approved") {
         const payments = await storage.getPaymentsByFamily(req.user.familyId);
         const jobPayment = payments.find(p => p.jobId === jobId);
-        
+
         if (jobPayment) {
           // Reverse the payment amounts from child balances
           const child = await storage.getChild(job.assignedToId);
@@ -329,9 +329,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Delete associated payments
       await storage.deletePaymentsByJob(jobId);
-      
+
       const success = await storage.deleteJob(jobId);
-      
+
       if (success) {
         res.json({ message: "Job deleted successfully" });
       } else {
@@ -347,7 +347,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const jobId = parseInt(req.params.jobId);
       const job = await storage.getJob(jobId);
-      
+
       if (!job || job.familyId !== req.user.familyId) {
         return res.status(404).json({ message: "Job not found" });
       }
@@ -355,7 +355,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get all payments for the family and filter by jobId
       const payments = await storage.getPaymentsByFamily(req.user.familyId);
       const jobPayment = payments.find(p => p.jobId === jobId);
-      
+
       if (jobPayment) {
         res.json(jobPayment);
       } else {
@@ -371,7 +371,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const jobId = parseInt(req.params.jobId);
       const job = await storage.getJob(jobId);
-      
+
       if (!job || job.familyId !== req.user.familyId) {
         return res.status(404).json({ message: "Job not found" });
       }
@@ -387,20 +387,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get existing payment
       const payments = await storage.getPaymentsByFamily(req.user.familyId);
       const existingPayment = payments.find(p => p.jobId === jobId);
-      
+
       if (!existingPayment) {
         return res.status(404).json({ message: "Payment not found for this job" });
       }
 
       const { spendingAmount, savingsAmount, rothIraAmount, brokerageAmount } = req.body;
-      
+
       // Validate allocation totals match job amount
       const total = parseFloat(spendingAmount) + parseFloat(savingsAmount) + parseFloat(rothIraAmount) + parseFloat(brokerageAmount);
       const jobAmount = parseFloat(job.amount);
-      
+
       if (Math.abs(total - jobAmount) > 0.01) {
-        return res.status(400).json({ 
-          message: `Total allocation ($${total.toFixed(2)}) must equal job amount ($${jobAmount.toFixed(2)})` 
+        return res.status(400).json({
+          message: `Total allocation ($${total.toFixed(2)}) must equal job amount ($${jobAmount.toFixed(2)})`
         });
       }
 
@@ -429,7 +429,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         brokerageAmount: brokerageAmount.toString(),
       });
 
-      res.json({ 
+      res.json({
         message: "Payment allocation updated successfully",
         payment: updatedPayment,
         balanceChanges: {
@@ -450,7 +450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const childId = parseInt(req.params.childId);
       const child = await storage.getChild(childId);
-      
+
       if (!child || child.familyId !== req.user.familyId) {
         return res.status(404).json({ message: "Child not found" });
       }
@@ -470,7 +470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const childId = parseInt(req.params.childId);
       const child = await storage.getChild(childId);
-      
+
       if (!child || child.familyId !== req.user.familyId) {
         return res.status(404).json({ message: "Child not found" });
       }
@@ -478,10 +478,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Add childId to the request body for schema validation
       const requestData = { ...req.body, childId };
       const allocationData = insertAllocationSettingsSchema.parse(requestData);
-      
+
       // Validate percentages sum to 100
-      const total = (allocationData.spendingPercentage || 0) + (allocationData.savingsPercentage || 0) + 
-                   (allocationData.rothIraPercentage || 0) + (allocationData.brokeragePercentage || 0);
+      const total = (allocationData.spendingPercentage || 0) + (allocationData.savingsPercentage || 0) +
+        (allocationData.rothIraPercentage || 0) + (allocationData.brokeragePercentage || 0);
       if (total !== 100) {
         return res.status(400).json({ message: "Percentages must sum to 100" });
       }
@@ -497,7 +497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/account-types/:familyId", verifyToken, async (req: any, res) => {
     try {
       const familyId = parseInt(req.params.familyId);
-      
+
       // Verify user has access to this family
       if (req.user.familyId !== familyId) {
         return res.status(403).json({ message: "Access denied" });
@@ -515,7 +515,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         return res.json(defaultAccountTypes);
       }
-      
+
       res.json(accountTypes);
     } catch (error) {
       console.error('Account types GET error:', error);
@@ -526,9 +526,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/account-types/:familyId", verifyToken, async (req: any, res) => {
     try {
       const familyId = parseInt(req.params.familyId);
-      
+
       console.log('PUT account-types request:', { familyId, user: req.user, body: req.body });
-      
+
       // Only parents can update account types
       if (req.user.role !== "parent") {
         return res.status(403).json({ message: "Only parents can update account types" });
@@ -541,45 +541,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const accountTypesData = req.body;
       const updatedAccountTypes = await storage.updateAccountTypes(familyId, accountTypesData);
-      
+
       if (!updatedAccountTypes) {
         return res.status(404).json({ message: "Account types not found" });
       }
 
       // Update allocation settings for all children in the family when account types change
       const children = await storage.getChildrenByFamily(familyId);
-      
+
       for (const child of children) {
         // Get current allocation settings
         const currentAllocation = await storage.getAllocationSettings(child.id);
-        
+
         // Calculate enabled accounts and redistribute percentages
         const enabledAccounts = [];
         if (accountTypesData.spendingEnabled) enabledAccounts.push('spending');
         if (accountTypesData.savingsEnabled) enabledAccounts.push('savings');
         if (accountTypesData.rothIraEnabled) enabledAccounts.push('rothIra');
         if (accountTypesData.brokerageEnabled) enabledAccounts.push('brokerage');
-        
+
         if (enabledAccounts.length > 0) {
           // Calculate equal distribution
           const equalPercentage = Math.floor(100 / enabledAccounts.length);
           const remainder = 100 - (equalPercentage * enabledAccounts.length);
-          
+
           const newAllocation = {
-            spendingPercentage: accountTypesData.spendingEnabled 
-              ? equalPercentage + (enabledAccounts[0] === 'spending' ? remainder : 0) 
+            spendingPercentage: accountTypesData.spendingEnabled
+              ? equalPercentage + (enabledAccounts[0] === 'spending' ? remainder : 0)
               : 0,
-            savingsPercentage: accountTypesData.savingsEnabled 
-              ? equalPercentage + (enabledAccounts[0] === 'savings' ? remainder : 0) 
+            savingsPercentage: accountTypesData.savingsEnabled
+              ? equalPercentage + (enabledAccounts[0] === 'savings' ? remainder : 0)
               : 0,
-            rothIraPercentage: accountTypesData.rothIraEnabled 
-              ? equalPercentage + (enabledAccounts[0] === 'rothIra' ? remainder : 0) 
+            rothIraPercentage: accountTypesData.rothIraEnabled
+              ? equalPercentage + (enabledAccounts[0] === 'rothIra' ? remainder : 0)
               : 0,
-            brokeragePercentage: accountTypesData.brokerageEnabled 
-              ? equalPercentage + (enabledAccounts[0] === 'brokerage' ? remainder : 0) 
+            brokeragePercentage: accountTypesData.brokerageEnabled
+              ? equalPercentage + (enabledAccounts[0] === 'brokerage' ? remainder : 0)
               : 0,
           };
-          
+
           if (currentAllocation) {
             await storage.updateAllocationSettings(child.id, newAllocation);
           } else {
@@ -590,7 +590,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
       }
-      
+
       res.json(updatedAccountTypes);
     } catch (error) {
       console.error('Account types PUT error:', error);
@@ -624,7 +624,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { category } = req.query;
       let lessons;
-      
+
       if (category) {
         lessons = await storage.getLessonsByCategory(category as string);
       } else {
@@ -634,7 +634,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const customLessons = await storage.getCustomLessons(req.user.familyId);
         lessons = [...await Promise.all(defaultLessons), ...customLessons].flat();
       }
-      
+
       res.json(lessons);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
@@ -674,7 +674,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/learning-progress", verifyToken, async (req: any, res) => {
     try {
       let childId;
-      
+
       if (req.user.role === "child") {
         // Find child ID for this user
         const children = await storage.getChildrenByFamily(req.user.familyId);
@@ -688,11 +688,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { lessonId, completed, quizScore } = req.body;
-      
+
       // Check if progress already exists
       const existingProgress = await storage.getLearningProgress(childId);
       const existing = existingProgress.find(p => p.lessonId === lessonId);
-      
+
       if (existing) {
         // Update existing progress
         const updated = await storage.updateLearningProgress(childId, lessonId, {
@@ -719,7 +719,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/learning-progress", verifyToken, async (req: any, res) => {
     try {
       let childId;
-      
+
       if (req.user.role === "parent") {
         childId = req.query.childId ? parseInt(req.query.childId as string) : null;
         if (!childId) {
@@ -746,7 +746,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/achievements", verifyToken, async (req: any, res) => {
     try {
       let childId;
-      
+
       if (req.user.role === "parent") {
         childId = req.query.childId ? parseInt(req.query.childId as string) : null;
         if (!childId) {
@@ -773,7 +773,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/dashboard-stats", verifyToken, async (req: any, res) => {
     try {
       let childId;
-      
+
       if (req.user.role === "parent") {
         childId = req.query.childId ? parseInt(req.query.childId as string) : null;
         if (!childId) {
@@ -819,6 +819,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ─── SAVINGS GOALS ────────────────────────────────────────────────
+
+  // Helper to resolve child ID from authenticated user
+  async function resolveChildId(req: any): Promise<number | null> {
+    if (req.user.role === "parent") {
+      const children = await storage.getChildrenByFamily(req.user.familyId);
+      const childIdParam = req.query.childId ? parseInt(req.query.childId as string) : null;
+      return childIdParam ? children.find(c => c.id === childIdParam)?.id ?? null : children[0]?.id ?? null;
+    }
+    const children = await storage.getChildrenByFamily(req.user.familyId);
+    const child = children.find(c => c.userId === req.user.id);
+    return child?.id ?? null;
+  }
+
+  app.get("/api/savings-goals", verifyToken, async (req: any, res) => {
+    try {
+      const childId = await resolveChildId(req);
+      if (!childId) return res.status(404).json({ message: "Child not found" });
+      const goals = await storage.getSavingsGoals(childId);
+      res.json(goals);
+    } catch { res.status(500).json({ message: "Internal server error" }); }
+  });
+
+  app.post("/api/savings-goals", verifyToken, async (req: any, res) => {
+    try {
+      const childId = await resolveChildId(req);
+      if (!childId) return res.status(404).json({ message: "Child not found" });
+      const goal = await storage.createSavingsGoal({ ...req.body, childId });
+      res.json(goal);
+    } catch { res.status(500).json({ message: "Internal server error" }); }
+  });
+
+  app.patch("/api/savings-goals/:id", verifyToken, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const goal = await storage.updateSavingsGoal(id, req.body);
+      if (!goal) return res.status(404).json({ message: "Goal not found" });
+      res.json(goal);
+    } catch { res.status(500).json({ message: "Internal server error" }); }
+  });
+
+  app.delete("/api/savings-goals/:id", verifyToken, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteSavingsGoal(id);
+      res.json({ success: deleted });
+    } catch { res.status(500).json({ message: "Internal server error" }); }
+  });
+
+  // ─── SPENDING LOG ──────────────────────────────────────────────────
+
+  app.get("/api/spending-log", verifyToken, async (req: any, res) => {
+    try {
+      const childId = await resolveChildId(req);
+      if (!childId) return res.status(404).json({ message: "Child not found" });
+      const entries = await storage.getSpendingLog(childId);
+      res.json(entries);
+    } catch { res.status(500).json({ message: "Internal server error" }); }
+  });
+
+  app.post("/api/spending-log", verifyToken, async (req: any, res) => {
+    try {
+      const childId = await resolveChildId(req);
+      if (!childId) return res.status(404).json({ message: "Child not found" });
+      const entry = await storage.createSpendingLog({ ...req.body, childId });
+      res.json(entry);
+    } catch { res.status(500).json({ message: "Internal server error" }); }
+  });
+
+  app.delete("/api/spending-log/:id", verifyToken, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteSpendingLog(id);
+      res.json({ success: deleted });
+    } catch { res.status(500).json({ message: "Internal server error" }); }
+  });
+
+  // ─── DONATIONS ────────────────────────────────────────────────────
+
+  app.get("/api/donations", verifyToken, async (req: any, res) => {
+    try {
+      const childId = await resolveChildId(req);
+      if (!childId) return res.status(404).json({ message: "Child not found" });
+      const donations = await storage.getDonations(childId);
+      res.json(donations);
+    } catch { res.status(500).json({ message: "Internal server error" }); }
+  });
+
+  app.post("/api/donations", verifyToken, async (req: any, res) => {
+    try {
+      const childId = await resolveChildId(req);
+      if (!childId) return res.status(404).json({ message: "Child not found" });
+      const donation = await storage.createDonation({ ...req.body, childId });
+      res.json(donation);
+    } catch { res.status(500).json({ message: "Internal server error" }); }
+  });
+
+  app.delete("/api/donations/:id", verifyToken, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const deleted = await storage.deleteDonation(id);
+      res.json({ success: deleted });
+    } catch { res.status(500).json({ message: "Internal server error" }); }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
+

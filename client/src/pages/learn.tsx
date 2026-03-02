@@ -43,13 +43,13 @@ export default function Learn() {
 
   // For parents, use the first child's ID, for children use their own progress
   const firstChildId = Array.isArray(children) && children.length > 0 ? children[0].id : null;
-  
+
   const { data: learningProgress = [] } = useQuery({
     queryKey: user?.role === "parent" ? ["/api/learning-progress", firstChildId] : ["/api/learning-progress"],
     queryFn: async () => {
       const token = localStorage.getItem("auth_token");
       const headers: Record<string, string> = {};
-      
+
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
@@ -74,8 +74,8 @@ export default function Learn() {
     enabled: (user?.role === "parent" && !!firstChildId) || user?.role === "child",
   });
 
-  const categoryLessons = Array.isArray(lessons) 
-    ? lessons.filter((lesson: any) => lesson.category === selectedCategory) 
+  const categoryLessons = Array.isArray(lessons)
+    ? lessons.filter((lesson: any) => lesson.category === selectedCategory)
     : [];
 
   const markProgressMutation = useMutation({
@@ -91,10 +91,10 @@ export default function Learn() {
     queryKey: ["/api/quizzes", selectedLesson?.id],
     queryFn: async () => {
       if (!selectedLesson?.id) return [];
-      
+
       const token = localStorage.getItem("auth_token");
       const headers: Record<string, string> = {};
-      
+
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
@@ -138,7 +138,7 @@ export default function Learn() {
       if (isCorrect) {
         setQuizScore(prev => prev + 1);
       }
-      
+
       if (currentQuestionIndex < currentQuizzes.length - 1) {
         setCurrentQuestionIndex(prev => prev + 1);
         setSelectedAnswer(null);
@@ -146,13 +146,13 @@ export default function Learn() {
         // Quiz complete
         const finalScore = quizScore + (isCorrect ? 1 : 0);
         const percentage = Math.round((finalScore / currentQuizzes.length) * 100);
-        
+
         markProgressMutation.mutate({
           lessonId: selectedLesson.id,
           completed: true,
           quizScore: percentage
         });
-        
+
         setShowQuizResults(true);
       }
     }
@@ -168,13 +168,13 @@ export default function Learn() {
   };
 
   const isLessonCompleted = (lessonId: number) => {
-    return Array.isArray(learningProgress) && 
-           learningProgress.some((p: any) => p.lessonId === lessonId && p.completed);
+    return Array.isArray(learningProgress) &&
+      learningProgress.some((p: any) => p.lessonId === lessonId && p.completed);
   };
 
   const getLessonScore = (lessonId: number) => {
-    const progress = Array.isArray(learningProgress) && 
-                    learningProgress.find((p: any) => p.lessonId === lessonId);
+    const progress = Array.isArray(learningProgress) &&
+      learningProgress.find((p: any) => p.lessonId === lessonId);
     return progress?.quizScore || 0;
   };
 
@@ -198,15 +198,15 @@ export default function Learn() {
     return (
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => setShowElmoActivity(false)}
             className="mb-4"
           >
             ← Back to Learning
           </Button>
         </div>
-        <ElmoJarsActivity 
+        <ElmoJarsActivity
           onComplete={() => {
             // Only mark progress for child users, parents are just viewing
             if (user?.role === "child") {
@@ -254,7 +254,7 @@ export default function Learn() {
               </div>
             </div>
             <div className="text-center">
-              <Button 
+              <Button
                 onClick={() => setShowElmoActivity(true)}
                 className="bg-red-500 hover:bg-red-600 text-white px-6 py-3"
               >
@@ -305,7 +305,7 @@ export default function Learn() {
                 categoryLessons.map((lesson: any) => {
                   const isCompleted = isLessonCompleted(lesson.id);
                   const score = getLessonScore(lesson.id);
-                  
+
                   return (
                     <Card key={lesson.id} className="mint-card relative overflow-hidden">
                       {isCompleted && (
@@ -316,14 +316,14 @@ export default function Learn() {
                           </Badge>
                         </div>
                       )}
-                      
+
                       <CardHeader>
                         <CardTitle className="flex items-center space-x-2">
                           <BookOpen className="h-5 w-5 text-primary" />
                           <span>{lesson.title}</span>
                         </CardTitle>
                       </CardHeader>
-                      
+
                       <CardContent className="space-y-4">
                         {lesson.title.includes("Elmo") ? (
                           <div className="space-y-3">
@@ -331,14 +331,14 @@ export default function Learn() {
                               <span className="bg-red-100 text-red-800 text-xs font-semibold px-2 py-1 rounded">Ages 3–7</span>
                               <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-1 rounded">Saving & Spending</span>
                             </div>
-                            
+
                             <p className="text-gray-700 leading-relaxed text-sm">
                               Learn how to make smart choices with money alongside Elmo, Louie, and Abby! This lesson introduces three special jars that help kids understand the basics of spending, saving, and sharing in a fun, hands-on way.
                             </p>
-                            
+
                             <div className="space-y-2">
                               <h4 className="font-semibold text-blue-800 text-sm">The Three Magic Jars:</h4>
-                              
+
                               <div className="space-y-2">
                                 <div className="flex items-start space-x-2 p-2 bg-yellow-50 border-l-4 border-yellow-400 rounded">
                                   <span className="text-lg">🏺</span>
@@ -347,7 +347,7 @@ export default function Learn() {
                                     <span className="text-yellow-700 text-sm"> – Money for things you want to buy soon, like a toy or treat.</span>
                                   </div>
                                 </div>
-                                
+
                                 <div className="flex items-start space-x-2 p-2 bg-blue-50 border-l-4 border-blue-400 rounded">
                                   <span className="text-lg">🐷</span>
                                   <div>
@@ -355,7 +355,7 @@ export default function Learn() {
                                     <span className="text-blue-700 text-sm"> – Money to keep for something special you want later, like a bike or game.</span>
                                   </div>
                                 </div>
-                                
+
                                 <div className="flex items-start space-x-2 p-2 bg-red-50 border-l-4 border-red-400 rounded">
                                   <span className="text-lg">❤️</span>
                                   <div>
@@ -365,11 +365,11 @@ export default function Learn() {
                                 </div>
                               </div>
                             </div>
-                            
+
                             <p className="text-gray-700 text-sm">
                               When you get money, you get to decide how much goes in each jar! There are no wrong choices – it's all about what matters to you.
                             </p>
-                            
+
                             <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
                               <h5 className="font-semibold text-orange-800 text-sm mb-1">Fun Activity:</h5>
                               <p className="text-orange-700 text-sm">
@@ -383,14 +383,14 @@ export default function Learn() {
                               <span className="bg-purple-100 text-purple-800 text-xs font-semibold px-2 py-1 rounded">Ages 3–6</span>
                               <span className="bg-green-100 text-green-800 text-xs font-semibold px-2 py-1 rounded">Spending Choices</span>
                             </div>
-                            
+
                             <p className="text-gray-700 leading-relaxed text-sm">
                               During a trip to the grocery store, Bert teaches Ernie about the difference between wants (extra treats) and needs (things that keep us healthy, like vegetables). Understanding this helps kids make smart choices and prepare for decision-making later in life.
                             </p>
-                            
+
                             <div className="space-y-2">
                               <h4 className="font-semibold text-blue-800 text-sm">The Big Idea:</h4>
-                              
+
                               <div className="space-y-2">
                                 <div className="flex items-start space-x-2 p-2 bg-green-50 border-l-4 border-green-400 rounded">
                                   <span className="text-lg">✅</span>
@@ -399,7 +399,7 @@ export default function Learn() {
                                     <span className="text-green-700 text-sm"> – Things we must have to live, stay healthy, and be safe (like food, water, shelter, clothes)</span>
                                   </div>
                                 </div>
-                                
+
                                 <div className="flex items-start space-x-2 p-2 bg-purple-50 border-l-4 border-purple-400 rounded">
                                   <span className="text-lg">💭</span>
                                   <div>
@@ -409,7 +409,7 @@ export default function Learn() {
                                 </div>
                               </div>
                             </div>
-                            
+
                             <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
                               <h5 className="font-semibold text-blue-800 text-sm mb-2">Quick Activity:</h5>
                               <div className="space-y-1 text-blue-700 text-sm">
@@ -425,14 +425,14 @@ export default function Learn() {
                               <span className="bg-yellow-100 text-yellow-800 text-xs font-semibold px-2 py-1 rounded">Ages 6–12</span>
                               <span className="bg-green-100 text-green-800 text-xs font-semibold px-2 py-1 rounded">Complete Business Lesson</span>
                             </div>
-                            
+
                             <p className="text-gray-700 leading-relaxed text-sm">
                               Teach kids the basics of earning, spending, saving, and sharing money through a hands-on lemonade stand activity. This module includes planning, budgeting, sales tracking, and profit calculation.
                             </p>
-                            
+
                             <div className="space-y-2">
                               <h4 className="font-semibold text-green-800 text-sm">Business Steps:</h4>
-                              
+
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                 <div className="flex items-start space-x-2 p-2 bg-blue-50 border-l-4 border-blue-400 rounded">
                                   <span className="text-sm font-bold text-blue-600">1.</span>
@@ -441,7 +441,7 @@ export default function Learn() {
                                     <p className="text-blue-700 text-xs">Location, supplies, pricing</p>
                                   </div>
                                 </div>
-                                
+
                                 <div className="flex items-start space-x-2 p-2 bg-purple-50 border-l-4 border-purple-400 rounded">
                                   <span className="text-sm font-bold text-purple-600">2.</span>
                                   <div>
@@ -449,7 +449,7 @@ export default function Learn() {
                                     <p className="text-purple-700 text-xs">Calculate all costs</p>
                                   </div>
                                 </div>
-                                
+
                                 <div className="flex items-start space-x-2 p-2 bg-orange-50 border-l-4 border-orange-400 rounded">
                                   <span className="text-sm font-bold text-orange-600">3.</span>
                                   <div>
@@ -457,7 +457,7 @@ export default function Learn() {
                                     <p className="text-orange-700 text-xs">Set profitable prices</p>
                                   </div>
                                 </div>
-                                
+
                                 <div className="flex items-start space-x-2 p-2 bg-green-50 border-l-4 border-green-400 rounded">
                                   <span className="text-sm font-bold text-green-600">4.</span>
                                   <div>
@@ -467,7 +467,7 @@ export default function Learn() {
                                 </div>
                               </div>
                             </div>
-                            
+
                             <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
                               <h5 className="font-semibold text-yellow-800 text-sm mb-2">Key Learning:</h5>
                               <div className="space-y-1 text-yellow-700 text-sm">
@@ -530,12 +530,12 @@ export default function Learn() {
                               disabled={markProgressMutation.isPending || (lesson.videoUrl && !watchedVideos.has(lesson.id))}
                             >
                               <Trophy className="h-4 w-4 mr-2" />
-                              {lesson.videoUrl && !watchedVideos.has(lesson.id) 
-                                ? "Watch Video First" 
+                              {lesson.videoUrl && !watchedVideos.has(lesson.id)
+                                ? "Watch Video First"
                                 : isCompleted ? `Retake Quiz (${score}%)` : "Take Quiz"}
                             </Button>
                           )}
-                          
+
                           <div className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
                             <h4 className="font-semibold text-blue-800 mb-1 flex items-center">
                               <Star className="h-4 w-4 mr-1" />
@@ -569,17 +569,17 @@ export default function Learn() {
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             {categories.map((category) => {
-              const categoryLessonsCount = Array.isArray(lessons) 
-                ? lessons.filter((l: any) => l.category === category.id).length 
+              const categoryLessonsCount = Array.isArray(lessons)
+                ? lessons.filter((l: any) => l.category === category.id).length
                 : 0;
-              const completedCount = Array.isArray(learningProgress) 
+              const completedCount = Array.isArray(learningProgress)
                 ? learningProgress.filter((p: any) => {
-                    const lesson = Array.isArray(lessons) && lessons.find((l: any) => l.id === p.lessonId);
-                    return lesson && lesson.category === category.id && p.completed;
-                  }).length 
+                  const lesson = Array.isArray(lessons) && lessons.find((l: any) => l.id === p.lessonId);
+                  return lesson && lesson.category === category.id && p.completed;
+                }).length
                 : 0;
               const progress = categoryLessonsCount > 0 ? (completedCount / categoryLessonsCount) * 100 : 0;
-              
+
               return (
                 <div key={category.id} className="text-center p-4 bg-gray-50 rounded-xl">
                   <div className="text-2xl mb-2">{category.icon}</div>
@@ -609,7 +609,7 @@ export default function Learn() {
               <span>{selectedLesson?.title} Quiz</span>
             </DialogTitle>
           </DialogHeader>
-          
+
           {!showQuizResults ? (
             Array.isArray(currentQuizzes) && currentQuizzes.length > 0 ? (
               <div className="space-y-4">
@@ -619,22 +619,21 @@ export default function Learn() {
                     {Array.from({ length: currentQuizzes.length }).map((_, i) => (
                       <div
                         key={i}
-                        className={`w-2 h-2 rounded-full ${
-                          i < currentQuestionIndex ? 'bg-green-500' : 
-                          i === currentQuestionIndex ? 'bg-blue-500' : 'bg-gray-300'
-                        }`}
+                        className={`w-2 h-2 rounded-full ${i < currentQuestionIndex ? 'bg-green-500' :
+                            i === currentQuestionIndex ? 'bg-blue-500' : 'bg-gray-300'
+                          }`}
                       />
                     ))}
                   </div>
                 </div>
-                
+
                 <Progress value={((currentQuestionIndex + 1) / currentQuizzes.length) * 100} />
-                
+
                 <div>
                   <h3 className="text-lg font-semibold mb-4">
                     {(currentQuizzes[currentQuestionIndex] as any)?.question}
                   </h3>
-                  
+
                   <div className="space-y-2">
                     {(currentQuizzes[currentQuestionIndex] as any)?.options?.map((option: string, index: number) => (
                       <Button
@@ -647,12 +646,12 @@ export default function Learn() {
                       </Button>
                     ))}
                   </div>
-                  
+
                   <div className="flex justify-between mt-6">
                     <Button variant="outline" onClick={closeQuiz}>
                       Cancel
                     </Button>
-                    <Button 
+                    <Button
                       onClick={nextQuestion}
                       disabled={selectedAnswer === null}
                     >
@@ -669,8 +668,8 @@ export default function Learn() {
           ) : (
             <div className="text-center space-y-4">
               <div className="text-6xl">
-                {quizScore / (currentQuizzes as any[]).length >= 0.8 ? '🎉' : 
-                 quizScore / (currentQuizzes as any[]).length >= 0.6 ? '👏' : '💪'}
+                {quizScore / (currentQuizzes as any[]).length >= 0.8 ? '🎉' :
+                  quizScore / (currentQuizzes as any[]).length >= 0.6 ? '👏' : '💪'}
               </div>
               <h3 className="text-2xl font-bold">
                 Quiz Complete!
@@ -683,8 +682,8 @@ export default function Learn() {
               </div>
               <p className="text-gray-600">
                 {quizScore / (currentQuizzes as any[]).length >= 0.8 ? "Excellent work! You really understand this topic!" :
-                 quizScore / (currentQuizzes as any[]).length >= 0.6 ? "Good job! You're getting the hang of it!" :
-                 "Keep practicing! You'll get better with more learning!"}
+                  quizScore / (currentQuizzes as any[]).length >= 0.6 ? "Good job! You're getting the hang of it!" :
+                    "Keep practicing! You'll get better with more learning!"}
               </p>
               <Button onClick={closeQuiz} className="w-full">
                 Continue Learning

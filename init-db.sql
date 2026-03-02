@@ -151,3 +151,66 @@ CREATE INDEX IF NOT EXISTS idx_payments_job_id ON payments(job_id);
 CREATE INDEX IF NOT EXISTS idx_allocation_settings_child_id ON allocation_settings(child_id);
 CREATE INDEX IF NOT EXISTS idx_learning_progress_child_id ON learning_progress(child_id);
 CREATE INDEX IF NOT EXISTS idx_achievements_child_id ON achievements(child_id);
+
+-- ─── Phase 3: New Feature Tables ──────────────────────────────────────────
+
+-- Savings Goals
+CREATE TABLE IF NOT EXISTS savings_goals (
+    id SERIAL PRIMARY KEY,
+    child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    target_amount DECIMAL(10,2) NOT NULL,
+    current_amount DECIMAL(10,2) DEFAULT 0.00,
+    deadline TEXT,
+    completed BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_savings_goals_child_id ON savings_goals(child_id);
+
+-- Spending Log
+CREATE TABLE IF NOT EXISTS spending_log (
+    id SERIAL PRIMARY KEY,
+    child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+    item TEXT NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    category TEXT NOT NULL CHECK (category IN ('food', 'toys', 'clothes', 'entertainment', 'education', 'other')),
+    date TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_spending_log_child_id ON spending_log(child_id);
+
+-- Donations
+CREATE TABLE IF NOT EXISTS donations (
+    id SERIAL PRIMARY KEY,
+    child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+    organization TEXT NOT NULL,
+    cause TEXT NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    date TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_donations_child_id ON donations(child_id);
+
+-- ─── Phase 4: Expanded Learning Curriculum ────────────────────────────────
+-- Money Grower Track (Ages 7-10)
+INSERT INTO lessons (category, title, content, video_url, is_custom, family_id) VALUES
+    ('earning', 'Making Change — Coin Math', 'Do you know all the coins? A penny is 1 cent, a nickel is 5 cents, a dime is 10 cents, and a quarter is 25 cents. When you earn money or buy something, you might need to count change. Practice by pretending to run your own store!', 'https://www.youtube.com/embed/5ajulLspFbI', FALSE, NULL),
+    ('saving', 'Why We Save — The Magic of Goals', 'Saving feels hard at first, but here is a trick: pick something you REALLY want. That is your goal! Every time you do a chore and earn money, put some in your savings jar. Watch it grow every week — that is the magic of saving!', 'https://www.youtube.com/embed/Pf3BYJUQB4c', FALSE, NULL),
+    ('earning', 'Earning More Ways', 'Did you know there are many ways to earn money besides chores? You can sell lemonade, create artwork, help a neighbor, or even sell toys you no longer use. Being creative about earning money is a great skill!', 'https://www.youtube.com/embed/dQw4w9WgXcQ', FALSE, NULL),
+    ('donating', 'Giving Goals — Pick a Cause', 'Donating means giving some of your money to help others. You can help animals at a shelter, provide food for people who are hungry, or help plant trees. Picking a cause you care about makes giving extra special!', 'https://www.youtube.com/embed/dQw4w9WgXcQ', FALSE, NULL),
+    ('spending', 'Comparing Prices — Be a Smart Shopper', 'Before you buy something, look for the best deal! Two stores might sell the same toy for different prices. Comparing prices is like being a detective — you find the best deal and save money in the process!', 'https://www.youtube.com/embed/dQw4w9WgXcQ', FALSE, NULL),
+    ('saving', 'Banking Basics — Your Money''s Safe House', 'A bank is like a super-safe house for your money. When you put money in a bank, they keep it safe AND they pay you extra money called interest! It is like getting a reward just for saving.', 'https://www.youtube.com/embed/dQw4w9WgXcQ', FALSE, NULL)
+ON CONFLICT DO NOTHING;
+
+-- Money Builder Track (Ages 11-15)
+INSERT INTO lessons (category, title, content, video_url, is_custom, family_id) VALUES
+    ('investing', 'Compound Interest — Money That Grows Itself', 'Compound interest is one of the most powerful ideas in all of finance. If you put $100 in a savings account that earns 10% per year, after 1 year you have $110. After 2 years you have $121 — because the interest also earns interest! Over 30 years, your $100 grows to over $1,700 without doing anything.', 'https://www.youtube.com/embed/wf91rEGw88Q', FALSE, NULL),
+    ('investing', 'What is a Stock?', 'A stock is a tiny piece of ownership in a company. If you buy one share of your favorite company, you become a part-owner! If the company does well, your share becomes more valuable. Stocks can go up AND down, which is why we invest money we won''t need for a long time.', 'https://www.youtube.com/embed/p7HKvqRI_Bo', FALSE, NULL),
+    ('spending', 'The 50/30/20 Rule', 'The 50/30/20 rule is a simple budget guide: put 50% of your income toward needs (food, clothes), 30% toward wants (fun stuff, games), and 20% toward savings and giving. It helps make sure you never spend more than you earn!', 'https://www.youtube.com/embed/HQzoZfc3GwQ', FALSE, NULL),
+    ('spending', 'Good Debt vs Bad Debt', 'Not all debt is bad! Good debt helps you earn more in the future — like a college loan that leads to a higher-paying job. Bad debt is borrowing money to buy things that lose value quickly, like buying a new phone you can''t afford. Understanding the difference is key to staying financially healthy.', 'https://www.youtube.com/embed/dQw4w9WgXcQ', FALSE, NULL),
+    ('donating', 'Donating Strategically', 'Did you know you can research charities before donating? Websites like Charity Navigator show how well organizations use their donations. A strategic donor asks: Does this charity use money efficiently? What is their impact? Strategic giving makes your dollars go even further!', 'https://www.youtube.com/embed/dQw4w9WgXcQ', FALSE, NULL),
+    ('investing', 'Roth IRA for Kids — Tax-Free Future', 'A Roth IRA is a special retirement account with a huge bonus: the money grows TAX-FREE! If you earn money from chores, you can contribute to a custodial Roth IRA. If you invest $1,000 at age 13 and leave it until age 65, it could grow to over $88,000 — all tax free!', 'https://www.youtube.com/embed/dQw4w9WgXcQ', FALSE, NULL)
+ON CONFLICT DO NOTHING;

@@ -4,10 +4,10 @@ import * as schema from "@shared/schema";
 import { IStorage } from "./storage";
 import {
   User, Family, Child, Job, Payment, AllocationSettings, AccountTypes,
-  Lesson, Quiz, LearningProgress, Achievement,
+  Lesson, Quiz, LearningProgress, Achievement, SavingsGoal, SpendingLog, Donation,
   InsertUser, InsertFamily, InsertChild, InsertJob, InsertPayment,
   InsertAllocationSettings, InsertAccountTypes, InsertLesson, InsertQuiz,
-  InsertLearningProgress, InsertAchievement
+  InsertLearningProgress, InsertAchievement, InsertSavingsGoal, InsertSpendingLog, InsertDonation
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 
@@ -119,9 +119,9 @@ export class PostgresStorage implements IStorage {
   async getPaymentsByFamily(familyId: number): Promise<Payment[]> {
     const children = await this.getChildrenByFamily(familyId);
     const childIds = children.map(c => c.id);
-    
+
     if (childIds.length === 0) return [];
-    
+
     // Get payments for all children in the family
     const payments = await db.select().from(schema.payments);
     return payments.filter(payment => childIds.includes(payment.childId));
@@ -234,5 +234,61 @@ export class PostgresStorage implements IStorage {
   async getAchievements(childId: number): Promise<Achievement[]> {
     return await db.select().from(schema.achievements)
       .where(eq(schema.achievements.childId, childId));
+  }
+
+  // Savings Goals
+  async createSavingsGoal(insertGoal: InsertSavingsGoal): Promise<SavingsGoal> {
+    const result = await db.insert(schema.savingsGoals).values(insertGoal).returning();
+    return result[0];
+  }
+
+  async getSavingsGoals(childId: number): Promise<SavingsGoal[]> {
+    return await db.select().from(schema.savingsGoals)
+      .where(eq(schema.savingsGoals.childId, childId));
+  }
+
+  async updateSavingsGoal(id: number, updates: Partial<SavingsGoal>): Promise<SavingsGoal | undefined> {
+    const result = await db.update(schema.savingsGoals)
+      .set(updates)
+      .where(eq(schema.savingsGoals.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async deleteSavingsGoal(id: number): Promise<boolean> {
+    const result = await db.delete(schema.savingsGoals).where(eq(schema.savingsGoals.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Spending Log
+  async createSpendingLog(insertEntry: InsertSpendingLog): Promise<SpendingLog> {
+    const result = await db.insert(schema.spendingLog).values(insertEntry).returning();
+    return result[0];
+  }
+
+  async getSpendingLog(childId: number): Promise<SpendingLog[]> {
+    return await db.select().from(schema.spendingLog)
+      .where(eq(schema.spendingLog.childId, childId));
+  }
+
+  async deleteSpendingLog(id: number): Promise<boolean> {
+    const result = await db.delete(schema.spendingLog).where(eq(schema.spendingLog.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Donations
+  async createDonation(insertDonation: InsertDonation): Promise<Donation> {
+    const result = await db.insert(schema.donations).values(insertDonation).returning();
+    return result[0];
+  }
+
+  async getDonations(childId: number): Promise<Donation[]> {
+    return await db.select().from(schema.donations)
+      .where(eq(schema.donations.childId, childId));
+  }
+
+  async deleteDonation(id: number): Promise<boolean> {
+    const result = await db.delete(schema.donations).where(eq(schema.donations.id, id)).returning();
+    return result.length > 0;
   }
 }

@@ -36,10 +36,9 @@ COPY --from=builder --chown=mintsprout:nodejs /app/dist ./dist
 COPY --from=builder --chown=mintsprout:nodejs /app/package*.json ./
 COPY --from=deps --chown=mintsprout:nodejs /app/node_modules ./node_modules
 
-# Set environment variables
+# Set environment variables (non-sensitive only — pass JWT_SECRET at runtime!)
 ENV NODE_ENV=production
 ENV PORT=5000
-ENV JWT_SECRET=your-production-jwt-secret-change-this
 
 # Expose port
 EXPOSE 5000

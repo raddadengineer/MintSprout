@@ -110,6 +110,37 @@ export const achievements = pgTable("achievements", {
   earnedAt: timestamp("earned_at").defaultNow(),
 });
 
+export const savingsGoals = pgTable("savings_goals", {
+  id: serial("id").primaryKey(),
+  childId: integer("child_id").notNull(),
+  name: text("name").notNull(),
+  targetAmount: decimal("target_amount", { precision: 10, scale: 2 }).notNull(),
+  currentAmount: decimal("current_amount", { precision: 10, scale: 2 }).default("0.00"),
+  deadline: text("deadline"), // ISO date string, optional
+  completed: boolean("completed").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const spendingLog = pgTable("spending_log", {
+  id: serial("id").primaryKey(),
+  childId: integer("child_id").notNull(),
+  item: text("item").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  category: text("category").notNull(), // 'food' | 'toys' | 'clothes' | 'entertainment' | 'other'
+  date: text("date").notNull(), // ISO date string
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const donations = pgTable("donations", {
+  id: serial("id").primaryKey(),
+  childId: integer("child_id").notNull(),
+  organization: text("organization").notNull(),
+  cause: text("cause").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  date: text("date").notNull(), // ISO date string
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertFamilySchema = createInsertSchema(families).omit({ id: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
@@ -122,6 +153,9 @@ export const insertLessonSchema = createInsertSchema(lessons).omit({ id: true })
 export const insertQuizSchema = createInsertSchema(quizzes).omit({ id: true });
 export const insertLearningProgressSchema = createInsertSchema(learningProgress).omit({ id: true });
 export const insertAchievementSchema = createInsertSchema(achievements).omit({ id: true, earnedAt: true });
+export const insertSavingsGoalSchema = createInsertSchema(savingsGoals).omit({ id: true, createdAt: true });
+export const insertSpendingLogSchema = createInsertSchema(spendingLog).omit({ id: true, createdAt: true });
+export const insertDonationSchema = createInsertSchema(donations).omit({ id: true, createdAt: true });
 
 // Types
 export type Family = typeof families.$inferSelect;
@@ -135,6 +169,9 @@ export type Lesson = typeof lessons.$inferSelect;
 export type Quiz = typeof quizzes.$inferSelect;
 export type LearningProgress = typeof learningProgress.$inferSelect;
 export type Achievement = typeof achievements.$inferSelect;
+export type SavingsGoal = typeof savingsGoals.$inferSelect;
+export type SpendingLog = typeof spendingLog.$inferSelect;
+export type Donation = typeof donations.$inferSelect;
 
 export type InsertFamily = z.infer<typeof insertFamilySchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -147,3 +184,7 @@ export type InsertLesson = z.infer<typeof insertLessonSchema>;
 export type InsertQuiz = z.infer<typeof insertQuizSchema>;
 export type InsertLearningProgress = z.infer<typeof insertLearningProgressSchema>;
 export type InsertAchievement = z.infer<typeof insertAchievementSchema>;
+export type InsertSavingsGoal = z.infer<typeof insertSavingsGoalSchema>;
+export type InsertSpendingLog = z.infer<typeof insertSpendingLogSchema>;
+export type InsertDonation = z.infer<typeof insertDonationSchema>;
+
