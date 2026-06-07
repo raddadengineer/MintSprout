@@ -626,7 +626,10 @@ export class MemStorage implements IStorage {
       id,
       dayOfWeek: insertAllowance.dayOfWeek ?? null,
       dayOfMonth: insertAllowance.dayOfMonth ?? null,
+      periodStartDayOfWeek: (insertAllowance as any).periodStartDayOfWeek ?? null,
+      periodEndDayOfWeek: (insertAllowance as any).periodEndDayOfWeek ?? null,
       enabled: insertAllowance.enabled ?? true,
+      payoutMode: (insertAllowance as any).payoutMode ?? "automatic",
       createdAt: new Date(),
       lastRunAt: null,
     };

@@ -3,6 +3,16 @@ import type { IStorage } from "./storage";
 import { db, supportsInteractiveTransactions } from "./db";
 import * as schema from "@shared/schema";
 import { and, eq, gte, lte } from "drizzle-orm";
+import {
+  dayOfWeekLabel,
+  formatPeriodRange,
+  isWeeklyPayDay,
+  nextWeeklyPayDate,
+  payDayOfWeek,
+  periodEndDayOfWeek,
+  periodStartDayOfWeek,
+  weeklyAllowancePeriod,
+} from "@shared/allowance-week";
 
 export function isoDayKeyUTC(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -27,18 +37,41 @@ export function occurrenceKeyForRecurrence(recurrence: string, now: Date): strin
 }
 
 export function periodStartForAllowance(allowance: Allowance, now: Date): Date {
+  if (allowance.cadence === "weekly") {
+    return weeklyAllowancePeriod(allowance, now).periodStart;
+  }
   const last = allowance.lastRunAt ? new Date(allowance.lastRunAt) : null;
   if (last && !Number.isNaN(last.getTime())) return last;
   const days = allowance.cadence === "monthly" ? 31 : 7;
   return new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
 }
 
+export function periodEndForAllowance(allowance: Allowance, now: Date): Date | null {
+  if (allowance.cadence === "weekly") {
+    return weeklyAllowancePeriod(allowance, now).periodEnd;
+  }
+  if (allowance.cadence === "monthly") {
+    const dom = typeof allowance.dayOfMonth === "number" ? allowance.dayOfMonth : null;
+    if (dom === null) return null;
+    const end = new Date(now.getFullYear(), now.getMonth(), dom, 23, 59, 59, 999);
+    return end;
+  }
+  return null;
+}
+
 export function allowancePeriodKey(allowance: Allowance, now: Date): string {
-  if (allowance.cadence === "weekly") return isoWeekKeyUTC(now);
+  if (allowance.cadence === "weekly") return weeklyAllowancePeriod(allowance, now).periodKey;
   if (allowance.cadence === "monthly") {
     return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
   }
   return isoDayKeyUTC(now);
+}
+
+export type AllowancePayoutMode = "automatic" | "manual";
+
+export function allowancePayoutMode(allowance: Allowance): AllowancePayoutMode {
+  const mode = (allowance as Allowance & { payoutMode?: string }).payoutMode;
+  return mode === "manual" ? "manual" : "automatic";
 }
 
 export function isAllowanceDue(allowance: Allowance, now: Date): boolean {
@@ -47,8 +80,7 @@ export function isAllowanceDue(allowance: Allowance, now: Date): boolean {
   if (lastRunAt && sameDay(lastRunAt, now)) return false;
 
   if (allowance.cadence === "weekly") {
-    const dow = typeof allowance.dayOfWeek === "number" ? allowance.dayOfWeek : null;
-    return dow !== null && now.getDay() === dow;
+    return isWeeklyPayDay(allowance, now);
   }
   if (allowance.cadence === "monthly") {
     const dom = typeof allowance.dayOfMonth === "number" ? allowance.dayOfMonth : null;
@@ -59,6 +91,36 @@ export function isAllowanceDue(allowance: Allowance, now: Date): boolean {
 
 function sameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+/** Next scheduled automatic payout date (local time), or null for manual mode. */
+export function nextAllowanceDueDate(allowance: Allowance, now: Date = new Date()): Date | null {
+  if (allowancePayoutMode(allowance) === "manual" || !allowance.enabled) return null;
+
+  const lastRunAt = allowance.lastRunAt ? new Date(allowance.lastRunAt) : null;
+
+  if (allowance.cadence === "weekly") {
+    let next = nextWeeklyPayDate(allowance, now);
+    if (lastRunAt && sameDay(lastRunAt, next)) {
+      next = new Date(next);
+      next.setDate(next.getDate() + 7);
+    }
+    return next;
+  }
+
+  if (allowance.cadence === "monthly") {
+    const dom = typeof allowance.dayOfMonth === "number" ? allowance.dayOfMonth : null;
+    if (dom === null) return null;
+    const next = new Date(now.getFullYear(), now.getMonth(), dom);
+    next.setHours(0, 0, 0, 0);
+    if (next < now || (sameDay(next, now) && lastRunAt && sameDay(lastRunAt, now))) {
+      next.setMonth(next.getMonth() + 1);
+      next.setDate(dom);
+    }
+    return next;
+  }
+
+  return null;
 }
 
 export type AllowanceChoreStatus = {
@@ -77,6 +139,13 @@ export type AllowancePeriodStatus = {
   childId: number;
   periodKey: string;
   periodStart: string;
+  periodEnd: string | null;
+  periodLabel: string | null;
+  todayDayOfWeek: number;
+  todayDayName: string;
+  payDayName: string | null;
+  periodStartDayName: string | null;
+  periodEndDayName: string | null;
   chores: AllowanceChoreStatus[];
   floor: number;
   variableCap: number;
@@ -87,6 +156,8 @@ export type AllowancePeriodStatus = {
   alreadyPaidThisPeriod: boolean;
   canPay: boolean;
   lastRunAt: string | null;
+  payoutMode: AllowancePayoutMode;
+  nextDueDate: string | null;
 };
 
 async function countMissedInPeriod(allowance: Allowance, now: Date, storage: IStorage): Promise<number> {
@@ -127,7 +198,10 @@ async function buildChoreList(allowance: Allowance, now: Date, storage: IStorage
 
   for (const job of allowanceJobs) {
     const recurrence = String(job.recurrence ?? "once");
-    const occurrenceKey = occurrenceKeyForRecurrence(recurrence, now);
+    const occurrenceKey =
+      recurrence === "weekly" && allowance.cadence === "weekly"
+        ? weeklyAllowancePeriod(allowance, now).periodKey
+        : occurrenceKeyForRecurrence(recurrence, now);
     let completedThisOccurrence = false;
     let missedThisOccurrence = false;
 
@@ -198,17 +272,32 @@ export async function getAllowancePeriodStatus(
   now: Date = new Date(),
 ): Promise<AllowancePeriodStatus> {
   const periodStart = periodStartForAllowance(allowance, now);
+  const periodEnd = periodEndForAllowance(allowance, now);
   const periodKey = allowancePeriodKey(allowance, now);
+  const weekInfo = allowance.cadence === "weekly" ? weeklyAllowancePeriod(allowance, now) : null;
   const chores = await buildChoreList(allowance, now, storage);
   const math = await computePayoutMath(allowance, now, storage);
   const alreadyPaidThisPeriod = await alreadyPaidForPeriod(allowance, now);
   const canPay = !alreadyPaidThisPeriod && math.payout > 0 && Number.isFinite(math.payout);
+
+  const payoutMode = allowancePayoutMode(allowance);
+  const nextDue = nextAllowanceDueDate(allowance, now);
 
   return {
     allowanceId: allowance.id,
     childId: allowance.childId,
     periodKey,
     periodStart: periodStart.toISOString(),
+    periodEnd: periodEnd ? periodEnd.toISOString() : null,
+    periodLabel:
+      weekInfo != null ? formatPeriodRange(weekInfo.periodStart, weekInfo.periodEnd) : null,
+    todayDayOfWeek: weekInfo?.todayDayOfWeek ?? now.getDay(),
+    todayDayName: dayOfWeekLabel(weekInfo?.todayDayOfWeek ?? now.getDay()),
+    payDayName: allowance.cadence === "weekly" ? dayOfWeekLabel(payDayOfWeek(allowance)) : null,
+    periodStartDayName:
+      allowance.cadence === "weekly" ? dayOfWeekLabel(periodStartDayOfWeek(allowance)) : null,
+    periodEndDayName:
+      allowance.cadence === "weekly" ? dayOfWeekLabel(periodEndDayOfWeek(allowance)) : null,
     chores,
     floor: math.floor,
     variableCap: math.variableCap,
@@ -219,6 +308,8 @@ export async function getAllowancePeriodStatus(
     alreadyPaidThisPeriod,
     canPay,
     lastRunAt: allowance.lastRunAt ? new Date(allowance.lastRunAt).toISOString() : null,
+    payoutMode,
+    nextDueDate: nextDue ? nextDue.toISOString() : null,
   };
 }
 

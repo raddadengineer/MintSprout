@@ -245,6 +245,22 @@ SET description = 'Learning, reading, and skills — each task can be paid or un
 WHERE slug = 'mind_body' OR label = 'Grow Your Mind and Body';
 `,
   },
+  {
+    id: "allowance_payout_mode_v1",
+    sql: `
+ALTER TABLE allowances ADD COLUMN IF NOT EXISTS payout_mode TEXT NOT NULL DEFAULT 'automatic';
+UPDATE allowances SET payout_mode = 'automatic' WHERE payout_mode IS NULL OR payout_mode NOT IN ('automatic', 'manual');
+`,
+  },
+  {
+    id: "allowance_week_period_v1",
+    sql: `
+ALTER TABLE allowances ADD COLUMN IF NOT EXISTS period_start_day_of_week INTEGER;
+ALTER TABLE allowances ADD COLUMN IF NOT EXISTS period_end_day_of_week INTEGER;
+UPDATE allowances SET period_start_day_of_week = 1 WHERE cadence = 'weekly' AND period_start_day_of_week IS NULL;
+UPDATE allowances SET period_end_day_of_week = 0 WHERE cadence = 'weekly' AND period_end_day_of_week IS NULL;
+`,
+  },
 ];
 
 async function migrationApplied(id: string): Promise<boolean> {

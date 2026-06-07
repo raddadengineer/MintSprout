@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { taskLabels } from "@/lib/task-labels";
+import { Link } from "wouter";
 
 type AllowanceRow = {
   id: number;
@@ -16,6 +17,7 @@ type AllowanceRow = {
   dayOfWeek: number | null;
   dayOfMonth: number | null;
   enabled: boolean;
+  payoutMode?: "automatic" | "manual" | null;
   lastRunAt: string | null;
 };
 
@@ -26,6 +28,13 @@ type AllowancePeriodRow = {
   childId: number;
   periodKey: string;
   periodStart: string;
+  periodEnd: string | null;
+  periodLabel: string | null;
+  todayDayOfWeek: number;
+  todayDayName: string;
+  payDayName: string | null;
+  periodStartDayName: string | null;
+  periodEndDayName: string | null;
   chores: {
     jobId: number;
     title: string;
@@ -45,6 +54,8 @@ type AllowancePeriodRow = {
   alreadyPaidThisPeriod: boolean;
   canPay: boolean;
   lastRunAt: string | null;
+  payoutMode: "automatic" | "manual";
+  nextDueDate: string | null;
 };
 
 function choreBadge(chore: AllowancePeriodRow["chores"][0]) {
@@ -137,28 +148,70 @@ export function AllowancePayoutPanel({
       <h2 className="text-xl font-bold text-gray-900">Allowance payouts</h2>
       {rows.map((row) => {
         const a = row.allowance;
+        const isAutomatic = row.payoutMode !== "manual";
         const scheduleLabel =
           a.cadence === "weekly"
-            ? `Weekly (day ${a.dayOfWeek ?? "?"})`
+            ? `${row.periodStartDayName ?? "Mon"}–${row.periodEndDayName ?? "Sun"} · Pay ${row.payDayName ?? "—"}`
             : `Monthly (day ${a.dayOfMonth ?? "?"})`;
+
+        const payButtonLabel = row.alreadyPaidThisPeriod
+          ? "Already paid this period"
+          : payMutation.isPending
+            ? "Paying…"
+            : isAutomatic
+              ? `Pay now ($${row.payout.toFixed(2)})`
+              : `Pay ${a.cadence} allowance ($${row.payout.toFixed(2)})`;
 
         return (
           <Card key={a.id} className="mint-card">
             <CardHeader className="pb-2">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <CardTitle className="text-lg">
-                    {row.childName} — ${parseFloat(a.amount).toFixed(2)} {a.cadence}
-                  </CardTitle>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <CardTitle className="text-lg">
+                      {row.childName} — ${parseFloat(a.amount).toFixed(2)} {a.cadence}
+                    </CardTitle>
+                    <Badge variant={isAutomatic ? "default" : "secondary"}>
+                      {isAutomatic ? "Automatic" : "Manual payout"}
+                    </Badge>
+                  </div>
                   <p className="text-sm text-gray-600 mt-1">
                     {scheduleLabel} · Min ${parseFloat(String(a.guaranteedMinimum ?? "0")).toFixed(2)} · Penalty $
                     {parseFloat(String(a.penaltyPerIncompleteJob ?? "0")).toFixed(2)}/miss
                   </p>
+                  {a.cadence === "weekly" && (
+                    <p className="text-sm text-gray-700 mt-1">
+                      Today is <strong>{row.todayDayName}</strong>
+                      {row.periodLabel && (
+                        <>
+                          {" "}
+                          · This period: <strong>{row.periodLabel}</strong>
+                        </>
+                      )}
+                    </p>
+                  )}
+                  {isAutomatic && !row.alreadyPaidThisPeriod && row.nextDueDate && (
+                    <p className="text-sm text-emerald-700 mt-1">
+                      Next automatic payout: {new Date(row.nextDueDate).toLocaleDateString(undefined, {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </p>
+                  )}
+                  {!isAutomatic && !row.alreadyPaidThisPeriod && (
+                    <p className="text-sm text-gray-600 mt-1">
+                      You pay when ready — not scheduled automatically.
+                    </p>
+                  )}
                   {row.lastRunAt && (
                     <p className="text-xs text-gray-500 mt-1">
                       Last paid: {new Date(row.lastRunAt).toLocaleString()}
                     </p>
                   )}
+                  <Link href="/controls?tab=allowances" className="text-xs text-emerald-700 underline mt-1 inline-block">
+                    Change payout mode
+                  </Link>
                 </div>
                 <div className="text-right">
                   <p className="text-2xl font-bold text-primary">${row.payout.toFixed(2)}</p>
@@ -223,14 +276,10 @@ export function AllowancePayoutPanel({
 
               <Button
                 className="mint-primary w-full sm:w-auto"
-                disabled={!row.canPay || payMutation.isPending}
+                disabled={!row.canPay || payMutation.isPending || row.alreadyPaidThisPeriod}
                 onClick={() => payMutation.mutate(a.id)}
               >
-                {row.alreadyPaidThisPeriod
-                  ? "Already paid this period"
-                  : payMutation.isPending
-                    ? "Paying…"
-                    : `Pay ${a.cadence} allowance ($${row.payout.toFixed(2)})`}
+                {payButtonLabel}
               </Button>
             </CardContent>
           </Card>

@@ -22,6 +22,8 @@ import { PAYMENT_MODE_LABELS, categoryPaymentLabel, isFlexiblePayCategory } from
 import type { JobCategoryPaymentMode } from "@shared/job-categories";
 import { LESSON_CATEGORY_KEYS, LESSON_CATEGORY_LABELS } from "@shared/catalog/types";
 import { CatalogEditor } from "@/components/catalog-editor";
+import { DayOfWeekSelect } from "@/components/day-of-week-select";
+import { dayOfWeekLabel, periodEndDayOfWeek, periodStartDayOfWeek, payDayOfWeek } from "@shared/allowance-week";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { Link } from "wouter";
@@ -61,7 +63,10 @@ type Allowance = {
   cadence: "weekly" | "monthly";
   dayOfWeek: number | null;
   dayOfMonth: number | null;
+  periodStartDayOfWeek?: number | null;
+  periodEndDayOfWeek?: number | null;
   enabled: boolean;
+  payoutMode?: "automatic" | "manual" | null;
   lastRunAt: string | null;
 };
 
@@ -242,15 +247,27 @@ function AllowancePenaltyEditor({
   onToggleEnabled,
   onDelete,
   onSave,
+  onPayoutModeChange,
+  onWeekScheduleChange,
 }: {
   allowance: Allowance;
   childLabel: string;
   onToggleEnabled: (enabled: boolean) => void;
   onDelete: () => void;
   onSave: (updates: { guaranteedMinimum: string; penaltyPerIncompleteJob: string }) => void;
+  onPayoutModeChange: (mode: "automatic" | "manual") => void;
+  onWeekScheduleChange: (updates: {
+    periodStartDayOfWeek: number;
+    periodEndDayOfWeek: number;
+    dayOfWeek: number;
+  }) => void;
 }) {
   const [g, setG] = useState(() => parseFloat(String(a.guaranteedMinimum ?? "0")).toFixed(2));
   const [p, setP] = useState(() => parseFloat(String(a.penaltyPerIncompleteJob ?? "0")).toFixed(2));
+  const payoutMode = a.payoutMode === "manual" ? "manual" : "automatic";
+  const weekStart = String(periodStartDayOfWeek(a));
+  const weekEnd = String(periodEndDayOfWeek(a));
+  const weekPay = String(payDayOfWeek(a));
 
   useEffect(() => {
     setG(parseFloat(String(a.guaranteedMinimum ?? "0")).toFixed(2));
@@ -267,14 +284,73 @@ function AllowancePenaltyEditor({
             {childLabel} • ${parseFloat(a.amount).toFixed(2)} / {a.cadence}
           </div>
           <div className="text-sm text-gray-600 mt-1">
-            {a.cadence === "weekly" ? `Day of week: ${a.dayOfWeek}` : `Day of month: ${a.dayOfMonth}`} • Last run:{" "}
-            {a.lastRunAt ? new Date(a.lastRunAt).toLocaleString() : "never"}
+            {a.cadence === "weekly" ? (
+              <>
+                Period {dayOfWeekLabel(periodStartDayOfWeek(a), true)}–{dayOfWeekLabel(periodEndDayOfWeek(a), true)} ·
+                Pay {dayOfWeekLabel(payDayOfWeek(a))} · Last run:{" "}
+                {a.lastRunAt ? new Date(a.lastRunAt).toLocaleString() : "never"}
+              </>
+            ) : (
+              <>
+                Day of month: {a.dayOfMonth} · Last run:{" "}
+                {a.lastRunAt ? new Date(a.lastRunAt).toLocaleString() : "never"}
+              </>
+            )}
           </div>
+          {a.cadence === "weekly" && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3 max-w-2xl">
+              <DayOfWeekSelect
+                label="Period starts"
+                value={weekStart}
+                onValueChange={(v) =>
+                  onWeekScheduleChange({
+                    periodStartDayOfWeek: parseInt(v, 10),
+                    periodEndDayOfWeek: parseInt(weekEnd, 10),
+                    dayOfWeek: parseInt(weekPay, 10),
+                  })
+                }
+              />
+              <DayOfWeekSelect
+                label="Period ends"
+                value={weekEnd}
+                onValueChange={(v) =>
+                  onWeekScheduleChange({
+                    periodStartDayOfWeek: parseInt(weekStart, 10),
+                    periodEndDayOfWeek: parseInt(v, 10),
+                    dayOfWeek: parseInt(weekPay, 10),
+                  })
+                }
+              />
+              <DayOfWeekSelect
+                label="Pay day"
+                value={weekPay}
+                onValueChange={(v) =>
+                  onWeekScheduleChange({
+                    periodStartDayOfWeek: parseInt(weekStart, 10),
+                    periodEndDayOfWeek: parseInt(weekEnd, 10),
+                    dayOfWeek: parseInt(v, 10),
+                  })
+                }
+              />
+            </div>
+          )}
           <p className="text-xs text-gray-500 mt-2">
             Each job still <strong>not approved</strong> (assigned, in progress, or completed waiting on you) in the
             period before payout reduces the <strong>non-guaranteed</strong> part by the penalty{" "}
             {`(up to $${variableMax.toFixed(2)} max reduction this week).`}
           </p>
+          <div className="mt-3 max-w-md">
+            <Label className="text-sm">Payout mode</Label>
+            <Select value={payoutMode} onValueChange={(v) => onPayoutModeChange(v as "automatic" | "manual")}>
+              <SelectTrigger className="mint-input mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="automatic">Automatic — pays on schedule (early pay optional)</SelectItem>
+                <SelectItem value="manual">Manual — you pay from Tasks &amp; Payments</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <div className="flex items-center gap-2">
@@ -389,8 +465,11 @@ export default function Controls() {
   const [newGuaranteedMin, setNewGuaranteedMin] = useState<string>("2.00");
   const [newPenaltyPerJob, setNewPenaltyPerJob] = useState<string>("0.50");
   const [newCadence, setNewCadence] = useState<"weekly" | "monthly">("weekly");
-  const [newDow, setNewDow] = useState<string>("5"); // Friday
+  const [newPeriodStartDow, setNewPeriodStartDow] = useState<string>("1");
+  const [newPeriodEndDow, setNewPeriodEndDow] = useState<string>("0");
+  const [newDow, setNewDow] = useState<string>("0");
   const [newDom, setNewDom] = useState<string>("1");
+  const [newPayoutMode, setNewPayoutMode] = useState<"automatic" | "manual">("automatic");
 
   const createAllowanceMutation = useMutation({
     mutationFn: async () => {
@@ -401,8 +480,11 @@ export default function Controls() {
         penaltyPerIncompleteJob: newPenaltyPerJob,
         cadence: newCadence,
         enabled: true,
+        payoutMode: newPayoutMode,
         dayOfWeek: newCadence === "weekly" ? parseInt(newDow) : null,
         dayOfMonth: newCadence === "monthly" ? parseInt(newDom) : null,
+        periodStartDayOfWeek: newCadence === "weekly" ? parseInt(newPeriodStartDow) : null,
+        periodEndDayOfWeek: newCadence === "weekly" ? parseInt(newPeriodEndDow) : null,
       };
       const res = await apiRequest("POST", "/api/allowances", payload);
       return await res.json();
@@ -680,14 +762,47 @@ export default function Controls() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label>{newCadence === "weekly" ? "Day of week (0=Sun)" : "Day of month"}</Label>
-                  <Input
-                    className="mint-input mt-1"
-                    value={newCadence === "weekly" ? newDow : newDom}
-                    onChange={(e) => (newCadence === "weekly" ? setNewDow(e.target.value) : setNewDom(e.target.value))}
-                  />
-                </div>
+                {newCadence === "weekly" ? (
+                  <>
+                    <DayOfWeekSelect label="Period starts" value={newPeriodStartDow} onValueChange={setNewPeriodStartDow} />
+                    <DayOfWeekSelect label="Period ends" value={newPeriodEndDow} onValueChange={setNewPeriodEndDow} />
+                    <DayOfWeekSelect label="Pay day" value={newDow} onValueChange={setNewDow} />
+                  </>
+                ) : (
+                  <div>
+                    <Label>Day of month (1–28)</Label>
+                    <Input
+                      className="mint-input mt-1"
+                      value={newDom}
+                      onChange={(e) => setNewDom(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+              {newCadence === "weekly" && (
+                <p className="text-sm text-gray-600">
+                  Chores count for the period from{" "}
+                  <strong>{dayOfWeekLabel(parseInt(newPeriodStartDow, 10))}</strong> through{" "}
+                  <strong>{dayOfWeekLabel(parseInt(newPeriodEndDow, 10))}</strong>. Pay on{" "}
+                  <strong>{dayOfWeekLabel(parseInt(newDow, 10))}</strong> (automatic or manual).
+                </p>
+              )}
+              <div className="max-w-md">
+                <Label>Payout mode</Label>
+                <Select value={newPayoutMode} onValueChange={(v) => setNewPayoutMode(v as "automatic" | "manual")}>
+                  <SelectTrigger className="mint-input mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="automatic">Automatic — pays on schedule</SelectItem>
+                    <SelectItem value="manual">Manual — you pay when ready</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500 mt-1">
+                  {newPayoutMode === "automatic"
+                    ? "Deposits on the due day; you can still pay early from Tasks & Payments."
+                    : "No automatic deposit — pay from Tasks & Payments when you are ready."}
+                </p>
               </div>
               <p className="text-sm text-gray-600">
                 Example: total <strong>$10</strong>, guaranteed <strong>$4</strong>, penalty <strong>$2</strong> → up to{" "}
@@ -730,6 +845,24 @@ export default function Controls() {
                           { id: a.id, updates: updates as Partial<Allowance> },
                           {
                             onSuccess: () => toast({ title: "Saved", description: "Allowance rules updated." }),
+                            onError: (err) => toast({ title: "Error", description: errorMessage(err), variant: "destructive" }),
+                          },
+                        )
+                      }
+                      onPayoutModeChange={(mode) =>
+                        updateAllowanceMutation.mutate(
+                          { id: a.id, updates: { payoutMode: mode } as Partial<Allowance> },
+                          {
+                            onSuccess: () => toast({ title: "Saved", description: "Payout mode updated." }),
+                            onError: (err) => toast({ title: "Error", description: errorMessage(err), variant: "destructive" }),
+                          },
+                        )
+                      }
+                      onWeekScheduleChange={(updates) =>
+                        updateAllowanceMutation.mutate(
+                          { id: a.id, updates: updates as Partial<Allowance> },
+                          {
+                            onSuccess: () => toast({ title: "Saved", description: "Weekly schedule updated." }),
                             onError: (err) => toast({ title: "Error", description: errorMessage(err), variant: "destructive" }),
                           },
                         )

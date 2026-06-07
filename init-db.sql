@@ -126,7 +126,10 @@ CREATE TABLE IF NOT EXISTS allowances (
     cadence TEXT NOT NULL CHECK (cadence IN ('weekly', 'monthly')),
     day_of_week INTEGER,
     day_of_month INTEGER,
+    period_start_day_of_week INTEGER,
+    period_end_day_of_week INTEGER,
     enabled BOOLEAN DEFAULT TRUE,
+    payout_mode TEXT NOT NULL DEFAULT 'automatic' CHECK (payout_mode IN ('automatic', 'manual')),
     last_run_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -134,6 +137,9 @@ CREATE TABLE IF NOT EXISTS allowances (
 -- Existing databases: add columns if missing
 ALTER TABLE allowances ADD COLUMN IF NOT EXISTS guaranteed_minimum DECIMAL(10,2) DEFAULT 0.00;
 ALTER TABLE allowances ADD COLUMN IF NOT EXISTS penalty_per_incomplete_job DECIMAL(10,2) DEFAULT 0.00;
+ALTER TABLE allowances ADD COLUMN IF NOT EXISTS payout_mode TEXT NOT NULL DEFAULT 'automatic';
+ALTER TABLE allowances ADD COLUMN IF NOT EXISTS period_start_day_of_week INTEGER;
+ALTER TABLE allowances ADD COLUMN IF NOT EXISTS period_end_day_of_week INTEGER;
 
 -- Allowance-tied chores on jobs (nullable, no FK to keep init ordering simple)
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS allowance_id INTEGER;

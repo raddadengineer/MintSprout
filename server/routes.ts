@@ -1464,6 +1464,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!Number.isFinite(n) || n < 0) return "0.00";
         return n.toFixed(2);
       }),
+      payoutMode: z.enum(["automatic", "manual"]).optional().default("automatic"),
+      periodStartDayOfWeek: z.union([z.coerce.number().int().min(0).max(6), z.null()]).optional(),
+      periodEndDayOfWeek: z.union([z.coerce.number().int().min(0).max(6), z.null()]).optional(),
     })
     .strict()
     .superRefine((d, ctx) => {
@@ -1511,6 +1514,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!Number.isFinite(n) || n < 0) return "0.00";
         return n.toFixed(2);
       }),
+      payoutMode: z.enum(["automatic", "manual"]).optional(),
+      periodStartDayOfWeek: z.union([z.coerce.number().int().min(0).max(6), z.null()]).optional(),
+      periodEndDayOfWeek: z.union([z.coerce.number().int().min(0).max(6), z.null()]).optional(),
     })
     .strict();
 

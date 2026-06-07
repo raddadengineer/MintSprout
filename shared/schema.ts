@@ -157,9 +157,16 @@ export const allowances = pgTable("allowances", {
   /** For each job still not done (assigned or in_progress), subtract this from the non-guaranteed portion. */
   penaltyPerIncompleteJob: decimal("penalty_per_incomplete_job", { precision: 10, scale: 2 }).default("0.00"),
   cadence: text("cadence").notNull(), // 'weekly' | 'monthly'
-  dayOfWeek: integer("day_of_week"), // 0-6, weekly
+  /** Weekly: pay day (0=Sun … 6=Sat). */
+  dayOfWeek: integer("day_of_week"),
   dayOfMonth: integer("day_of_month"), // 1-28, monthly
+  /** Weekly: first day of the allowance chore period (0=Sun … 6=Sat). Default Monday in app logic. */
+  periodStartDayOfWeek: integer("period_start_day_of_week"),
+  /** Weekly: last day of the allowance chore period. Default Sunday in app logic. */
+  periodEndDayOfWeek: integer("period_end_day_of_week"),
   enabled: boolean("enabled").default(true),
+  /** automatic = scheduler pays on due day; manual = parent pays from Tasks & Payments */
+  payoutMode: text("payout_mode").notNull().default("automatic"),
   lastRunAt: timestamp("last_run_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });

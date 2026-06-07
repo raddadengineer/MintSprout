@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemStorage } from "./storage";
-import { getAllowancePeriodStatus, executeAllowancePayout } from "./allowance-payout";
+import { getAllowancePeriodStatus, executeAllowancePayout, nextAllowanceDueDate } from "./allowance-payout";
 
 vi.mock("./db", () => ({
   supportsInteractiveTransactions: false,
@@ -122,5 +122,49 @@ describe("allowance payout", () => {
 
     const result = await executeAllowancePayout(allowance, storage);
     expect(result).toEqual({ ok: false, reason: "disabled" });
+  });
+
+  it("period status includes payoutMode and nextDueDate for automatic allowances", async () => {
+    const children = await storage.getChildrenByFamily(1);
+    const child = children[0]!;
+
+    const allowance = await storage.createAllowance({
+      familyId: 1,
+      childId: child.id,
+      amount: "10.00",
+      guaranteedMinimum: "10.00",
+      penaltyPerIncompleteJob: "0.00",
+      cadence: "weekly",
+      dayOfWeek: 5,
+      enabled: true,
+      payoutMode: "automatic",
+    } as any);
+
+    const status = await getAllowancePeriodStatus(allowance, storage);
+    expect(status.payoutMode).toBe("automatic");
+    expect(status.nextDueDate).toBeTruthy();
+    expect(nextAllowanceDueDate(allowance)).toBeTruthy();
+  });
+
+  it("period status has null nextDueDate for manual payout mode", async () => {
+    const children = await storage.getChildrenByFamily(1);
+    const child = children[0]!;
+
+    const allowance = await storage.createAllowance({
+      familyId: 1,
+      childId: child.id,
+      amount: "10.00",
+      guaranteedMinimum: "10.00",
+      penaltyPerIncompleteJob: "0.00",
+      cadence: "weekly",
+      dayOfWeek: 0,
+      enabled: true,
+      payoutMode: "manual",
+    } as any);
+
+    const status = await getAllowancePeriodStatus(allowance, storage);
+    expect(status.payoutMode).toBe("manual");
+    expect(status.nextDueDate).toBeNull();
+    expect(nextAllowanceDueDate(allowance)).toBeNull();
   });
 });

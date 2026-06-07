@@ -3,15 +3,14 @@ import { db, supportsInteractiveTransactions } from "./db";
 import * as schema from "@shared/schema";
 import { and, eq } from "drizzle-orm";
 import {
+  allowancePayoutMode,
   executeAllowancePayout,
   isAllowanceDue,
   occurrenceKeyForRecurrence,
 } from "./allowance-payout";
+import { weeklyAllowancePeriod } from "@shared/allowance-week";
 
-export function startAllowanceScheduler(storage: IStorage) {
-  const tick = async () => {
-    const now = new Date();
-
+export async function runAllowanceSchedulerTick(storage: IStorage, now: Date = new Date()): Promise<void> {
     try {
       if (supportsInteractiveTransactions) {
         try {
@@ -47,7 +46,11 @@ export function startAllowanceScheduler(storage: IStorage) {
           const allowanceJobs = (jobs as any[]).filter((j) => (j as any).allowanceId === a.id);
           if (allowanceJobs.length > 0 && supportsInteractiveTransactions) {
             for (const j of allowanceJobs) {
-              const key = occurrenceKeyForRecurrence(String((j as any).recurrence), now);
+              const recurrence = String((j as any).recurrence);
+              const key =
+                recurrence === "weekly" && a.cadence === "weekly"
+                  ? weeklyAllowancePeriod(a as any, now).periodKey
+                  : occurrenceKeyForRecurrence(recurrence, now);
               const done = await db
                 .select()
                 .from(schema.allowanceCompletedJobLog)
@@ -71,6 +74,7 @@ export function startAllowanceScheduler(storage: IStorage) {
         }
 
         if (!isAllowanceDue(a as any, now)) continue;
+        if (allowancePayoutMode(a as any) === "manual") continue;
 
         const result = await executeAllowancePayout(a, storage, now);
         if (!result.ok && result.reason !== "already_paid" && result.reason !== "zero_payout") {
@@ -80,8 +84,10 @@ export function startAllowanceScheduler(storage: IStorage) {
     } catch (err) {
       console.error("Allowance scheduler tick failed:", err);
     }
-  };
+}
 
+export function startAllowanceScheduler(storage: IStorage) {
+  const tick = () => runAllowanceSchedulerTick(storage);
   setTimeout(() => void tick(), 5000);
   setInterval(() => void tick(), 60_000);
 }
