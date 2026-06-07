@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { JobCreationModal } from "@/components/job-creation-modal";
 import { DailyBriefButton } from "@/components/daily-brief";
 import { PaymentApprovalModal } from "@/components/payment-approval-modal";
+import { AllowancePayoutPanel } from "@/components/allowance-payout-panel";
 import { JobIcon } from "@/components/job-icon";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -21,7 +22,7 @@ import { youngestJobStatus } from "@/lib/youngest-ui";
 import { groupJobsByCategory, type JobCategoryRow } from "@/lib/job-category-groups";
 import type { AccountTypesRow, ChildRow, JobRow, PaymentRow } from "@/lib/api-types";
 import { taskLabels } from "@/lib/task-labels";
-import { needsPaymentModal, taskPayKind } from "@/lib/task-pay-type";
+import { needsPaymentModal, taskPayKind, taskPayLabel } from "@/lib/task-pay-type";
 import { Search, Filter, Edit, Trash2, Calendar, DollarSign, User, MoreHorizontal, Eye } from "lucide-react";
 
 function isFamilyDuty(job: { isFamilyDuty?: boolean | null }): boolean {
@@ -57,6 +58,7 @@ export default function Jobs() {
   const [sortBy, setSortBy] = useState("recent");
   const [activeTab, setActiveTab] = useState("active");
   const [location] = useLocation();
+  const paymentsSectionRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const labels = taskLabels(user?.role === "parent" ? "parent" : "child", kidMode);
@@ -110,6 +112,7 @@ export default function Jobs() {
       // If job was approved, also invalidate payment-specific queries
       if (variables.status === "approved") {
         queryClient.invalidateQueries({ queryKey: [`/api/payments/job/${variables.id}`] });
+        queryClient.invalidateQueries({ queryKey: ["/api/allowances/period-status"] });
       }
       
       toast({
@@ -136,7 +139,9 @@ export default function Jobs() {
     mutationFn: (jobId: number) => apiRequest("POST", `/api/jobs/${jobId}/missed`, {}),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/allowances"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/allowances/period-status"] });
       await queryClient.invalidateQueries({ queryKey: ["/api/dashboard-stats"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       toast({ title: "Marked missed", description: "This will count toward the next allowance penalty." });
     },
     onError: (err: any) => {
@@ -271,7 +276,12 @@ export default function Jobs() {
     if (!isParent || !jobs) return;
     const params = new URLSearchParams(window.location.search);
     const awaitingCount = jobs.filter((j: JobRow) => j.status === "completed").length;
-    if (params.get("filter") === "awaiting" || awaitingCount > 0) {
+    if (params.get("view") === "payments") {
+      if (awaitingCount > 0) setActiveTab("awaiting");
+      requestAnimationFrame(() => {
+        paymentsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    } else if (params.get("filter") === "awaiting" || awaitingCount > 0) {
       setActiveTab("awaiting");
     }
   }, [isParent, jobs, location]);
@@ -330,12 +340,17 @@ export default function Jobs() {
                 </span>
                 {job.allowanceId && (
                   <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-semibold">
-                    Allowance chore
+                    {taskPayLabel(job)}
+                  </span>
+                )}
+                {!job.allowanceId && !isFamilyDuty(job) && parseFloat(job.amount || "0") > 0 && (
+                  <span className="text-xs bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-full font-semibold">
+                    {taskPayLabel(job)}
                   </span>
                 )}
                 {isFamilyDuty(job) && (
                   <span className="text-xs bg-sky-50 text-sky-700 border border-sky-200 px-2 py-0.5 rounded-full font-semibold">
-                    Part of the family
+                    {taskPayLabel(job)}
                   </span>
                 )}
               </div>
@@ -511,6 +526,17 @@ export default function Jobs() {
               <div className="text-sm text-gray-600">Children</div>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {isParent && (
+        <div ref={paymentsSectionRef}>
+          <AllowancePayoutPanel
+            onApproveJob={(jobId) => handleJobAction(jobId, "approved")}
+            onMarkMissed={(jobId) => markMissedMutation.mutate(jobId)}
+            approvePending={updateJobMutation.isPending}
+            markMissedPending={markMissedMutation.isPending}
+          />
         </div>
       )}
 

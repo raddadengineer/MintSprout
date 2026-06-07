@@ -237,6 +237,14 @@ CREATE TABLE IF NOT EXISTS transactions (
 CREATE INDEX IF NOT EXISTS idx_transactions_child_id ON transactions(child_id);
 `,
   },
+  {
+    id: "mind_body_flexible_pay_v1",
+    sql: `
+UPDATE job_categories
+SET description = 'Learning, reading, and skills — each task can be paid or unpaid (your choice).'
+WHERE slug = 'mind_body' OR label = 'Grow Your Mind and Body';
+`,
+  },
 ];
 
 async function migrationApplied(id: string): Promise<boolean> {

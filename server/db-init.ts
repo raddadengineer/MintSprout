@@ -106,49 +106,60 @@ export async function initializeDatabase() {
       }
     ]);
 
-    // Create default lessons
-    await db.insert(schema.lessons).values([
+    // Create default lessons with kid-friendly quizzes
+    const defaultLessons = [
       {
-        category: "earning",
+        category: "earning" as const,
         title: "How to Earn Money",
         content: "Money is earned by doing work and providing value to others. When you complete chores or help your family, you earn money as a reward for your hard work!",
-        videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-        isCustom: false,
-        familyId: null
+        videoUrl: "https://www.youtube.com/embed/0iRbD5rM5qc",
       },
       {
-        category: "saving",
+        category: "saving" as const,
         title: "Why Save Money?",
         content: "Saving money means keeping some of your earnings for later. It's like planting seeds that will grow into bigger plants! When you save money, you can buy bigger things you want in the future.",
-        videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-        isCustom: false,
-        familyId: null
+        videoUrl: "https://www.youtube.com/embed/oqgtFqd8nHo",
       },
       {
-        category: "spending",
+        category: "spending" as const,
         title: "Smart Spending",
         content: "Spending money wisely means thinking before you buy. Ask yourself: Do I really need this? Will it make me happy for a long time? Smart spending helps you get the most value from your money!",
-        videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-        isCustom: false,
-        familyId: null
+        videoUrl: "https://www.youtube.com/embed/6OAqNtueu0U",
       },
       {
-        category: "investing",
+        category: "investing" as const,
         title: "Growing Your Money",
         content: "Investing is like planting a money tree! When you invest, you put your money to work so it can grow over time. The earlier you start, the more your money can grow!",
-        videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-        isCustom: false,
-        familyId: null
+        videoUrl: "https://www.youtube.com/embed/jTW777ENc3c",
       },
       {
-        category: "donating",
+        category: "donating" as const,
         title: "Sharing is Caring",
         content: "Donating means giving some of your money to help others. It feels good to help people in need and makes the world a better place!",
-        videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+        videoUrl: "https://www.youtube.com/embed/BbYRAK_eCvo",
+      },
+    ];
+
+    const insertedLessons = await db.insert(schema.lessons).values(
+      defaultLessons.map((l) => ({
+        ...l,
         isCustom: false,
-        familyId: null
+        familyId: null,
+      })),
+    ).returning();
+
+    const { DEFAULT_LESSON_QUIZZES } = await import("@shared/catalog/lesson-quizzes");
+    for (const lesson of insertedLessons) {
+      const stubs = DEFAULT_LESSON_QUIZZES[lesson.title] ?? [];
+      for (const stub of stubs) {
+        await db.insert(schema.quizzes).values({
+          lessonId: lesson.id,
+          question: stub.question,
+          options: stub.options,
+          correctAnswer: stub.correctAnswer,
+        });
       }
-    ]);
+    }
 
     const seededCategories = [];
     for (const seed of DEFAULT_JOB_CATEGORIES) {

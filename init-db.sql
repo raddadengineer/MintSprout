@@ -163,7 +163,7 @@ SELECT 1, v.slug, v.label, v.description, v.icon, v.sort_order, v.payment_mode
 FROM (VALUES
     ('self_care', 'Take Care of Yourself', 'Everyday habits for yourself and your space.', 'bed', 0, 'none'),
     ('allowance', 'Earn Your Allowance', 'Extra chores that count toward allowance.', 'dollarSign', 1, 'allowance'),
-    ('mind_body', 'Grow Your Mind and Body', 'Learning, reading, and skills.', 'bookOpen', 2, 'none'),
+    ('mind_body', 'Grow Your Mind and Body', 'Learning, reading, and skills — each task can be paid or unpaid (your choice).', 'bookOpen', 2, 'none'),
     ('help_others', 'Help Others', 'Kind acts for family, friends, or neighbors.', 'gift', 3, 'none')
 ) AS v(slug, label, description, icon, sort_order, payment_mode)
 WHERE NOT EXISTS (SELECT 1 FROM job_categories WHERE family_id = 1 LIMIT 1);

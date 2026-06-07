@@ -26,6 +26,21 @@ export const PAYMENT_MODE_LABELS: Record<JobCategoryPaymentMode, string> = {
   standalone: "One-time pay",
 };
 
+/** Categories where pay type is chosen per task (not fixed by category). */
+export const FLEXIBLE_PAY_CATEGORY_SLUGS = new Set<string>(["mind_body"]);
+
+export function isFlexiblePayCategory(slug: string | null | undefined): boolean {
+  return !!slug && FLEXIBLE_PAY_CATEGORY_SLUGS.has(slug);
+}
+
+export function categoryPaymentLabel(
+  slug: string | null | undefined,
+  paymentMode: JobCategoryPaymentMode,
+): string {
+  if (isFlexiblePayCategory(slug)) return "Flexible pay";
+  return PAYMENT_MODE_LABELS[paymentMode];
+}
+
 export const DEFAULT_JOB_CATEGORIES: DefaultJobCategorySeed[] = [
   {
     slug: "self_care",
@@ -59,7 +74,7 @@ export const DEFAULT_JOB_CATEGORIES: DefaultJobCategorySeed[] = [
   {
     slug: "mind_body",
     label: "Grow Your Mind and Body",
-    description: "Learning, reading, and skills that make you stronger and smarter.",
+    description: "Learning, reading, and skills — each task can be paid or unpaid (your choice).",
     icon: "bookOpen",
     paymentMode: "none",
     sortOrder: 2,

@@ -28,7 +28,7 @@ export function taskLabels(role: "parent" | "child", kidMode: KidMode = "older")
     return {
       nav: "Tasks",
       pageTitle: "My Tasks",
-      pageTitleParent: "Task Management",
+      pageTitleParent: "Task Management & Payments",
       create: "Create task",
       createFirst: "Create your first task",
       active: "Active tasks",

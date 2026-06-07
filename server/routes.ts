@@ -19,6 +19,10 @@ import {
 import { z } from "zod";
 import { applyJobPatch } from "./job-approval-payment";
 import {
+  executeAllowancePayout,
+  getAllowancePeriodStatus,
+} from "./allowance-payout";
+import {
   isAiCoachEnabled,
   checkAiServices,
   chatWithSprout,
@@ -1578,6 +1582,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const deleted = await storage.deleteAllowance(id);
       res.json({ success: deleted });
     } catch {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/allowances/period-status", verifyToken, async (req: any, res) => {
+    try {
+      if (req.user.role !== "parent") return res.status(403).json({ message: "Only parents can view allowance status" });
+      const allowances = await storage.getAllowancesByFamily(req.user.familyId);
+      const children = await storage.getChildrenByFamily(req.user.familyId);
+      const childNames = new Map(children.map((c) => [c.id, c.name]));
+      const statuses = await Promise.all(
+        allowances.filter((a) => a.enabled).map(async (a) => {
+          const status = await getAllowancePeriodStatus(a, storage);
+          return {
+            allowance: a,
+            childName: childNames.get(a.childId) ?? `Child ${a.childId}`,
+            ...status,
+          };
+        }),
+      );
+      res.json(statuses);
+    } catch (err) {
+      console.error("Allowance period status error:", err);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/allowances/:id/period-status", verifyToken, async (req: any, res) => {
+    try {
+      if (req.user.role !== "parent") return res.status(403).json({ message: "Only parents can view allowance status" });
+      const id = parseInt(req.params.id);
+      const existing = (await storage.getAllowancesByFamily(req.user.familyId)).find((a) => a.id === id);
+      if (!existing) return res.status(404).json({ message: "Allowance not found" });
+      const status = await getAllowancePeriodStatus(existing, storage);
+      const child = await storage.getChild(existing.childId);
+      res.json({ allowance: existing, childName: child?.name ?? null, ...status });
+    } catch (err) {
+      console.error("Allowance period status error:", err);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/allowances/:id/pay", verifyToken, async (req: any, res) => {
+    try {
+      if (req.user.role !== "parent") return res.status(403).json({ message: "Only parents can pay allowances" });
+      const id = parseInt(req.params.id);
+      const existing = (await storage.getAllowancesByFamily(req.user.familyId)).find((a) => a.id === id);
+      if (!existing) return res.status(404).json({ message: "Allowance not found" });
+      const result = await executeAllowancePayout(existing, storage);
+      if (!result.ok) {
+        const messages: Record<string, string> = {
+          already_paid: "Allowance already paid for this period",
+          zero_payout: "Nothing to pay for this period",
+          no_child: "Child not found",
+          disabled: "Allowance is disabled",
+        };
+        return res.status(400).json({ message: messages[result.reason] ?? "Could not pay allowance" });
+      }
+      res.json({ success: true, payout: result.payout, periodKey: result.periodKey });
+    } catch (err) {
+      console.error("Allowance pay error:", err);
       res.status(500).json({ message: "Internal server error" });
     }
   });

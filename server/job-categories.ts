@@ -54,7 +54,13 @@ export async function ensureMissingDefaultCategories(storage: IStorage, familyId
   const existing = await storage.getJobCategoriesByFamily(familyId, { includeDisabled: true });
   const slugs = new Set(existing.map((c) => c.slug).filter(Boolean));
   for (const seed of DEFAULT_JOB_CATEGORIES) {
-    if (slugs.has(seed.slug)) continue;
+    if (slugs.has(seed.slug)) {
+      const cat = existing.find((c) => c.slug === seed.slug);
+      if (cat && seed.description && cat.description !== seed.description) {
+        await storage.updateJobCategory(cat.id, { description: seed.description });
+      }
+      continue;
+    }
     await storage.createJobCategory({
       familyId,
       slug: seed.slug,

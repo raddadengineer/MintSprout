@@ -2,6 +2,7 @@ import type { LessonCatalogPayload } from "@shared/catalog/types";
 import type { IStorage } from "./storage";
 import { parsePayload } from "./catalog-seed";
 import { generateCatalogItems } from "./catalog-generator";
+import { quizStubsForLessonTitle } from "@shared/catalog/lesson-quizzes";
 
 export async function publishLessonCatalogItem(
   storage: IStorage,
@@ -28,6 +29,9 @@ export async function publishLessonCatalogItem(
   });
 
   let quizStubs = payload.quizStubs ?? [];
+  if (quizStubs.length === 0) {
+    quizStubs = quizStubsForLessonTitle(item.title);
+  }
   if (quizStubs.length === 0) {
     try {
       const proposals = await generateCatalogItems("lesson", item.categoryKey, 1);

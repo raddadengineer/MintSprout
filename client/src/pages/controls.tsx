@@ -18,12 +18,22 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { IconSelector } from "@/components/icon-selector";
 import { JobIcon } from "@/components/job-icon";
-import { PAYMENT_MODE_LABELS } from "@shared/job-categories";
+import { PAYMENT_MODE_LABELS, categoryPaymentLabel, isFlexiblePayCategory } from "@shared/job-categories";
 import type { JobCategoryPaymentMode } from "@shared/job-categories";
 import { LESSON_CATEGORY_KEYS, LESSON_CATEGORY_LABELS } from "@shared/catalog/types";
 import { CatalogEditor } from "@/components/catalog-editor";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { Link } from "wouter";
+
+const CONTROLS_TABS = ["approvals", "allowances", "jobs", "lessons"] as const;
+type ControlsTab = (typeof CONTROLS_TABS)[number];
+
+function parseControlsTab(search: string): ControlsTab {
+  const tab = new URLSearchParams(search).get("tab");
+  if (tab && CONTROLS_TABS.includes(tab as ControlsTab)) return tab as ControlsTab;
+  return "approvals";
+}
 
 type FamilySettings = {
   familyId: number;
@@ -113,7 +123,7 @@ function JobCategoryEditor({
               <div className="font-semibold text-gray-900 truncate">{category.label}</div>
             )}
             <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full inline-block mt-1">
-              {PAYMENT_MODE_LABELS[category.paymentMode]}
+              {categoryPaymentLabel(category.slug, category.paymentMode)}
             </span>
           </div>
         </div>
@@ -161,6 +171,11 @@ function JobCategoryEditor({
             {paymentMode === "standalone" && (
               <p className="text-xs text-gray-500 mt-1">
                 One-time pay categories show an amount field when parents create tasks.
+              </p>
+            )}
+            {isFlexiblePayCategory(category.slug) && (
+              <p className="text-xs text-gray-500 mt-1">
+                Tasks in this category can use any pay type when created — payment mode here is only a default suggestion.
               </p>
             )}
           </div>
@@ -292,6 +307,23 @@ export default function Controls() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<ControlsTab>(() =>
+    parseControlsTab(typeof window !== "undefined" ? window.location.search : ""),
+  );
+
+  useEffect(() => {
+    const onPop = () => setActiveTab(parseControlsTab(window.location.search));
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  const handleTabChange = (value: string) => {
+    const tab = value as ControlsTab;
+    setActiveTab(tab);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", tab);
+    window.history.replaceState({}, "", url.pathname + url.search);
+  };
 
   const familyId = user?.familyId;
   const enabled = user?.role === "parent" && !!familyId;
@@ -491,7 +523,7 @@ export default function Controls() {
         <p className="text-gray-600">Approvals, allowances, and task & lesson catalogs.</p>
       </div>
 
-      <Tabs defaultValue="approvals" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <TabsList className="grid w-full grid-cols-2 h-auto sm:grid-cols-4 gap-1 p-1">
           <TabsTrigger value="approvals" className="text-xs sm:text-sm py-2">
             Approvals
@@ -592,6 +624,20 @@ export default function Controls() {
           <Card className="mint-card">
             <CardHeader>
               <CardTitle>Allowance scheduler</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Schedule allowance amounts here. To approve chores and pay out, go to{" "}
+                <Link href="/jobs?view=payments" className="text-emerald-700 underline font-medium">
+                  Tasks &amp; Payments
+                </Link>
+                .
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="mint-card">
+            <CardHeader>
+              <CardTitle>Create allowance</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
@@ -783,8 +829,12 @@ export default function Controls() {
             </CardHeader>
             <CardContent className="space-y-6">
               <p className="text-sm text-gray-600">
-                Import topics from the library, customize them, then <strong>Publish</strong> to add lessons on the Learn
-                page. Templates load automatically the first time you visit this tab.
+                Import topics from the library, customize them, then <strong>Publish</strong> to add lessons on the{" "}
+                <Link href="/learn" className="text-emerald-700 underline font-medium">
+                  Learn
+                </Link>{" "}
+                page. Each published lesson includes kid-friendly quiz questions. Templates load automatically the first
+                time you visit this tab.
               </p>
               {LESSON_CATEGORY_KEYS.map((key) => (
                 <div key={key} className="border border-gray-200 rounded-xl p-4 bg-white">

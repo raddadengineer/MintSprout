@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { IconSelector } from "@/components/icon-selector";
-import { PAYMENT_MODE_LABELS } from "@shared/job-categories";
+import { PAYMENT_MODE_LABELS, categoryPaymentLabel, isFlexiblePayCategory } from "@shared/job-categories";
 import type { JobCategoryPaymentMode } from "@shared/job-categories";
 import { JobIcon } from "@/components/job-icon";
 import { Link } from "wouter";
@@ -51,6 +51,7 @@ interface Allowance {
 
 type JobCategory = {
   id: number;
+  slug?: string | null;
   label: string;
   description?: string | null;
   icon?: string | null;
@@ -273,7 +274,7 @@ export function JobCreationModal({ isOpen, onClose }: JobCreationModalProps) {
                   amount: "",
                   icon: cat?.icon ?? formData.icon,
                 });
-                if (cat) setPayType(cat.paymentMode);
+                if (cat && !isFlexiblePayCategory(cat.slug)) setPayType(cat.paymentMode);
               }}
             >
               <SelectTrigger className="mint-input">
@@ -284,7 +285,7 @@ export function JobCreationModal({ isOpen, onClose }: JobCreationModalProps) {
                   <SelectItem key={cat.id} value={cat.id.toString()}>
                     <span className="flex items-center gap-2">
                       <JobIcon iconName={cat.icon} className="h-4 w-4" />
-                      {cat.label} ({PAYMENT_MODE_LABELS[cat.paymentMode]})
+                      {cat.label} ({categoryPaymentLabel(cat.slug, cat.paymentMode)})
                     </span>
                   </SelectItem>
                 ))}
@@ -292,6 +293,11 @@ export function JobCreationModal({ isOpen, onClose }: JobCreationModalProps) {
             </Select>
             {selectedCategory?.description && (
               <p className="text-xs text-gray-500 mt-2">{selectedCategory.description}</p>
+            )}
+            {selectedCategory && isFlexiblePayCategory(selectedCategory.slug) && (
+              <p className="text-xs text-indigo-700 mt-1">
+                Use <strong>Pay type</strong> above to decide if this task earns money.
+              </p>
             )}
           </div>
 
@@ -324,7 +330,7 @@ export function JobCreationModal({ isOpen, onClose }: JobCreationModalProps) {
           ) : selectedCategory ? (
             <p className="text-sm text-gray-500">
               No quick-add templates yet.{" "}
-              <Link href="/controls" className="text-emerald-700 underline" onClick={onClose}>
+              <Link href="/controls?tab=allowances" className="text-emerald-700 underline" onClick={onClose}>
                 Import from the catalog in Controls
               </Link>
               .
@@ -407,6 +413,15 @@ export function JobCreationModal({ isOpen, onClose }: JobCreationModalProps) {
                   ))}
                 </SelectContent>
               </Select>
+              {effectivePayType === "allowance" && formData.assignedToId && childAllowances.length === 0 && (
+                <p className="text-xs text-amber-700 mt-2">
+                  No allowance for this child yet.{" "}
+                  <Link href="/controls?tab=allowances" className="underline font-medium" onClick={onClose}>
+                    Set up allowance in Controls
+                  </Link>
+                  .
+                </p>
+              )}
             </div>
           )}
 

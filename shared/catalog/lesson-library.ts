@@ -1,10 +1,12 @@
 import type { CatalogLibraryEntry, LessonCategoryKey } from "./types";
+import { quizStubsForLessonTitle } from "./lesson-quizzes";
 
 export type LessonLibraryItem = {
   title: string;
   description: string;
   content: string;
   videoUrl?: string | null;
+  quizStubs?: { question: string; options: string[]; correctAnswer: number }[];
 };
 
 export const LESSON_LIBRARY_BY_CATEGORY: Record<LessonCategoryKey, LessonLibraryItem[]> = {
@@ -267,15 +269,28 @@ export function lessonLibraryAsCatalogEntries(): CatalogLibraryEntry[] {
   const entries: CatalogLibraryEntry[] = [];
   for (const [categoryKey, items] of Object.entries(LESSON_LIBRARY_BY_CATEGORY)) {
     for (const item of items) {
+      const quizStubs = item.quizStubs ?? quizStubsForLessonTitle(item.title);
       entries.push({
         catalogType: "lesson",
         categoryKey,
         title: item.title,
         description: item.description,
-        payload: { content: item.content, videoUrl: item.videoUrl ?? null },
+        payload: {
+          content: item.content,
+          videoUrl: item.videoUrl ?? null,
+          ...(quizStubs.length > 0 ? { quizStubs } : {}),
+        },
         source: "builtin",
       });
     }
   }
   return entries;
+}
+
+export function findLessonLibraryEntry(
+  categoryKey: string,
+  title: string,
+): LessonLibraryItem | undefined {
+  const items = LESSON_LIBRARY_BY_CATEGORY[categoryKey as LessonCategoryKey];
+  return items?.find((i) => i.title === title);
 }

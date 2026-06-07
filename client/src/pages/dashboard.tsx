@@ -73,7 +73,7 @@ export default function Dashboard() {
 
       return await res.json();
     },
-    enabled: user?.role !== "parent" || !!selectedChildId,
+    enabled: !!user,
   });
 
   const { data: accountTypes } = useQuery<{
@@ -111,6 +111,31 @@ export default function Dashboard() {
   });
 
   const labels = taskLabels(user?.role === "parent" ? "parent" : "child", kidMode);
+
+  const resolveAllocationChildId = (): number | null => {
+    if (dashboardData?.child?.id) return dashboardData.child.id;
+    if (selectedChildId) {
+      const parsed = parseInt(selectedChildId, 10);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+    const familyChildren = children as ChildRow[];
+    if (familyChildren.length > 0) return familyChildren[0].id;
+    return null;
+  };
+
+  const openAllocationModal = () => {
+    const id = resolveAllocationChildId();
+    if (!id) {
+      toast({
+        title: "Select a child",
+        description: "Add a child on the Family page, or pick one from the account menu first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setSelectedChildIdForAllocation(id);
+    setShowAllocationModal(true);
+  };
 
   const triggerConfetti = () => {
     setShowConfetti(true);
@@ -383,10 +408,14 @@ export default function Dashboard() {
                   ➕ {labels.create}
                 </Button>
                 <Button
-                  onClick={() => {
-                    setSelectedChildIdForAllocation(child?.id || null);
-                    setShowAllocationModal(true);
-                  }}
+                  onClick={() => navigate("/jobs?view=payments")}
+                  variant="outline"
+                  className="shadow-lg hover:shadow-xl font-bold bg-amber-50 hover:bg-amber-100 border-amber-200"
+                >
+                  💰 Tasks & Payments
+                </Button>
+                <Button
+                  onClick={openAllocationModal}
                   variant="outline"
                   className="shadow-lg hover:shadow-xl font-bold"
                 >
@@ -474,7 +503,7 @@ export default function Dashboard() {
                 ⏱️ {labels.needsAttention} ({awaitingApproval.length})
               </h3>
               <Button asChild variant="outline" size="sm" className="shrink-0">
-                <Link href="/jobs?filter=awaiting">{labels.viewAll} →</Link>
+                <Link href="/jobs?view=payments">{labels.viewAll} →</Link>
               </Button>
             </div>
             <div className="space-y-3">
@@ -837,10 +866,7 @@ export default function Dashboard() {
 
                 {user?.role === "parent" && (
                   <Button
-                    onClick={() => {
-                      setSelectedChildIdForAllocation(child?.id || null);
-                      setShowAllocationModal(true);
-                    }}
+                    onClick={openAllocationModal}
                     variant="outline"
                     className="w-full font-bold"
                   >
@@ -977,10 +1003,13 @@ export default function Dashboard() {
         }}
         job={selectedJobForPayment}
       />
-      {selectedChildIdForAllocation && (
+      {showAllocationModal && selectedChildIdForAllocation != null && (
         <AllocationModal
           isOpen={showAllocationModal}
-          onClose={() => setShowAllocationModal(false)}
+          onClose={() => {
+            setShowAllocationModal(false);
+            setSelectedChildIdForAllocation(null);
+          }}
           childId={selectedChildIdForAllocation}
         />
       )}

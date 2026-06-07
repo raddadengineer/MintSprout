@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { BookOpen, Video, Trophy, Star, CheckCircle, PlayCircle, Gamepad2 } from "lucide-react";
+import { BookOpen, Video, Trophy, Star, CheckCircle, PlayCircle, Gamepad2, Volume2, VolumeX } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import ElmoJarsActivity from "@/components/ElmoJarsActivity";
@@ -14,6 +14,8 @@ import { useSelectedChild } from "@/components/navigation";
 import { useKidMode } from "@/hooks/use-kid-mode";
 import { useOpenSprout, SproutBuddyCTA } from "@/components/sprout-buddy";
 import { IconText } from "@/components/icon-text";
+import { isQuizAnswerCorrect } from "@shared/quiz-utils";
+import { useQuizSpeech } from "@/hooks/use-quiz-speech";
 
 const YOUNGEST_CATEGORY_LABELS: Record<string, string> = {
   earning: "Earn",
@@ -44,6 +46,9 @@ export default function Learn() {
   const { selectedChildId } = useSelectedChild();
   const { mode: kidMode, age: kidAge } = useKidMode();
   const openSprout = useOpenSprout();
+  const { supported: quizSpeechSupported, speak, speakQuizQuestion, stop: stopQuizSpeech, isSpeaking: quizSpeaking } =
+    useQuizSpeech(kidMode);
+  const autoReadQuiz = kidMode === "youngest" || kidMode === "younger";
 
   const { data: lessons = [], isLoading } = useQuery({
     queryKey: ["/api/lessons"],
@@ -102,7 +107,7 @@ export default function Learn() {
     },
   });
 
-  const { data: currentQuizzes = [] } = useQuery({
+  const { data: currentQuizzes = [], isFetched: quizzesFetched } = useQuery({
     queryKey: ["/api/quizzes", selectedLesson?.id],
     queryFn: async () => {
       if (!selectedLesson?.id) return [];
@@ -149,7 +154,7 @@ export default function Learn() {
   const nextQuestion = () => {
     if (selectedAnswer !== null && Array.isArray(currentQuizzes) && currentQuizzes.length > 0) {
       const currentQuiz = currentQuizzes[currentQuestionIndex] as any;
-      const isCorrect = selectedAnswer === currentQuiz.correctAnswer - 1;
+      const isCorrect = isQuizAnswerCorrect(selectedAnswer, currentQuiz.correctAnswer);
       if (isCorrect) {
         setQuizScore(prev => prev + 1);
       }
@@ -174,6 +179,7 @@ export default function Learn() {
   };
 
   const closeQuiz = () => {
+    stopQuizSpeech();
     setShowQuiz(false);
     setSelectedLesson(null);
     setCurrentQuestionIndex(0);
@@ -181,6 +187,37 @@ export default function Learn() {
     setSelectedAnswer(null);
     setShowQuizResults(false);
   };
+
+  const completeLessonWithoutQuiz = () => {
+    if (!selectedLesson || user?.role !== "child") return;
+    markProgressMutation.mutate({
+      lessonId: selectedLesson.id,
+      completed: true,
+      quizScore: 100,
+    });
+    setShowQuizResults(true);
+    setQuizScore(0);
+  };
+
+  useEffect(() => {
+    if (!showQuiz || showQuizResults || !autoReadQuiz || !quizzesFetched) return;
+    const quiz = currentQuizzes[currentQuestionIndex] as { question?: string; options?: string[] } | undefined;
+    if (!quiz?.question || !Array.isArray(quiz.options)) return;
+    const timer = window.setTimeout(() => speakQuizQuestion(quiz.question!, quiz.options!), 350);
+    return () => window.clearTimeout(timer);
+  }, [
+    showQuiz,
+    showQuizResults,
+    autoReadQuiz,
+    quizzesFetched,
+    currentQuestionIndex,
+    currentQuizzes,
+    speakQuizQuestion,
+  ]);
+
+  useEffect(() => {
+    if (!showQuiz) stopQuizSpeech();
+  }, [showQuiz, stopQuizSpeech]);
 
   const isLessonCompleted = (lessonId: number) => {
     return Array.isArray(learningProgress) &&
@@ -690,19 +727,53 @@ export default function Learn() {
           </DialogHeader>
 
           {!showQuizResults ? (
-            Array.isArray(currentQuizzes) && currentQuizzes.length > 0 ? (
+            quizzesFetched && Array.isArray(currentQuizzes) && currentQuizzes.length === 0 ? (
+              <div className="text-center space-y-4 py-6">
+                <p className="text-gray-600">
+                  This lesson does not have quiz questions yet. You can still mark it complete!
+                </p>
+                {user?.role === "child" ? (
+                  <Button className="w-full" onClick={completeLessonWithoutQuiz} disabled={markProgressMutation.isPending}>
+                    Mark lesson complete
+                  </Button>
+                ) : (
+                  <p className="text-sm text-gray-500">Ask a parent to publish this lesson with quiz questions from Controls.</p>
+                )}
+                <Button variant="outline" onClick={closeQuiz} className="w-full">
+                  Close
+                </Button>
+              </div>
+            ) : Array.isArray(currentQuizzes) && currentQuizzes.length > 0 ? (
               <div className="space-y-4">
                 <div className="flex items-center justify-between text-sm text-gray-600">
                   <span>Question {currentQuestionIndex + 1} of {currentQuizzes.length}</span>
-                  <div className="flex items-center space-x-1">
-                    {Array.from({ length: currentQuizzes.length }).map((_, i) => (
-                      <div
-                        key={i}
-                        className={`w-2 h-2 rounded-full ${i < currentQuestionIndex ? 'bg-green-500' :
-                            i === currentQuestionIndex ? 'bg-blue-500' : 'bg-gray-300'
-                          }`}
-                      />
-                    ))}
+                  <div className="flex items-center gap-2">
+                    {quizSpeechSupported && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1"
+                        disabled={quizSpeaking}
+                        onClick={() => {
+                          const quiz = currentQuizzes[currentQuestionIndex] as { question: string; options: string[] };
+                          speakQuizQuestion(quiz.question, quiz.options);
+                        }}
+                      >
+                        {quizSpeaking ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                        {kidMode === "youngest" ? "Hear it" : "Read aloud"}
+                      </Button>
+                    )}
+                    <div className="flex items-center space-x-1">
+                      {Array.from({ length: currentQuizzes.length }).map((_, i) => (
+                        <div
+                          key={i}
+                          className={`w-2 h-2 rounded-full ${i < currentQuestionIndex ? 'bg-green-500' :
+                              i === currentQuestionIndex ? 'bg-blue-500' : 'bg-gray-300'
+                            }`}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
 
@@ -719,7 +790,12 @@ export default function Learn() {
                         key={index}
                         variant={selectedAnswer === index ? "default" : "outline"}
                         className="w-full text-left justify-start"
-                        onClick={() => handleAnswerSelect(index)}
+                        onClick={() => {
+                          handleAnswerSelect(index);
+                          if (autoReadQuiz && quizSpeechSupported) {
+                            speak(`${String.fromCharCode(65 + index)}. ${option}`);
+                          }
+                        }}
                       >
                         {String.fromCharCode(65 + index)}. {option}
                       </Button>
