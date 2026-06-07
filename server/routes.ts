@@ -47,6 +47,7 @@ import {
 import { generateCatalogItems } from "./catalog-generator";
 import { ensureCatalogLibrary, ensureFamilyCatalog } from "./catalog-seed";
 import { importFromLibrary, publishLessonCatalogItem } from "./catalog-publish";
+import { normalizeLessonPayload } from "@shared/catalog/normalize-lesson-payload";
 import { db } from "./db";
 import * as schema from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -572,6 +573,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         categoryKey: body.categoryKey,
       });
       const maxSort = existing.reduce((m, i) => Math.max(m, i.sortOrder ?? 0), -1);
+      const payload =
+        body.catalogType === "lesson"
+          ? normalizeLessonPayload(body.payload, body.description, body.categoryKey)
+          : body.payload;
       const item = await storage.createFamilyCatalogItem({
         familyId: req.user.familyId,
         catalogType: body.catalogType,
@@ -579,7 +584,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         categoryKey: body.categoryKey,
         title: body.title,
         description: body.description ?? null,
-        payload: JSON.stringify(body.payload),
+        payload: JSON.stringify(payload),
         enabled: body.enabled ?? true,
         sortOrder: maxSort + 1,
       });
@@ -606,7 +611,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (req.body.description != null) updates.description = req.body.description;
       if (req.body.enabled != null) updates.enabled = !!req.body.enabled;
       if (req.body.sortOrder != null) updates.sortOrder = Number(req.body.sortOrder);
-      if (req.body.payload != null) updates.payload = JSON.stringify(req.body.payload);
+      if (req.body.payload != null) {
+        const payload =
+          item.catalogType === "lesson"
+            ? normalizeLessonPayload(
+                req.body.payload as Record<string, unknown>,
+                (req.body.description as string | undefined) ?? item.description,
+                item.categoryKey,
+              )
+            : req.body.payload;
+        updates.payload = JSON.stringify(payload);
+      }
       const updated = await storage.updateFamilyCatalogItem(id, updates);
       res.json(updated);
     } catch (err) {
@@ -695,6 +710,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         if (existing.some((i) => i.title === body.title)) continue;
         const maxSort = existing.reduce((m, i) => Math.max(m, i.sortOrder ?? 0), -1);
+        const payload =
+          body.catalogType === "lesson"
+            ? normalizeLessonPayload(body.payload, body.description, body.categoryKey)
+            : body.payload;
         const item = await storage.createFamilyCatalogItem({
           familyId: req.user.familyId,
           catalogType: body.catalogType,
@@ -702,7 +721,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           categoryKey: body.categoryKey,
           title: body.title,
           description: body.description ?? null,
-          payload: JSON.stringify(body.payload),
+          payload: JSON.stringify(payload),
           enabled: true,
           sortOrder: maxSort + 1,
         });

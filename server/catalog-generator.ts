@@ -1,5 +1,6 @@
 import type { CatalogType } from "@shared/catalog/types";
 import { LESSON_CATEGORY_LABELS } from "@shared/catalog/types";
+import { normalizeLessonPayload } from "@shared/catalog/normalize-lesson-payload";
 import { DEFAULT_JOB_CATEGORIES } from "@shared/job-categories";
 import { chatCompletion, checkLlmAvailable } from "./llm-client";
 
@@ -12,6 +13,8 @@ export type CatalogProposal = {
 const JOB_CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
   DEFAULT_JOB_CATEGORIES.map((c) => [c.slug, c.label]),
 );
+
+const MIN_LESSON_CONTENT_LENGTH = 200;
 
 function categoryContext(type: CatalogType, categoryKey: string): string {
   if (type === "job") {
@@ -30,6 +33,25 @@ function categoryContext(type: CatalogType, categoryKey: string): string {
   return `Learn lesson topic for the "${label}" category (${categoryKey}). Kid-friendly ages 5–12.`;
 }
 
+function normalizeLessonProposal(proposal: CatalogProposal, categoryKey: string): CatalogProposal {
+  const payload = normalizeLessonPayload(proposal.payload, proposal.description, categoryKey);
+  let content = payload.content?.trim() ?? "";
+  if (content.length < MIN_LESSON_CONTENT_LENGTH && proposal.description.trim()) {
+    content = `${proposal.description.trim()}\n\n${content}`.trim();
+  }
+  if (content.length < MIN_LESSON_CONTENT_LENGTH) {
+    content = `${content}\n\nThink about how this idea helps you with money in real life. Talk about it with a parent or try a small example at home.`.trim();
+  }
+  return {
+    ...proposal,
+    payload: {
+      ...payload,
+      content,
+      videoUrl: payload.videoUrl ?? null,
+    },
+  };
+}
+
 export async function generateCatalogItems(
   type: CatalogType,
   categoryKey: string,
@@ -46,9 +68,9 @@ export async function generateCatalogItems(
   const payloadShape =
     type === "job"
       ? '{ "icon": "briefcase|bed|sparkles|bookOpen|gift|trash2|utensils|wind|target|home|sprout", "recurrence": "once|daily|weekly|monthly" }'
-      : '{ "content": "2-4 kid-friendly paragraphs", "videoUrl": null, "quizStubs": [{ "question": "...", "options": ["a","b","c","d"], "correctAnswer": 0 }] }';
+      : '{ "content": "REQUIRED: 2-4 kid-friendly paragraphs (at least 200 characters) teaching the topic before any quiz", "videoUrl": null, "quizStubs": [{ "question": "...", "options": ["a","b","c","d"], "correctAnswer": 0 }] }';
 
-  const system = `You generate catalog templates for a family finance app for kids. Reply with ONLY valid JSON: an array of objects with keys title, description, payload. payload must match: ${payloadShape}. No markdown.`;
+  const system = `You generate catalog templates for a family finance app for kids. Reply with ONLY valid JSON: an array of objects with keys title, description, payload. payload must match: ${payloadShape}. For lessons, content is the main teaching text kids read BEFORE the quiz — never leave content empty or shorter than description. Include 2-3 quizStubs per lesson. No markdown.`;
 
   const user = `Generate ${count} unique ${type} catalog items for ${ctx}. Avoid duplicating common defaults like "Make my bed" unless fresh angle.`;
 
@@ -76,5 +98,6 @@ export async function generateCatalogItems(
       const o = item as Record<string, unknown>;
       return typeof o.title === "string" && typeof o.description === "string" && o.payload != null;
     })
-    .slice(0, count);
+    .slice(0, count)
+    .map((item) => (type === "lesson" ? normalizeLessonProposal(item, categoryKey) : item));
 }

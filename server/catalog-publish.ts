@@ -1,8 +1,34 @@
 import type { LessonCatalogPayload } from "@shared/catalog/types";
+import { fallbackLessonContent, normalizeLessonPayload } from "@shared/catalog/normalize-lesson-payload";
 import type { IStorage } from "./storage";
 import { parsePayload } from "./catalog-seed";
 import { generateCatalogItems } from "./catalog-generator";
 import { quizStubsForLessonTitle } from "@shared/catalog/lesson-quizzes";
+
+async function enrichLessonFromAi(
+  categoryKey: string,
+  needsContent: boolean,
+  needsQuizzes: boolean,
+): Promise<Partial<LessonCatalogPayload>> {
+  try {
+    const proposals = await generateCatalogItems("lesson", categoryKey, 1);
+    const genPayload = proposals[0]?.payload as LessonCatalogPayload | undefined;
+    const result: Partial<LessonCatalogPayload> = {};
+    if (needsContent) {
+      const genContent = genPayload?.content?.trim() || proposals[0]?.description?.trim();
+      if (genContent) result.content = genContent;
+    }
+    if (needsQuizzes && genPayload?.quizStubs?.length) {
+      result.quizStubs = genPayload.quizStubs;
+    }
+    if (genPayload?.videoUrl?.trim()) {
+      result.videoUrl = genPayload.videoUrl.trim();
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
 
 export async function publishLessonCatalogItem(
   storage: IStorage,
@@ -17,36 +43,48 @@ export async function publishLessonCatalogItem(
     return { lessonId: item.publishedLessonId, itemId: item.id };
   }
 
-  const payload = parsePayload(item.payload) as LessonCatalogPayload;
+  const rawPayload = parsePayload(item.payload) as Record<string, unknown>;
+  let normalized = normalizeLessonPayload(rawPayload, item.description, item.categoryKey);
 
-  const lesson = await storage.createLesson({
-    category: item.categoryKey,
-    title: item.title,
-    content: payload.content,
-    videoUrl: payload.videoUrl ?? null,
-    isCustom: true,
-    familyId,
-  });
+  let content = normalized.content?.trim() ?? "";
+  let videoUrl = normalized.videoUrl ?? null;
+  let quizStubs = normalized.quizStubs ?? [];
 
-  let quizStubs = payload.quizStubs ?? [];
+  const needsContent = !content;
+  const needsQuizzes = quizStubs.length === 0;
+
+  if (needsContent || needsQuizzes) {
+    const enriched = await enrichLessonFromAi(item.categoryKey, needsContent, needsQuizzes);
+    if (needsContent && enriched.content) content = enriched.content;
+    if (needsQuizzes && enriched.quizStubs?.length) quizStubs = enriched.quizStubs;
+    if (!rawPayload.videoUrl && enriched.videoUrl) videoUrl = enriched.videoUrl;
+  }
+
+  if (!content) {
+    content = fallbackLessonContent(item.title, item.description);
+  }
+
   if (quizStubs.length === 0) {
     quizStubs = quizStubsForLessonTitle(item.title);
   }
   if (quizStubs.length === 0) {
-    try {
-      const proposals = await generateCatalogItems("lesson", item.categoryKey, 1);
-      const genPayload = proposals[0]?.payload as LessonCatalogPayload | undefined;
-      quizStubs = genPayload?.quizStubs ?? [];
-    } catch {
-      quizStubs = [
-        {
-          question: `What is one main idea from "${item.title}"?`,
-          options: ["Saving is important", "Spending everything is best", "Money does not matter", "Only adults use money"],
-          correctAnswer: 0,
-        },
-      ];
-    }
+    quizStubs = [
+      {
+        question: `What is one main idea from "${item.title}"?`,
+        options: ["Saving is important", "Spending everything is best", "Money does not matter", "Only adults use money"],
+        correctAnswer: 0,
+      },
+    ];
   }
+
+  const lesson = await storage.createLesson({
+    category: item.categoryKey,
+    title: item.title,
+    content,
+    videoUrl,
+    isCustom: true,
+    familyId,
+  });
 
   for (const stub of quizStubs.slice(0, 5)) {
     await storage.createQuiz({

@@ -1,9 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemStorage } from "./storage";
 import { importFromLibrary, publishLessonCatalogItem } from "./catalog-publish";
+import { defaultVideoUrlForCategory } from "@shared/catalog/category-default-video";
+
+const mockGenerate = vi.fn(async () => []);
 
 vi.mock("./catalog-generator", () => ({
-  generateCatalogItems: vi.fn(async () => []),
+  generateCatalogItems: (...args: unknown[]) => mockGenerate(...args),
 }));
 
 describe("catalog import and publish", () => {
@@ -12,6 +15,8 @@ describe("catalog import and publish", () => {
   beforeEach(async () => {
     storage = new MemStorage();
     await storage.ready;
+    mockGenerate.mockReset();
+    mockGenerate.mockResolvedValue([]);
     await storage.createCatalogLibraryItem({
       catalogType: "lesson",
       categoryKey: "saving",
@@ -72,5 +77,108 @@ describe("catalog import and publish", () => {
     const quizzes = await storage.getQuizzesByLesson(result.lessonId);
     expect(quizzes.length).toBe(3);
     expect(quizzes[0]!.question).toContain("EARN");
+  });
+
+  it("fills content from description when payload content is empty", async () => {
+    const familyItem = await storage.createFamilyCatalogItem({
+      familyId: 1,
+      catalogType: "lesson",
+      categoryKey: "saving",
+      categoryId: null,
+      title: "My Saving Lesson",
+      description: "Saving helps you reach goals.",
+      payload: JSON.stringify({
+        content: "",
+        quizStubs: [{ question: "Why?", options: ["Goals", "No", "Maybe", "Never"], correctAnswer: 0 }],
+      }),
+      enabled: true,
+      sortOrder: 0,
+    });
+
+    const result = await publishLessonCatalogItem(storage, 1, familyItem.id);
+    const lessons = await storage.getCustomLessons(1);
+    const lesson = lessons.find((l) => l.id === result.lessonId);
+    expect(lesson?.content).toBe("Saving helps you reach goals.");
+  });
+
+  it("assigns category default video when videoUrl is missing", async () => {
+    const familyItem = await storage.createFamilyCatalogItem({
+      familyId: 1,
+      catalogType: "lesson",
+      categoryKey: "saving",
+      categoryId: null,
+      title: "Saving Basics",
+      description: "Learn to save",
+      payload: JSON.stringify({ content: "Save money for later." }),
+      enabled: true,
+      sortOrder: 0,
+    });
+
+    const result = await publishLessonCatalogItem(storage, 1, familyItem.id);
+    const lessons = await storage.getCustomLessons(1);
+    const lesson = lessons.find((l) => l.id === result.lessonId);
+    expect(lesson?.videoUrl).toBe(defaultVideoUrlForCategory("saving"));
+  });
+
+  it("keeps explicit video URL over category default", async () => {
+    const customUrl = "https://www.youtube.com/embed/custom123";
+    const familyItem = await storage.createFamilyCatalogItem({
+      familyId: 1,
+      catalogType: "lesson",
+      categoryKey: "saving",
+      categoryId: null,
+      title: "Custom Video Lesson",
+      description: "Has custom video",
+      payload: JSON.stringify({ content: "Content here.", videoUrl: customUrl }),
+      enabled: true,
+      sortOrder: 0,
+    });
+
+    const result = await publishLessonCatalogItem(storage, 1, familyItem.id);
+    const lessons = await storage.getCustomLessons(1);
+    const lesson = lessons.find((l) => l.id === result.lessonId);
+    expect(lesson?.videoUrl).toBe(customUrl);
+  });
+
+  it("merges AI-generated content and quizzes when both are missing", async () => {
+    mockGenerate.mockResolvedValue([
+      {
+        title: "AI Lesson",
+        description: "From AI",
+        payload: {
+          content: "AI generated lesson body with enough teaching text for kids.",
+          videoUrl: null,
+          quizStubs: [
+            {
+              question: "AI question?",
+              options: ["Yes", "No", "Maybe", "Never"],
+              correctAnswer: 1,
+            },
+          ],
+        },
+      },
+    ]);
+
+    const familyItem = await storage.createFamilyCatalogItem({
+      familyId: 1,
+      catalogType: "lesson",
+      categoryKey: "spending",
+      categoryId: null,
+      title: "Spending Smart",
+      description: "",
+      payload: JSON.stringify({ content: "" }),
+      enabled: true,
+      sortOrder: 0,
+    });
+
+    const result = await publishLessonCatalogItem(storage, 1, familyItem.id);
+    const lessons = await storage.getCustomLessons(1);
+    const lesson = lessons.find((l) => l.id === result.lessonId);
+    const quizzes = await storage.getQuizzesByLesson(result.lessonId);
+
+    expect(mockGenerate).toHaveBeenCalled();
+    expect(lesson?.content).toContain("AI generated lesson body");
+    expect(quizzes[0]!.question).toBe("AI question?");
+    expect(quizzes[0]!.correctAnswer).toBe(1);
   });
 });

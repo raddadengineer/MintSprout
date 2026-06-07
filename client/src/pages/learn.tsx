@@ -23,6 +23,10 @@ const YOUNGEST_CATEGORY_LABELS: Record<string, string> = {
   spending: "Spend",
 };
 
+function lessonDisplayContent(lesson: { content?: string | null }): string {
+  return lesson.content?.trim() ?? "";
+}
+
 const categories = [
   { id: "earning", name: "Earning", icon: "💰", color: "bg-green-500" },
   { id: "saving", name: "Saving", icon: "🐷", color: "bg-blue-500" },
@@ -392,6 +396,8 @@ export default function Learn() {
                 categoryLessons.map((lesson: any) => {
                   const isCompleted = isLessonCompleted(lesson.id);
                   const score = getLessonScore(lesson.id);
+                  const displayContent = lessonDisplayContent(lesson);
+                  const hasLessonBody = displayContent.length > 0;
 
                   return (
                     <Card key={lesson.id} className="mint-card relative overflow-hidden">
@@ -564,10 +570,19 @@ export default function Learn() {
                               </div>
                             </div>
                           </div>
-                        ) : (
+                        ) : hasLessonBody ? (
                           <p className="text-gray-700 leading-relaxed text-sm">
-                            {lesson.content}
+                            {displayContent}
                           </p>
+                        ) : (
+                          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                            <p className="font-medium mb-1">This lesson is still being prepared.</p>
+                            <p className="text-amber-800">
+                              {lesson.videoUrl
+                                ? "Watch the video below, or ask Sprout to explain this topic."
+                                : "Ask Sprout to explain this topic, or check back after a parent updates the lesson."}
+                            </p>
+                          </div>
                         )}
 
                         {lesson.videoUrl && (
@@ -614,12 +629,20 @@ export default function Learn() {
                             <Button
                               className="w-full"
                               onClick={() => startQuiz(lesson)}
-                              disabled={markProgressMutation.isPending || (lesson.videoUrl && !watchedVideos.has(lesson.id))}
+                              disabled={
+                                markProgressMutation.isPending ||
+                                !hasLessonBody ||
+                                (lesson.videoUrl && !watchedVideos.has(lesson.id))
+                              }
                             >
                               <Trophy className="h-4 w-4 mr-2" />
-                              {lesson.videoUrl && !watchedVideos.has(lesson.id)
-                                ? "Watch Video First"
-                                : isCompleted ? `Retake Quiz (${score}%)` : "Take Quiz"}
+                              {!hasLessonBody
+                                ? "Lesson Not Ready"
+                                : lesson.videoUrl && !watchedVideos.has(lesson.id)
+                                  ? "Watch Video First"
+                                  : isCompleted
+                                    ? `Retake Quiz (${score}%)`
+                                    : "Take Quiz"}
                             </Button>
                           )}
 
