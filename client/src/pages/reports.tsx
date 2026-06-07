@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { useKidMode } from "@/hooks/use-kid-mode";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,26 +32,8 @@ import {
 } from "recharts";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-
-interface Child {
-  id: number;
-  name: string;
-  age: number;
-  totalEarned: string;
-  completedJobs: number;
-}
-
-interface Payment {
-  id: number;
-  jobId: number;
-  childId: number;
-  amount: string;
-  spendingAmount: string;
-  savingsAmount: string;
-  rothIraAmount: string;
-  brokerageAmount: string;
-  createdAt: string;
-}
+import { useSelectedChild } from "@/components/navigation";
+import type { ChildRow, JobRow, PaymentRow } from "@/lib/api-types";
 
 const COLORS = {
   spending: "#3B82F6",
@@ -60,31 +44,49 @@ const COLORS = {
 
 export default function Reports() {
   const { user } = useAuth();
+  const { mode: kidMode } = useKidMode();
   const { toast } = useToast();
   const [selectedChildId, setSelectedChildId] = useState<string>("all");
+  const { selectedChildId: navSelectedChildId } = useSelectedChild();
   const [dateRange, setDateRange] = useState({
     startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days ago
     endDate: new Date().toISOString().split('T')[0], // today
   });
 
-  const { data: children, isLoading: childrenLoading } = useQuery({
+  const { data: children, isLoading: childrenLoading } = useQuery<ChildRow[]>({
     queryKey: ["/api/children"],
     enabled: user?.role === "parent",
   });
 
-  const { data: payments, isLoading: paymentsLoading } = useQuery({
+  const { data: payments, isLoading: paymentsLoading } = useQuery<PaymentRow[]>({
     queryKey: ["/api/payments"],
   });
 
-  const { data: jobs, isLoading: jobsLoading } = useQuery({
+  const { data: jobs, isLoading: jobsLoading } = useQuery<JobRow[]>({
     queryKey: ["/api/jobs"],
   });
+
+  const [, setLocation] = useLocation();
+  const isYoungestChild = user?.role === "child" && kidMode === "youngest";
+
+  useEffect(() => {
+    if (isYoungestChild) setLocation("/dashboard");
+  }, [isYoungestChild, setLocation]);
+
+  useEffect(() => {
+    if (user?.role !== "parent") return;
+    if (!navSelectedChildId) return;
+    if (selectedChildId !== "all") return;
+    setSelectedChildId(navSelectedChildId);
+  }, [navSelectedChildId, selectedChildId, user?.role]);
+
+  if (isYoungestChild) return null;
 
   const isLoading = childrenLoading || paymentsLoading || jobsLoading;
 
   // Filter data based on selected child and date range
-  const filteredPayments = payments?.filter((payment: Payment) => {
-    const paymentDate = new Date(payment.createdAt);
+  const filteredPayments = payments?.filter((payment: PaymentRow) => {
+    const paymentDate = new Date(payment.createdAt ?? Date.now());
     const startDate = new Date(dateRange.startDate);
     const endDate = new Date(dateRange.endDate);
     
@@ -95,11 +97,11 @@ export default function Reports() {
   }) || [];
 
   // Calculate totals
-  const totalEarned = filteredPayments.reduce((sum: number, payment: Payment) => 
+  const totalEarned = filteredPayments.reduce((sum: number, payment: PaymentRow) => 
     sum + parseFloat(payment.amount), 0
   );
 
-  const categoryTotals = filteredPayments.reduce((acc: any, payment: Payment) => {
+  const categoryTotals = filteredPayments.reduce((acc: any, payment: PaymentRow) => {
     acc.spending += parseFloat(payment.spendingAmount);
     acc.savings += parseFloat(payment.savingsAmount);
     acc.rothIra += parseFloat(payment.rothIraAmount);
@@ -116,8 +118,8 @@ export default function Reports() {
   ].filter(item => item.value > 0);
 
   // Monthly earnings data
-  const monthlyData = filteredPayments.reduce((acc: any, payment: Payment) => {
-    const month = new Date(payment.createdAt).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+  const monthlyData = filteredPayments.reduce((acc: any, payment: PaymentRow) => {
+    const month = new Date(payment.createdAt ?? Date.now()).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
     
     if (!acc[month]) {
       acc[month] = { month, spending: 0, savings: 0, rothIra: 0, brokerage: 0, total: 0 };
@@ -136,31 +138,33 @@ export default function Reports() {
     new Date(a.month).getTime() - new Date(b.month).getTime()
   );
 
-  // Child comparison data (for parents)
-  const childComparisonData = user?.role === "parent" ? 
-    children?.map((child: Child) => {
-      const childPayments = filteredPayments.filter((p: Payment) => p.childId === child.id);
-      const total = childPayments.reduce((sum: number, p: Payment) => sum + parseFloat(p.amount), 0);
-      const jobCount = jobs?.filter((job: any) => job.assignedToId === child.id && job.status === "approved").length || 0;
-      
-      return {
-        name: child.name,
-        totalEarned: total,
-        jobsCompleted: jobCount,
-        age: child.age,
-      };
-    }).filter((child: any) => child.totalEarned > 0) : [];
+  const childComparisonData = user?.role === "parent"
+    ? (children ?? [])
+        .map((child: ChildRow) => {
+          const childPayments = filteredPayments.filter((p: PaymentRow) => p.childId === child.id);
+          const total = childPayments.reduce((sum: number, p: PaymentRow) => sum + parseFloat(p.amount), 0);
+          const jobCount = jobs?.filter((job: JobRow) => job.assignedToId === child.id && job.status === "approved").length || 0;
+
+          return {
+            name: child.name,
+            totalEarned: total,
+            jobsCompleted: jobCount,
+            age: child.age,
+          };
+        })
+        .filter((child) => child.totalEarned > 0)
+    : [];
 
   const handleExportCSV = async () => {
     try {
-      const csvData = filteredPayments.map((payment: Payment) => {
-        const child = children?.find((c: Child) => c.id === payment.childId);
+      const csvData = filteredPayments.map((payment: PaymentRow) => {
+        const child = children?.find((c: ChildRow) => c.id === payment.childId);
         const job = jobs?.find((j: any) => j.id === payment.jobId);
         
         return {
-          Date: new Date(payment.createdAt).toLocaleDateString(),
+          Date: new Date(payment.createdAt ?? Date.now()).toLocaleDateString(),
           Child: child?.name || "Unknown",
-          Job: job?.title || "Unknown",
+          Task: job?.title || "Unknown",
           "Total Amount": parseFloat(payment.amount).toFixed(2),
           "Spending Amount": parseFloat(payment.spendingAmount).toFixed(2),
           "Savings Amount": parseFloat(payment.savingsAmount).toFixed(2),
@@ -172,7 +176,7 @@ export default function Reports() {
       const headers = Object.keys(csvData[0] || {});
       const csvContent = [
         headers.join(","),
-        ...csvData.map(row => headers.map(header => `"${row[header as keyof typeof row]}"`).join(","))
+        ...csvData.map((row: Record<string, string | number>) => headers.map(header => `"${row[header]}"`).join(","))
       ].join("\n");
 
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -235,7 +239,7 @@ export default function Reports() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Children</SelectItem>
-                    {children?.map((child: Child) => (
+                    {children?.map((child: ChildRow) => (
                       <SelectItem key={child.id} value={child.id.toString()}>
                         {child.name}
                       </SelectItem>

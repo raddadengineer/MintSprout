@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import type { AccountTypesRow, AllocationRow, PaymentRow } from "@/lib/api-types";
+import { taskLabels } from "@/lib/task-labels";
 
 interface PaymentApprovalModalProps {
   isOpen: boolean;
@@ -23,6 +25,7 @@ interface CustomAllocation {
 
 export function PaymentApprovalModal({ isOpen, onClose, job }: PaymentApprovalModalProps) {
   const { user } = useAuth();
+  const labels = taskLabels("parent");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [useCustomAllocation, setUseCustomAllocation] = useState(false);
@@ -33,18 +36,18 @@ export function PaymentApprovalModal({ isOpen, onClose, job }: PaymentApprovalMo
     brokerageAmount: 0,
   });
 
-  const { data: allocation } = useQuery({
+  const { data: allocation } = useQuery<AllocationRow>({
     queryKey: [`/api/allocation/${job?.assignedToId}`],
     enabled: isOpen && !!job?.assignedToId,
   });
 
-  const { data: accountTypes } = useQuery({
+  const { data: accountTypes } = useQuery<AccountTypesRow>({
     queryKey: [`/api/account-types/${user?.familyId}`],
     enabled: isOpen && !!user?.familyId,
   });
 
   // Fetch existing payment data for approved jobs
-  const { data: existingPayment, refetch: refetchPayment } = useQuery({
+  const { data: existingPayment, refetch: refetchPayment } = useQuery<PaymentRow>({
     queryKey: [`/api/payments/job/${job?.id}`],
     enabled: isOpen && !!job?.id && job?.status === "approved",
     staleTime: 0, // Always fetch fresh data
@@ -62,10 +65,10 @@ export function PaymentApprovalModal({ isOpen, onClose, job }: PaymentApprovalMo
     if (job && allocation) {
       const amount = parseFloat(job.amount);
       setCustomAllocation({
-        spendingAmount: parseFloat(((allocation.spendingPercentage / 100) * amount).toFixed(2)),
-        savingsAmount: parseFloat(((allocation.savingsPercentage / 100) * amount).toFixed(2)),
-        rothIraAmount: parseFloat(((allocation.rothIraPercentage / 100) * amount).toFixed(2)),
-        brokerageAmount: parseFloat(((allocation.brokeragePercentage / 100) * amount).toFixed(2)),
+        spendingAmount: parseFloat((((allocation.spendingPercentage ?? 0) / 100) * amount).toFixed(2)),
+        savingsAmount: parseFloat((((allocation.savingsPercentage ?? 0) / 100) * amount).toFixed(2)),
+        rothIraAmount: parseFloat((((allocation.rothIraPercentage ?? 0) / 100) * amount).toFixed(2)),
+        brokerageAmount: parseFloat((((allocation.brokeragePercentage ?? 0) / 100) * amount).toFixed(2)),
       });
     }
   }, [job, allocation]);
@@ -79,7 +82,7 @@ export function PaymentApprovalModal({ isOpen, onClose, job }: PaymentApprovalMo
     onSuccess: () => {
       toast({
         title: "Success!",
-        description: "Job approved and payment processed",
+        description: "Task approved and payment processed",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard-stats"] });
@@ -89,7 +92,7 @@ export function PaymentApprovalModal({ isOpen, onClose, job }: PaymentApprovalMo
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to approve job",
+        description: "Failed to approve task",
         variant: "destructive",
       });
     },
@@ -106,7 +109,7 @@ export function PaymentApprovalModal({ isOpen, onClose, job }: PaymentApprovalMo
       if (Math.abs(total - jobAmount) > 0.01) {
         toast({
           title: "Invalid Allocation",
-          description: `Total allocation ($${total.toFixed(2)}) must equal job amount ($${jobAmount.toFixed(2)})`,
+          description: `Total allocation ($${total.toFixed(2)}) must equal task amount ($${jobAmount.toFixed(2)})`,
           variant: "destructive",
         });
         return;
@@ -122,10 +125,10 @@ export function PaymentApprovalModal({ isOpen, onClose, job }: PaymentApprovalMo
   };
 
   const defaultAllocation = job && allocation ? {
-    spendingAmount: ((allocation.spendingPercentage / 100) * parseFloat(job.amount)).toFixed(2),
-    savingsAmount: ((allocation.savingsPercentage / 100) * parseFloat(job.amount)).toFixed(2),
-    rothIraAmount: ((allocation.rothIraPercentage / 100) * parseFloat(job.amount)).toFixed(2),
-    brokerageAmount: ((allocation.brokeragePercentage / 100) * parseFloat(job.amount)).toFixed(2),
+    spendingAmount: (((allocation.spendingPercentage ?? 0) / 100) * parseFloat(job.amount)).toFixed(2),
+    savingsAmount: (((allocation.savingsPercentage ?? 0) / 100) * parseFloat(job.amount)).toFixed(2),
+    rothIraAmount: (((allocation.rothIraPercentage ?? 0) / 100) * parseFloat(job.amount)).toFixed(2),
+    brokerageAmount: (((allocation.brokeragePercentage ?? 0) / 100) * parseFloat(job.amount)).toFixed(2),
   } : null;
 
   if (!job) return null;
@@ -135,7 +138,7 @@ export function PaymentApprovalModal({ isOpen, onClose, job }: PaymentApprovalMo
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {job.status === "approved" ? "Payment Details" : "Approve Job & Process Payment"}
+            {job.status === "approved" ? "Payment Details" : labels.approvePay}
           </DialogTitle>
         </DialogHeader>
         
@@ -148,7 +151,7 @@ export function PaymentApprovalModal({ isOpen, onClose, job }: PaymentApprovalMo
               <p className="text-sm text-gray-600 mb-2">{job.description}</p>
               <p className="text-lg font-bold text-primary">Amount: ${parseFloat(job.amount).toFixed(2)}</p>
               <p className="text-sm text-gray-500 mt-2">
-                Approved on {new Date(existingPayment.createdAt).toLocaleDateString()}
+                Approved on {new Date(existingPayment.createdAt ?? Date.now()).toLocaleDateString()}
               </p>
             </div>
 

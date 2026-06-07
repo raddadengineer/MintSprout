@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { JobCreationModal } from "@/components/job-creation-modal";
+import { PaymentApprovalModal } from "@/components/payment-approval-modal";
 import { AllocationModal } from "@/components/allocation-modal";
 import { AccountTypesModal } from "@/components/account-types-modal";
 import { SavingsGoalsModal } from "@/components/savings-goals-modal";
@@ -12,18 +13,33 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useLocation } from "wouter";
+import { useSelectedChild } from "@/components/navigation";
+import { useKidMode } from "@/hooks/use-kid-mode";
+import { SproutBuddyCTA } from "@/components/sprout-buddy";
+import { DailyBriefCard } from "@/components/daily-brief";
+import { IconText } from "@/components/icon-text";
+import { YOUNGEST_STATS, youngestJobStatus } from "@/lib/youngest-ui";
+import { groupJobsByCategory, type JobCategoryRow } from "@/lib/job-category-groups";
+import { JobIcon } from "@/components/job-icon";
+import type { ChildRow, JobRow } from "@/lib/api-types";
+import { taskLabels } from "@/lib/task-labels";
+import { needsPaymentModal, taskPayKind, taskPayLabel } from "@/lib/task-pay-type";
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { mode: kidMode, age: kidAge } = useKidMode();
   const [, navigate] = useLocation();
   const [showJobModal, setShowJobModal] = useState(false);
   const [showAllocationModal, setShowAllocationModal] = useState(false);
   const [showAccountTypesModal, setShowAccountTypesModal] = useState(false);
   const [showSavingsGoalModal, setShowSavingsGoalModal] = useState(false);
-  const [selectedChildId, setSelectedChildId] = useState<number | null>(null);
+  const [selectedChildIdForAllocation, setSelectedChildIdForAllocation] = useState<number | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedJobForPayment, setSelectedJobForPayment] = useState<JobRow | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { selectedChildId } = useSelectedChild();
 
   const { data: dashboardData, isLoading } = useQuery<{
     child?: any;
@@ -31,7 +47,33 @@ export default function Dashboard() {
     activeJobs?: any[];
     achievements?: any[];
   }>({
-    queryKey: ["/api/dashboard-stats"],
+    queryKey: ["/api/dashboard-stats", selectedChildId],
+    queryFn: async () => {
+      const token = localStorage.getItem("auth_token");
+      const headers: Record<string, string> = {};
+
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      const url =
+        user?.role === "parent" && selectedChildId
+          ? `/api/dashboard-stats?childId=${encodeURIComponent(selectedChildId)}`
+          : "/api/dashboard-stats";
+
+      const res = await fetch(url, {
+        headers,
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text}`);
+      }
+
+      return await res.json();
+    },
+    enabled: user?.role !== "parent" || !!selectedChildId,
   });
 
   const { data: accountTypes } = useQuery<{
@@ -59,6 +101,17 @@ export default function Dashboard() {
     enabled: user?.role === "child",
   });
 
+  const { data: jobCategories = [] } = useQuery<JobCategoryRow[]>({
+    queryKey: ["/api/job-categories"],
+  });
+
+  const { data: allFamilyJobs = [] } = useQuery<JobRow[]>({
+    queryKey: ["/api/jobs"],
+    enabled: user?.role === "parent",
+  });
+
+  const labels = taskLabels(user?.role === "parent" ? "parent" : "child", kidMode);
+
   const triggerConfetti = () => {
     setShowConfetti(true);
     setTimeout(() => setShowConfetti(false), 4500);
@@ -72,6 +125,8 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
       queryClient.invalidateQueries({ queryKey: ["/api/children"] });
+
+      const approvedJob = dashboardData?.activeJobs?.find((j) => j.id === variables.id);
 
       if (variables.status === "approved") {
         triggerConfetti();
@@ -89,8 +144,16 @@ export default function Dashboard() {
       }
 
       toast({
-        title: variables.status === "approved" ? "💰 Payment Approved!" : "✅ Job Updated!",
-        description: variables.status === "approved" ? "Great job! Payment has been processed." : "Job status updated successfully",
+        title: variables.status === "approved"
+          ? approvedJob?.isFamilyDuty
+            ? "✅ Great teamwork!"
+            : "💰 Payment Approved!"
+          : "✅ Task updated!",
+        description: variables.status === "approved"
+          ? approvedJob?.isFamilyDuty
+            ? "Family responsibility marked complete."
+            : "Great job! Payment has been processed."
+          : "Task status updated successfully",
       });
     },
   });
@@ -99,7 +162,30 @@ export default function Dashboard() {
     updateJobMutation.mutate({ id: jobId, status });
   };
 
+  const handleParentApprove = (job: JobRow) => {
+    if (needsPaymentModal(job)) {
+      setSelectedJobForPayment(job);
+      setShowPaymentModal(true);
+      return;
+    }
+    handleJobAction(job.id, "approved");
+  };
+
+  const getChildNameById = (childId: number) => {
+    const c = (children as ChildRow[]).find((ch) => ch.id === childId);
+    return c?.name ?? "Unknown";
+  };
+
   const getStatusBadge = (status: string) => {
+    if (user?.role === "child" && kidMode === "youngest") {
+      const { icon, label } = youngestJobStatus(status);
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-sm font-bold text-gray-800">
+          <span aria-hidden>{icon}</span>
+          {label}
+        </span>
+      );
+    }
     switch (status) {
       case "assigned":
         return <span className="mint-badge-assigned">Assigned</span>;
@@ -126,6 +212,78 @@ export default function Dashboard() {
     if (title.toLowerCase().includes("cook")) return "🍳";
     return "✅";
   };
+
+  const renderActiveJobCard = (job: any) => (
+    <div key={job.id} className="border-2 border-gray-100 rounded-2xl p-4 hover:border-primary transition-all duration-200 hover:shadow-md">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-50 rounded-xl flex items-center justify-center text-2xl">
+            {job.icon ? <JobIcon iconName={job.icon} className="h-6 w-6 text-blue-700" /> : getJobIcon(job.title)}
+          </div>
+          <div>
+            <h4 className="font-black text-gray-900">{job.title}</h4>
+            <p className="text-sm text-gray-500 font-medium">{job.description}</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="font-black text-primary text-xl">
+            {(job as any).isFamilyDuty
+              ? kidMode === "youngest"
+                ? "🏠 Home"
+                : "Family"
+              : (job as any).allowanceId
+                ? kidMode === "youngest"
+                  ? "💵 Pay"
+                  : "Allowance"
+                : `$${parseFloat(job.amount).toFixed(2)}`}
+          </p>
+          {getStatusBadge(job.status)}
+        </div>
+      </div>
+
+      <div className="mt-4 flex space-x-2">
+        {job.status === "assigned" && user?.role === "child" && (
+          <Button
+            onClick={() => handleJobAction(job.id, "in_progress")}
+            className={`flex-1 mint-secondary ${kidMode === "youngest" ? "h-14" : ""}`}
+            disabled={updateJobMutation.isPending}
+          >
+            {kidMode === "youngest" ? (
+              <IconText icon="🚀" label="Start" size="md" />
+            ) : (
+              labels.start
+            )}
+          </Button>
+        )}
+        {job.status === "in_progress" && user?.role === "child" && (
+          <Button
+            onClick={() => handleJobAction(job.id, "completed")}
+            className={`flex-1 mint-primary ${kidMode === "youngest" ? "h-14" : ""}`}
+            disabled={updateJobMutation.isPending}
+          >
+            {kidMode === "youngest" ? (
+              <IconText icon="🎉" label="Done!" size="md" />
+            ) : (
+              "🎉 Mark Complete!"
+            )}
+          </Button>
+        )}
+        {job.status === "completed" && user?.role === "parent" && (
+          <Button
+            onClick={() => handleParentApprove(job)}
+            className="flex-1 mint-primary"
+            disabled={updateJobMutation.isPending}
+          >
+            {taskPayKind(job) === "family_duty"
+              ? `✅ ${labels.approve}`
+              : taskPayKind(job) === "allowance"
+                ? `✅ ${labels.approveAllowance}`
+                : `💰 ${labels.approvePay}`}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
 
   // Friendly names for child-facing account types
   const getAccountLabel = (key: string) => {
@@ -154,6 +312,19 @@ export default function Dashboard() {
     ? Math.min(100, Math.round((parseFloat(topGoal.currentAmount || "0") / parseFloat(topGoal.targetAmount || "1")) * 100))
     : 0;
 
+  const child = dashboardData?.child;
+  const allocation = dashboardData?.allocation;
+  const activeJobs = dashboardData?.activeJobs || [];
+  const awaitingApproval = useMemo(
+    () => (allFamilyJobs as JobRow[]).filter((j) => j.status === "completed"),
+    [allFamilyJobs],
+  );
+  const activeJobGroups = useMemo(
+    () => groupJobsByCategory(activeJobs, jobCategories),
+    [activeJobs, jobCategories],
+  );
+  const achievements = dashboardData?.achievements || [];
+
   if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -168,11 +339,6 @@ export default function Dashboard() {
       </div>
     );
   }
-
-  const child = dashboardData?.child;
-  const allocation = dashboardData?.allocation;
-  const activeJobs = dashboardData?.activeJobs || [];
-  const achievements = dashboardData?.achievements || [];
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -190,7 +356,19 @@ export default function Dashboard() {
               <p className="text-gray-600 text-lg font-medium">
                 {user?.role === "parent"
                   ? "Here's how your family's financial learning is progressing!"
-                  : "Let's see how your money garden is growing! 🌼"
+                  : kidMode === "youngest"
+                    ? (
+                      <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-base font-bold text-gray-700">
+                        <IconText icon="✅" label="Pick a job" size="sm" />
+                        <span className="text-gray-400" aria-hidden>→</span>
+                        <IconText icon="🚀" label="Tap Start" size="sm" />
+                        <span className="text-gray-400" aria-hidden>→</span>
+                        <IconText icon="🎉" label="Tap Done!" size="sm" />
+                      </span>
+                    )
+                    : kidMode === "younger"
+                      ? "Let’s grow your money garden! 🌼 Pick a job, then earn!"
+                      : "Let’s check your balances, goals, and progress."
                 }
               </p>
             </div>
@@ -202,11 +380,11 @@ export default function Dashboard() {
                   onClick={() => setShowJobModal(true)}
                   className="mint-primary mint-button shadow-lg hover:shadow-xl"
                 >
-                  ➕ Create New Job
+                  ➕ {labels.create}
                 </Button>
                 <Button
                   onClick={() => {
-                    setSelectedChildId(child?.id || null);
+                    setSelectedChildIdForAllocation(child?.id || null);
                     setShowAllocationModal(true);
                   }}
                   variant="outline"
@@ -243,27 +421,88 @@ export default function Dashboard() {
                   className="shadow-lg hover:shadow-xl bg-purple-50 hover:bg-purple-100 border-purple-200 font-bold"
                   onClick={() => navigate("/learn")}
                 >
-                  ❓ Take Quiz
+                  {kidMode === "youngest" ? (
+                    <IconText icon="🧠" label="Quiz" size="sm" />
+                  ) : kidMode === "younger" ? (
+                    "🧩 Quiz Time"
+                  ) : (
+                    "❓ Take Quiz"
+                  )}
                 </Button>
                 <Button
                   variant="outline"
                   className="shadow-lg hover:shadow-xl bg-red-50 hover:bg-red-100 border-red-200 font-bold"
                   onClick={() => navigate("/learn")}
                 >
-                  📖 Learn Now
+                  {kidMode === "youngest" ? (
+                    <IconText icon="📖" label="Stories" size="sm" />
+                  ) : kidMode === "younger" ? (
+                    "📖 Learn"
+                  ) : (
+                    "📖 Learn Now"
+                  )}
                 </Button>
-                <Button
-                  variant="outline"
-                  className="shadow-lg hover:shadow-xl bg-green-50 hover:bg-green-100 border-green-200 font-bold"
-                  onClick={() => setShowSavingsGoalModal(true)}
-                >
-                  🎯 Set Savings Goal
-                </Button>
+                {kidMode !== "youngest" && (
+                  <Button
+                    variant="outline"
+                    className="shadow-lg hover:shadow-xl bg-green-50 hover:bg-green-100 border-green-200 font-bold"
+                    onClick={() => setShowSavingsGoalModal(true)}
+                  >
+                    {kidMode === "younger" ? "🎯 New Goal" : "🎯 Set Savings Goal"}
+                  </Button>
+                )}
               </>
             )}
           </div>
         </div>
       </div>
+
+      {user?.role === "child" && (
+        <>
+          <DailyBriefCard />
+          <div className="mb-8">
+            <SproutBuddyCTA mode={kidMode} />
+          </div>
+        </>
+      )}
+
+      {user?.role === "parent" && awaitingApproval.length > 0 && (
+        <Card className="mint-card mb-8 border-2 border-orange-200 bg-orange-50/50">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4 gap-4">
+              <h3 className="text-xl font-black text-gray-900">
+                ⏱️ {labels.needsAttention} ({awaitingApproval.length})
+              </h3>
+              <Button asChild variant="outline" size="sm" className="shrink-0">
+                <Link href="/jobs?filter=awaiting">{labels.viewAll} →</Link>
+              </Button>
+            </div>
+            <div className="space-y-3">
+              {awaitingApproval.slice(0, 5).map((job) => (
+                <div
+                  key={job.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white rounded-xl border border-orange-100"
+                >
+                  <div className="min-w-0">
+                    <p className="font-bold text-gray-900 truncate">{job.title}</p>
+                    <p className="text-sm text-gray-600">
+                      {getChildNameById(job.assignedToId)} · {taskPayLabel(job)}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="mint-primary shrink-0"
+                    onClick={() => handleParentApprove(job)}
+                    disabled={updateJobMutation.isPending}
+                  >
+                    {needsPaymentModal(job) ? labels.approvePay : labels.approve}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Role-based Stats Overview */}
       {user?.role === "parent" ? (
@@ -273,7 +512,7 @@ export default function Dashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-bold text-gray-500 mb-1">Active Jobs</p>
+                  <p className="text-sm font-bold text-gray-500 mb-1">{labels.activeSection}</p>
                   <p className="text-3xl font-black text-gray-900">{activeJobs.length}</p>
                 </div>
                 <div className="w-14 h-14 bg-blue-500/10 rounded-2xl flex items-center justify-center">
@@ -281,7 +520,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="mt-4 flex items-center text-sm">
-                <span className="text-blue-600 font-bold">Jobs assigned</span>
+                <span className="text-blue-600 font-bold">For selected child</span>
               </div>
             </CardContent>
           </Card>
@@ -290,7 +529,24 @@ export default function Dashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-bold text-gray-500 mb-1">Jobs Completed</p>
+                  <p className="text-sm font-bold text-gray-500 mb-1">{labels.awaitingApproval}</p>
+                  <p className="text-3xl font-black text-gray-900">{awaitingApproval.length}</p>
+                </div>
+                <div className="w-14 h-14 bg-orange-500/10 rounded-2xl flex items-center justify-center">
+                  <span className="text-orange-500 text-2xl">⏱️</span>
+                </div>
+              </div>
+              <div className="mt-4 flex items-center text-sm">
+                <span className="text-orange-600 font-bold">Across all children</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="mint-card">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-bold text-gray-500 mb-1">Tasks completed</p>
                   <p className="text-3xl font-black text-gray-900">{child?.completedJobs || 0}</p>
                 </div>
                 <div className="w-14 h-14 bg-green-500/10 rounded-2xl flex items-center justify-center">
@@ -341,78 +597,120 @@ export default function Dashboard() {
         </div>
       ) : (
         // Child Dashboard Stats
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 ${kidMode === "youngest" ? "grid-cols-2" : ""}`}>
           <Card className="mint-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-bold text-gray-500 mb-1">Total Earned</p>
-                  <p className="text-3xl font-black text-gray-900">
-                    ${parseFloat(child?.totalEarned || "0").toFixed(2)}
-                  </p>
+            <CardContent className={kidMode === "youngest" ? "p-5" : "p-6"}>
+              {kidMode === "youngest" ? (
+                <div className="text-center space-y-2">
+                  <IconText icon={YOUNGEST_STATS.earned.icon} label={YOUNGEST_STATS.earned.label} layout="vertical" size="md" />
+                  <p className="text-3xl font-black text-gray-900">${parseFloat(child?.totalEarned || "0").toFixed(2)}</p>
+                  <p className="text-sm font-bold text-green-600">{YOUNGEST_STATS.earned.hint}</p>
                 </div>
-                <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center">
-                  <span className="text-primary text-2xl">💰</span>
-                </div>
-              </div>
-              <div className="mt-4 flex items-center text-sm">
-                <span className="text-green-600 font-bold">🌱 Growing!</span>
-              </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-gray-500 mb-1">Total Earned</p>
+                      <p className="text-3xl font-black text-gray-900">
+                        ${parseFloat(child?.totalEarned || "0").toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center">
+                      <span className="text-primary text-2xl">💰</span>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center text-sm">
+                    <span className="text-green-600 font-bold">🌱 Growing!</span>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
           <Card className="mint-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-bold text-gray-500 mb-1">Jobs Completed</p>
+            <CardContent className={kidMode === "youngest" ? "p-5" : "p-6"}>
+              {kidMode === "youngest" ? (
+                <div className="text-center space-y-2">
+                  <IconText icon={YOUNGEST_STATS.jobsDone.icon} label={YOUNGEST_STATS.jobsDone.label} layout="vertical" size="md" />
                   <p className="text-3xl font-black text-gray-900">{child?.completedJobs || 0}</p>
+                  <p className="text-sm font-bold text-green-600">{YOUNGEST_STATS.jobsDone.hint}</p>
                 </div>
-                <div className="w-14 h-14 bg-secondary/10 rounded-2xl flex items-center justify-center">
-                  <span className="text-secondary text-2xl">✅</span>
-                </div>
-              </div>
-              <div className="mt-4 flex items-center text-sm">
-                <span className="text-green-600 font-bold">Keep it up!</span>
-              </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-gray-500 mb-1">Tasks completed</p>
+                      <p className="text-3xl font-black text-gray-900">{child?.completedJobs || 0}</p>
+                    </div>
+                    <div className="w-14 h-14 bg-secondary/10 rounded-2xl flex items-center justify-center">
+                      <span className="text-secondary text-2xl">✅</span>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center text-sm">
+                    <span className="text-green-600 font-bold">Keep it up!</span>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
           <Card className="mint-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-bold text-gray-500 mb-1">
-                    {topGoal ? topGoal.name : "Savings Goal"}
-                  </p>
-                  <p className="text-3xl font-black text-gray-900">{topGoal ? `${goalPercent}%` : "No goal yet"}</p>
+            <CardContent className={kidMode === "youngest" ? "p-5" : "p-6"}>
+              {kidMode === "youngest" ? (
+                <div className="text-center space-y-2">
+                  <IconText icon={YOUNGEST_STATS.goal.icon} label={YOUNGEST_STATS.goal.label} layout="vertical" size="md" />
+                  <p className="text-3xl font-black text-gray-900">{topGoal ? `${goalPercent}%` : "—"}</p>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="bg-accent h-2 rounded-full transition-all duration-500" style={{ width: `${goalPercent}%` }} />
+                  </div>
                 </div>
-                <div className="w-14 h-14 bg-accent/10 rounded-2xl flex items-center justify-center">
-                  <span className="text-accent text-2xl">🐷</span>
-                </div>
-              </div>
-              <div className="mt-4">
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-accent h-2 rounded-full transition-all duration-500" style={{ width: `${goalPercent}%` }}></div>
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-gray-500 mb-1">
+                        {topGoal ? topGoal.name : "Savings Goal"}
+                      </p>
+                      <p className="text-3xl font-black text-gray-900">{topGoal ? `${goalPercent}%` : "No goal yet"}</p>
+                    </div>
+                    <div className="w-14 h-14 bg-accent/10 rounded-2xl flex items-center justify-center">
+                      <span className="text-accent text-2xl">🐷</span>
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="bg-accent h-2 rounded-full transition-all duration-500" style={{ width: `${goalPercent}%` }}></div>
+                    </div>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
           <Card className="mint-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-bold text-gray-500 mb-1">Learning Streak</p>
-                  <p className="text-3xl font-black text-gray-900">{child?.learningStreak || 0} days</p>
+            <CardContent className={kidMode === "youngest" ? "p-5" : "p-6"}>
+              {kidMode === "youngest" ? (
+                <div className="text-center space-y-2">
+                  <IconText icon={YOUNGEST_STATS.learning.icon} label={YOUNGEST_STATS.learning.label} layout="vertical" size="md" />
+                  <p className="text-3xl font-black text-gray-900">{child?.learningStreak || 0}</p>
+                  <p className="text-sm font-bold text-orange-500">{YOUNGEST_STATS.learning.hint}</p>
                 </div>
-                <div className="w-14 h-14 bg-orange-500/10 rounded-2xl flex items-center justify-center">
-                  <span className="text-orange-500 text-2xl">🔥</span>
-                </div>
-              </div>
-              <div className="mt-4 flex items-center text-sm">
-                <span className="text-orange-500 font-bold">{(child?.learningStreak || 0) > 0 ? "🔥 On fire!" : "Start learning!"}</span>
-              </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-gray-500 mb-1">Learning Streak</p>
+                      <p className="text-3xl font-black text-gray-900">{child?.learningStreak || 0} days</p>
+                    </div>
+                    <div className="w-14 h-14 bg-orange-500/10 rounded-2xl flex items-center justify-center">
+                      <span className="text-orange-500 text-2xl">🔥</span>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center text-sm">
+                    <span className="text-orange-500 font-bold">{(child?.learningStreak || 0) > 0 ? "🔥 On fire!" : "Start learning!"}</span>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -426,79 +724,51 @@ export default function Dashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-black text-gray-900">
-                  ✅ Active Jobs
+                  {kidMode === "youngest" ? (
+                    <IconText icon="✅" label={labels.activeSection} size="md" />
+                  ) : (
+                    `✅ ${labels.activeSection}`
+                  )}
                 </h3>
-                <Link href="/jobs">
-                  <Button variant="ghost" className="text-primary hover:text-green-600 font-bold text-sm">
-                    View All →
-                  </Button>
-                </Link>
+                <Button asChild variant="ghost" className="text-primary hover:text-green-600 font-bold text-sm">
+                  <Link href="/jobs">
+                    {kidMode === "youngest" ? (
+                      <IconText icon="👀" label="See All" size="sm" />
+                    ) : (
+                      "View All →"
+                    )}
+                  </Link>
+                </Button>
               </div>
 
               <div className="space-y-4">
                 {activeJobs.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <div className="text-4xl mb-3">🎈</div>
-                    <p className="font-medium">No active jobs right now!</p>
+                    <p className="font-medium">{labels.noActive}</p>
                     {user?.role === "parent" && (
                       <Button
                         onClick={() => setShowJobModal(true)}
                         className="mt-4 mint-primary"
                       >
-                        Create Your First Job
+                        {labels.createFirst}
                       </Button>
                     )}
                   </div>
-                ) : (
-                  activeJobs.map((job: any) => (
-                    <div key={job.id} className="border-2 border-gray-100 rounded-2xl p-4 hover:border-primary transition-all duration-200 hover:shadow-md">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-50 rounded-xl flex items-center justify-center text-2xl">
-                            {getJobIcon(job.title)}
-                          </div>
-                          <div>
-                            <h4 className="font-black text-gray-900">{job.title}</h4>
-                            <p className="text-sm text-gray-500 font-medium">{job.description}</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-black text-primary text-xl">${parseFloat(job.amount).toFixed(2)}</p>
-                          {getStatusBadge(job.status)}
-                        </div>
+                ) : user?.role === "child" && activeJobGroups.length > 0 ? (
+                  activeJobGroups.map((group) => (
+                    <div key={group.label} className="space-y-3">
+                      <div className="flex items-center gap-2 pt-1">
+                        <JobIcon iconName={group.icon} className="h-5 w-5 text-indigo-700" />
+                        <h4 className="font-bold text-gray-800 text-sm uppercase tracking-wide">
+                          {group.label}
+                        </h4>
                       </div>
-
-                      <div className="mt-4 flex space-x-2">
-                        {job.status === "assigned" && user?.role === "child" && (
-                          <Button
-                            onClick={() => handleJobAction(job.id, "in_progress")}
-                            className="flex-1 mint-secondary"
-                            disabled={updateJobMutation.isPending}
-                          >
-                            🚀 Start Job
-                          </Button>
-                        )}
-                        {job.status === "in_progress" && user?.role === "child" && (
-                          <Button
-                            onClick={() => handleJobAction(job.id, "completed")}
-                            className="flex-1 mint-primary"
-                            disabled={updateJobMutation.isPending}
-                          >
-                            🎉 Mark Complete!
-                          </Button>
-                        )}
-                        {job.status === "completed" && user?.role === "parent" && (
-                          <Button
-                            onClick={() => handleJobAction(job.id, "approved")}
-                            className="flex-1 mint-primary"
-                            disabled={updateJobMutation.isPending}
-                          >
-                            💰 Approve & Pay
-                          </Button>
-                        )}
-                      </div>
+                      {group.jobs.map(renderActiveJobCard)}
                     </div>
                   ))
+                ) : (
+                  activeJobs.map(renderActiveJobCard)
                 )}
               </div>
             </CardContent>
@@ -568,7 +838,7 @@ export default function Dashboard() {
                 {user?.role === "parent" && (
                   <Button
                     onClick={() => {
-                      setSelectedChildId(child?.id || null);
+                      setSelectedChildIdForAllocation(child?.id || null);
                       setShowAllocationModal(true);
                     }}
                     variant="outline"
@@ -612,15 +882,13 @@ export default function Dashboard() {
                         <span className="font-bold">Active Teaching</span>
                         <span className="text-lg font-black">{activeJobs.length}</span>
                       </div>
-                      <p className="text-sm text-white/80 font-medium">Jobs currently assigned</p>
+                      <p className="text-sm text-white/80 font-medium">Tasks currently assigned</p>
                     </div>
                   </div>
 
-                  <Link href="/family">
-                    <Button className="w-full bg-white text-blue-600 hover:bg-gray-50 mt-4 font-black">
-                      Manage Family →
-                    </Button>
-                  </Link>
+                  <Button asChild className="w-full bg-white text-blue-600 hover:bg-gray-50 mt-4 font-black">
+                    <Link href="/family">Manage Family →</Link>
+                  </Button>
                 </CardContent>
               </Card>
             </>
@@ -658,11 +926,9 @@ export default function Dashboard() {
                     })}
                   </div>
 
-                  <Link href="/learn">
-                    <Button className="w-full bg-white text-primary hover:bg-gray-50 mt-4 font-black">
-                      Continue Learning →
-                    </Button>
-                  </Link>
+                  <Button asChild className="w-full bg-white text-primary hover:bg-gray-50 mt-4 font-black">
+                    <Link href="/learn">Continue Learning →</Link>
+                  </Button>
                 </CardContent>
               </Card>
 
@@ -678,7 +944,7 @@ export default function Dashboard() {
                       <div className="text-center py-4">
                         <div className="text-3xl mb-2">🌟</div>
                         <p className="text-gray-500 font-medium">No achievements yet!</p>
-                        <p className="text-sm text-gray-400">Complete jobs to earn your first badge.</p>
+                        <p className="text-sm text-gray-400">Complete tasks to earn your first badge.</p>
                       </div>
                     ) : (
                       achievements.map((achievement: any) => (
@@ -703,11 +969,19 @@ export default function Dashboard() {
 
       {/* Modals */}
       <JobCreationModal isOpen={showJobModal} onClose={() => setShowJobModal(false)} />
-      {selectedChildId && (
+      <PaymentApprovalModal
+        isOpen={showPaymentModal}
+        onClose={() => {
+          setShowPaymentModal(false);
+          setSelectedJobForPayment(null);
+        }}
+        job={selectedJobForPayment}
+      />
+      {selectedChildIdForAllocation && (
         <AllocationModal
           isOpen={showAllocationModal}
           onClose={() => setShowAllocationModal(false)}
-          childId={selectedChildId}
+          childId={selectedChildIdForAllocation}
         />
       )}
       <AccountTypesModal

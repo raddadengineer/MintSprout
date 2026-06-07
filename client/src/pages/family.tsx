@@ -14,36 +14,10 @@ import { Trash2, Plus, Edit, Users, Wallet, Settings, BarChart3 } from "lucide-r
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-
-interface Child {
-  id: number;
-  name: string;
-  age: number;
-  totalEarned: string;
-  completedJobs: number;
-  learningStreak: number;
-}
-
-interface Job {
-  id: number;
-  title: string;
-  description: string;
-  amount: string;
-  status: string;
-  assignedToId: number;
-  recurrence: string;
-}
-
-interface Payment {
-  id: number;
-  amount: string;
-  spendingAmount: string;
-  savingsAmount: string;
-  rothIraAmount: string;
-  brokerageAmount: string;
-  createdAt: string;
-  childId: number;
-}
+import type { AccountTypesRow, ChildRow, JobRow, PaymentRow } from "@/lib/api-types";
+import { PaymentApprovalModal } from "@/components/payment-approval-modal";
+import { taskLabels } from "@/lib/task-labels";
+import { needsPaymentModal, taskPayKind } from "@/lib/task-pay-type";
 
 const childFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -54,24 +28,27 @@ type ChildFormData = z.infer<typeof childFormSchema>;
 
 export default function FamilyPage() {
   const [isChildModalOpen, setIsChildModalOpen] = useState(false);
-  const [editingChild, setEditingChild] = useState<Child | null>(null);
+  const [editingChild, setEditingChild] = useState<ChildRow | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<JobRow | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const labels = taskLabels("parent");
 
-  const { data: children, isLoading: childrenLoading } = useQuery({
+  const { data: children, isLoading: childrenLoading } = useQuery<ChildRow[]>({
     queryKey: ["/api/children"],
   });
 
-  const { data: jobs, isLoading: jobsLoading } = useQuery({
+  const { data: jobs, isLoading: jobsLoading } = useQuery<JobRow[]>({
     queryKey: ["/api/jobs"],
   });
 
-  const { data: payments, isLoading: paymentsLoading } = useQuery({
+  const { data: payments, isLoading: paymentsLoading } = useQuery<PaymentRow[]>({
     queryKey: ["/api/payments"],
   });
 
-  const { data: accountTypes } = useQuery({
+  const { data: accountTypes } = useQuery<AccountTypesRow>({
     queryKey: [`/api/account-types/${user?.familyId}`],
     enabled: !!user?.familyId,
   });
@@ -97,10 +74,14 @@ export default function FamilyPage() {
       setIsChildModalOpen(false);
       form.reset();
     },
-    onError: () => {
+    onError: (err: any) => {
+      const msg =
+        typeof err?.message === "string"
+          ? err.message.split(": ").slice(1).join(": ") || err.message
+          : "Failed to add child";
       toast({
         title: "Error",
-        description: "Failed to add child",
+        description: msg,
         variant: "destructive",
       });
     },
@@ -149,6 +130,30 @@ export default function FamilyPage() {
     },
   });
 
+  const approveJobMutation = useMutation({
+    mutationFn: ({ id, ...data }: { id: number; [key: string]: unknown }) =>
+      apiRequest("PATCH", `/api/jobs/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/children"] });
+      toast({ title: "Approved", description: "Task approved successfully." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Could not approve task", variant: "destructive" });
+    },
+  });
+
+  const handleParentApprove = (job: JobRow) => {
+    if (needsPaymentModal(job)) {
+      setSelectedJob(job);
+      setShowPaymentModal(true);
+      return;
+    }
+    approveJobMutation.mutate({ id: job.id, status: "approved" });
+  };
+
   const onSubmit = (data: ChildFormData) => {
     if (editingChild) {
       updateChildMutation.mutate({ id: editingChild.id, ...data });
@@ -157,7 +162,7 @@ export default function FamilyPage() {
     }
   };
 
-  const handleEditChild = (child: Child) => {
+  const handleEditChild = (child: ChildRow) => {
     setEditingChild(child);
     form.setValue("name", child.name);
     form.setValue("age", child.age);
@@ -192,17 +197,18 @@ export default function FamilyPage() {
     }).format(parseFloat(amount));
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | Date | null) => {
+    if (!dateString) return "";
     return new Date(dateString).toLocaleDateString();
   };
 
-  const totalFamilyEarnings = children?.reduce((total: number, child: Child) =>
+  const totalFamilyEarnings = children?.reduce((total: number, child: ChildRow) =>
     total + parseFloat(child.totalEarned || "0"), 0) || 0;
 
-  const totalActiveJobs = jobs?.filter((job: Job) =>
+  const totalActiveJobs = jobs?.filter((job: JobRow) =>
     job.status !== "approved").length || 0;
 
-  const totalCompletedJobs = jobs?.filter((job: Job) =>
+  const totalCompletedJobs = jobs?.filter((job: JobRow) =>
     job.status === "approved").length || 0;
 
   if (childrenLoading || jobsLoading || paymentsLoading) {
@@ -246,7 +252,7 @@ export default function FamilyPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Jobs</CardTitle>
+            <CardTitle className="text-sm font-medium">Active tasks</CardTitle>
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -256,7 +262,7 @@ export default function FamilyPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed Jobs</CardTitle>
+            <CardTitle className="text-sm font-medium">Completed tasks</CardTitle>
             <Settings className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -357,7 +363,7 @@ export default function FamilyPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {children?.map((child: Child) => (
+              {children?.map((child: ChildRow) => (
                 <Card key={child.id} className="border-l-4 border-l-blue-500">
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
@@ -390,7 +396,7 @@ export default function FamilyPage() {
                       <span className="font-medium">{formatCurrency(child.totalEarned || "0")}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Jobs Completed:</span>
+                      <span className="text-gray-600">Tasks completed:</span>
                       <span className="font-medium">{child.completedJobs || 0}</span>
                     </div>
                     <div className="flex justify-between text-sm">
@@ -405,36 +411,41 @@ export default function FamilyPage() {
         </CardContent>
       </Card>
 
-      {/* Recent Jobs */}
+      {/* Recent Tasks */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Jobs</CardTitle>
-          <CardDescription>Overview of recent job activity across the family</CardDescription>
+          <CardTitle>Recent tasks</CardTitle>
+          <CardDescription>Overview of recent task activity across the family</CardDescription>
         </CardHeader>
         <CardContent>
           {jobs?.length === 0 ? (
             <div className="text-center py-8">
               <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No jobs created yet</h3>
-              <p className="text-gray-600">Create jobs for your children to start earning</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No tasks created yet</h3>
+              <p className="text-gray-600">Create tasks for your children to start earning</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {jobs?.slice(0, 10).map((job: Job) => {
-                const assignedChild = children?.find((child: Child) => child.id === job.assignedToId);
+              {jobs?.slice(0, 10).map((job: JobRow) => {
+                const assignedChild = children?.find((child: ChildRow) => child.id === job.assignedToId);
                 return (
-                  <div key={job.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex-1">
+                  <div key={job.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg gap-3">
+                    <div className="flex-1 min-w-0">
                       <h4 className="font-medium">{job.title}</h4>
                       <p className="text-sm text-gray-600">
                         Assigned to {assignedChild?.name} • {formatCurrency(job.amount)}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                       {getJobStatusBadge(job.status)}
                       <Badge variant="outline" className="text-xs">
                         {job.recurrence}
                       </Badge>
+                      {job.status === "completed" && (
+                        <Button size="sm" onClick={() => handleParentApprove(job)} disabled={approveJobMutation.isPending}>
+                          {needsPaymentModal(job) ? labels.approvePay : labels.approve}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );
@@ -455,12 +466,12 @@ export default function FamilyPage() {
             <div className="text-center py-8">
               <Wallet className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No payments yet</h3>
-              <p className="text-gray-600">Payments will appear here when jobs are approved</p>
+              <p className="text-gray-600">Payments will appear here when tasks are approved</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {payments?.slice(0, 10).map((payment: Payment) => {
-                const assignedChild = children?.find((child: Child) => child.id === payment.childId);
+              {payments?.slice(0, 10).map((payment: PaymentRow) => {
+                const assignedChild = children?.find((child: ChildRow) => child.id === payment.childId);
                 return (
                   <div key={payment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex-1">
@@ -484,6 +495,15 @@ export default function FamilyPage() {
           )}
         </CardContent>
       </Card>
+
+      <PaymentApprovalModal
+        isOpen={showPaymentModal}
+        onClose={() => {
+          setShowPaymentModal(false);
+          setSelectedJob(null);
+        }}
+        job={selectedJob}
+      />
     </div>
   );
 }

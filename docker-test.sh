@@ -3,7 +3,7 @@
 # MintSprout Docker PostgreSQL Integration Test
 echo "🧪 Testing MintSprout Docker deployment with PostgreSQL..."
 
-# Clean up any existing containers
+# Clean up any existing containers (WARNING: -v deletes postgres_data — back up first with ./scripts/backup-db.sh)
 echo "🧹 Cleaning up existing containers..."
 docker-compose down -v 2>/dev/null || true
 
@@ -57,7 +57,7 @@ if echo "$LOGIN_RESPONSE" | grep -q "token"; then
     CHILDREN_RESPONSE=$(curl -s -H "Authorization: Bearer $TOKEN" \
       http://localhost:8080/api/children)
     
-    if echo "$CHILDREN_RESPONSE" | grep -q "Emma"; then
+    if echo "$CHILDREN_RESPONSE" | grep -q "Bryson"; then
         echo "✅ Children data retrieved from PostgreSQL"
     else
         echo "❌ Failed to retrieve children data"
@@ -68,7 +68,7 @@ else
 fi
 
 # Check database data
-echo "🗄️ Verifying database contains demo data..."
+echo "🗄️ Verifying database contains initial family data..."
 FAMILY_COUNT=$(docker exec mintsprout-db psql -U mintsprout -d mintsprout -t -c "SELECT COUNT(*) FROM families;" | tr -d ' ')
 USER_COUNT=$(docker exec mintsprout-db psql -U mintsprout -d mintsprout -t -c "SELECT COUNT(*) FROM users;" | tr -d ' ')
 CHILDREN_COUNT=$(docker exec mintsprout-db psql -U mintsprout -d mintsprout -t -c "SELECT COUNT(*) FROM children;" | tr -d ' ')
@@ -79,7 +79,7 @@ echo "   Users: $USER_COUNT"
 echo "   Children: $CHILDREN_COUNT"
 
 if [ "$FAMILY_COUNT" -gt "0" ] && [ "$USER_COUNT" -gt "0" ] && [ "$CHILDREN_COUNT" -gt "0" ]; then
-    echo "✅ Database properly initialized with demo data"
+    echo "✅ Database properly initialized with family data"
 else
     echo "❌ Database initialization incomplete"
 fi
@@ -89,7 +89,7 @@ echo "🎉 Docker PostgreSQL integration test completed!"
 echo "📝 Summary:"
 echo "   - PostgreSQL database: Working"
 echo "   - Application startup: Working"
-echo "   - Demo data initialization: Working"
+echo "   - Initial data seeding: Working"
 echo "   - Authentication: Working"
 echo "   - API endpoints: Working"
 echo ""

@@ -1,30 +1,37 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { useKidMode } from "@/hooks/use-kid-mode";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { IconText } from "@/components/icon-text";
+import type { AccountTypesRow, DashboardStats, JobRow, PaymentRow } from "@/lib/api-types";
+import { taskLabels } from "@/lib/task-labels";
 
 export default function Payments() {
   const { user } = useAuth();
+  const { mode: kidMode } = useKidMode();
+  const labels = taskLabels(user?.role === "parent" ? "parent" : "child", kidMode);
 
-  const { data: payments, isLoading: paymentsLoading } = useQuery({
+  const { data: payments, isLoading: paymentsLoading } = useQuery<PaymentRow[]>({
     queryKey: ["/api/payments"],
   });
 
-  const { data: dashboardData, isLoading: dashboardLoading } = useQuery({
+  const { data: dashboardData, isLoading: dashboardLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard-stats"],
   });
 
-  const { data: accountTypes } = useQuery({
+  const { data: accountTypes } = useQuery<AccountTypesRow>({
     queryKey: [`/api/account-types/${user?.familyId}`],
     enabled: !!user?.familyId,
   });
 
-  const { data: jobs } = useQuery({
+  const { data: jobs } = useQuery<JobRow[]>({
     queryKey: ["/api/jobs"],
   });
 
   const child = dashboardData?.child;
   const isLoading = paymentsLoading || dashboardLoading;
+  const isYoungestChild = user?.role === "child" && kidMode === "youngest";
 
   if (isLoading) {
     return (
@@ -50,12 +57,20 @@ export default function Payments() {
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          {user?.role === "parent" ? "Payment History" : "My Money"}
+          {user?.role === "parent" ? "Payment History" : isYoungestChild ? (
+            <IconText icon="💰" label="My Money" size="lg" />
+          ) : (
+            "My Money"
+          )}
         </h1>
         <p className="text-gray-600">
           {user?.role === "parent" 
             ? "Track all payments and balance allocations" 
-            : "See how your earnings are growing across different accounts"
+            : isYoungestChild
+              ? (
+                <IconText icon="🌟" label="This is your money!" size="sm" className="text-gray-600" />
+              )
+              : "See how your earnings are growing across different accounts"
           }
         </p>
       </div>
@@ -64,47 +79,67 @@ export default function Payments() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {accountTypes?.spendingEnabled && (
           <Card className="mint-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Spending</p>
-                  <p className="text-2xl font-bold text-blue-600">
-                    ${parseFloat(child?.spendingBalance || "0").toFixed(2)}
-                  </p>
+            <CardContent className={isYoungestChild ? "p-5" : "p-6"}>
+              {isYoungestChild ? (
+                <div className="text-center space-y-2">
+                  <IconText icon="🛒" label="Spend" layout="vertical" size="md" />
+                  <p className="text-2xl font-black text-blue-600">${parseFloat(child?.spendingBalance || "0").toFixed(2)}</p>
+                  <p className="text-sm font-bold text-blue-600">To buy things</p>
                 </div>
-                <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center">
-                  <span className="text-blue-600 text-xl">🛒</span>
-                </div>
-              </div>
-              <div className="mt-4 flex items-center text-sm">
-                <span className="text-blue-600 font-medium">Available to spend</span>
-              </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600 mb-1">Spending</p>
+                      <p className="text-2xl font-bold text-blue-600">
+                        ${parseFloat(child?.spendingBalance || "0").toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center">
+                      <span className="text-blue-600 text-xl">🛒</span>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center text-sm">
+                    <span className="text-blue-600 font-medium">Available to spend</span>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         )}
 
         {accountTypes?.savingsEnabled && (
           <Card className="mint-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Savings</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    ${parseFloat(child?.savingsBalance || "0").toFixed(2)}
-                  </p>
+            <CardContent className={isYoungestChild ? "p-5" : "p-6"}>
+              {isYoungestChild ? (
+                <div className="text-center space-y-2">
+                  <IconText icon="🐷" label="Save" layout="vertical" size="md" />
+                  <p className="text-2xl font-black text-green-600">${parseFloat(child?.savingsBalance || "0").toFixed(2)}</p>
+                  <p className="text-sm font-bold text-green-600">For later!</p>
                 </div>
-                <div className="w-12 h-12 bg-green-500/10 rounded-xl flex items-center justify-center">
-                  <span className="text-green-600 text-xl">🐷</span>
-                </div>
-              </div>
-              <div className="mt-4 flex items-center text-sm">
-                <span className="text-green-600 font-medium">Growing savings</span>
-              </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600 mb-1">Savings</p>
+                      <p className="text-2xl font-bold text-green-600">
+                        ${parseFloat(child?.savingsBalance || "0").toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="w-12 h-12 bg-green-500/10 rounded-xl flex items-center justify-center">
+                      <span className="text-green-600 text-xl">🐷</span>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center text-sm">
+                    <span className="text-green-600 font-medium">Growing savings</span>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         )}
 
-        {accountTypes?.rothIraEnabled && (
+        {!isYoungestChild && accountTypes?.rothIraEnabled && (
           <Card className="mint-card">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -125,7 +160,7 @@ export default function Payments() {
           </Card>
         )}
 
-        {accountTypes?.brokerageEnabled && (
+        {!isYoungestChild && accountTypes?.brokerageEnabled && (
           <Card className="mint-card">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -147,8 +182,22 @@ export default function Payments() {
         )}
       </div>
 
+      {isYoungestChild && (
+        <Card className="mint-card">
+          <CardContent className="p-6">
+            <div className="text-center text-gray-600 space-y-2">
+              <IconText icon="🌟" label="Want more?" layout="vertical" size="md" />
+              <p className="text-sm font-medium">
+                <IconText icon="✅" label={`Go to ${labels.nav} and finish one!`} size="sm" className="justify-center" />
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Payment History */}
-      <Card className="mint-card">
+      {!isYoungestChild && (
+        <Card className="mint-card">
         <CardHeader>
           <CardTitle className="text-xl font-bold text-gray-900">
             💰 Payment History
@@ -167,7 +216,7 @@ export default function Payments() {
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <h3 className="font-medium text-gray-900">
-                        {linkedJob ? linkedJob.title : 'Job Payment'}
+                        {linkedJob ? linkedJob.title : "Task payment"}
                       </h3>
                       <p className="text-sm text-gray-600">
                         {linkedJob && linkedJob.description && (
@@ -237,7 +286,8 @@ export default function Payments() {
             </div>
           )}
         </CardContent>
-      </Card>
+        </Card>
+      )}
     </main>
   );
 }

@@ -1,13 +1,14 @@
 import {
-  families, users, children, jobs, payments, allocationSettings, accountTypes, lessons, quizzes, learningProgress, achievements, savingsGoals, spendingLog, donations,
-  type Family, type User, type Child, type Job, type Payment, type AllocationSettings, type AccountTypes, type Lesson, type Quiz, type LearningProgress, type Achievement, type SavingsGoal, type SpendingLog, type Donation,
-  type InsertFamily, type InsertUser, type InsertChild, type InsertJob, type InsertPayment, type InsertAllocationSettings, type InsertAccountTypes, type InsertLesson, type InsertQuiz, type InsertLearningProgress, type InsertAchievement, type InsertSavingsGoal, type InsertSpendingLog, type InsertDonation
+  families, users, children, jobCategories, jobs, payments, allocationSettings, accountTypes, familySettings, approvalRequests, allowances, lessons, quizzes, learningProgress, achievements, savingsGoals, spendingLog, donations, transactions, catalogLibrary, familyCatalogItems,
+  type Family, type User, type Child, type JobCategory, type Job, type Payment, type AllocationSettings, type AccountTypes, type FamilySettings, type ApprovalRequest, type Allowance, type Lesson, type Quiz, type LearningProgress, type Achievement, type SavingsGoal, type SpendingLog, type Donation, type Transaction, type CatalogLibrary, type FamilyCatalogItem,
+  type InsertFamily, type InsertUser, type InsertChild, type InsertJobCategory, type InsertJob, type InsertPayment, type InsertAllocationSettings, type InsertAccountTypes, type InsertFamilySettings, type InsertApprovalRequest, type InsertAllowance, type InsertLesson, type InsertQuiz, type InsertLearningProgress, type InsertAchievement, type InsertSavingsGoal, type InsertSpendingLog, type InsertDonation, type InsertTransaction, type InsertCatalogLibrary, type InsertFamilyCatalogItem
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 
 export interface IStorage {
   // Auth
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserById(id: number): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
 
   // Families
@@ -20,6 +21,14 @@ export interface IStorage {
   getChild(id: number): Promise<Child | undefined>;
   updateChild(id: number, updates: Partial<Child>): Promise<Child | undefined>;
   deleteChild(id: number): Promise<boolean>;
+
+  // Job Categories
+  createJobCategory(category: InsertJobCategory): Promise<JobCategory>;
+  getJobCategoriesByFamily(familyId: number, opts?: { includeDisabled?: boolean }): Promise<JobCategory[]>;
+  getJobCategory(id: number): Promise<JobCategory | undefined>;
+  updateJobCategory(id: number, updates: Partial<JobCategory>): Promise<JobCategory | undefined>;
+  deleteJobCategory(id: number): Promise<boolean>;
+  countJobsInCategory(categoryId: number): Promise<number>;
 
   // Jobs
   createJob(job: InsertJob): Promise<Job>;
@@ -46,6 +55,23 @@ export interface IStorage {
   getAccountTypes(familyId: number): Promise<AccountTypes | undefined>;
   updateAccountTypes(familyId: number, accountTypes: Partial<AccountTypes>): Promise<AccountTypes | undefined>;
 
+  // Family Settings
+  getFamilySettings(familyId: number): Promise<FamilySettings | undefined>;
+  upsertFamilySettings(settings: InsertFamilySettings): Promise<FamilySettings>;
+
+  // Approval Requests
+  createApprovalRequest(req: InsertApprovalRequest): Promise<ApprovalRequest>;
+  getApprovalRequestsByFamily(familyId: number, status?: string): Promise<ApprovalRequest[]>;
+  getApprovalRequest(id: number): Promise<ApprovalRequest | undefined>;
+  decideApprovalRequest(id: number, updates: Partial<ApprovalRequest>): Promise<ApprovalRequest | undefined>;
+
+  // Allowances
+  createAllowance(allowance: InsertAllowance): Promise<Allowance>;
+  getAllowancesByFamily(familyId: number): Promise<Allowance[]>;
+  getEnabledAllowances(): Promise<Allowance[]>;
+  updateAllowance(id: number, updates: Partial<Allowance>): Promise<Allowance | undefined>;
+  deleteAllowance(id: number): Promise<boolean>;
+
   // Lessons
   createLesson(lesson: InsertLesson): Promise<Lesson>;
   getLessonsByCategory(category: string): Promise<Lesson[]>;
@@ -67,28 +93,53 @@ export interface IStorage {
   // Savings Goals
   createSavingsGoal(goal: InsertSavingsGoal): Promise<SavingsGoal>;
   getSavingsGoals(childId: number): Promise<SavingsGoal[]>;
+  getSavingsGoal(id: number): Promise<SavingsGoal | undefined>;
   updateSavingsGoal(id: number, updates: Partial<SavingsGoal>): Promise<SavingsGoal | undefined>;
   deleteSavingsGoal(id: number): Promise<boolean>;
 
   // Spending Log
   createSpendingLog(entry: InsertSpendingLog): Promise<SpendingLog>;
   getSpendingLog(childId: number): Promise<SpendingLog[]>;
+  getSpendingLogEntry(id: number): Promise<SpendingLog | undefined>;
   deleteSpendingLog(id: number): Promise<boolean>;
 
   // Donations
   createDonation(donation: InsertDonation): Promise<Donation>;
   getDonations(childId: number): Promise<Donation[]>;
+  getDonation(id: number): Promise<Donation | undefined>;
   deleteDonation(id: number): Promise<boolean>;
+
+  // Transactions (ledger)
+  createTransaction(tx: InsertTransaction): Promise<Transaction>;
+  getTransactions(childId: number): Promise<Transaction[]>;
+
+  // Catalog
+  createCatalogLibraryItem(item: InsertCatalogLibrary): Promise<CatalogLibrary>;
+  getCatalogLibrary(type?: string, categoryKey?: string): Promise<CatalogLibrary[]>;
+  getCatalogLibraryItem(id: number): Promise<CatalogLibrary | undefined>;
+  getFamilyCatalogItems(
+    familyId: number,
+    type: string,
+    opts?: { categoryId?: number; categoryKey?: string; enabledOnly?: boolean },
+  ): Promise<FamilyCatalogItem[]>;
+  getFamilyCatalogItem(id: number): Promise<FamilyCatalogItem | undefined>;
+  createFamilyCatalogItem(item: InsertFamilyCatalogItem): Promise<FamilyCatalogItem>;
+  updateFamilyCatalogItem(id: number, updates: Partial<FamilyCatalogItem>): Promise<FamilyCatalogItem | undefined>;
+  deleteFamilyCatalogItem(id: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
   private families: Map<number, Family> = new Map();
   private users: Map<number, User> = new Map();
   private children: Map<number, Child> = new Map();
+  private jobCategories: Map<number, JobCategory> = new Map();
   private jobs: Map<number, Job> = new Map();
   private payments: Map<number, Payment> = new Map();
   private allocationSettings: Map<number, AllocationSettings> = new Map();
   private accountTypes: Map<number, AccountTypes> = new Map();
+  private familySettings: Map<number, FamilySettings> = new Map();
+  private approvalRequests: Map<number, ApprovalRequest> = new Map();
+  private allowances: Map<number, Allowance> = new Map();
   private lessons: Map<number, Lesson> = new Map();
   private quizzes: Map<number, Quiz> = new Map();
   private learningProgress: Map<string, LearningProgress> = new Map();
@@ -96,14 +147,23 @@ export class MemStorage implements IStorage {
   private savingsGoals: Map<number, SavingsGoal> = new Map();
   private spendingLog: Map<number, SpendingLog> = new Map();
   private donations: Map<number, Donation> = new Map();
+  private transactions: Map<number, Transaction> = new Map();
+  private catalogLibraryItems: Map<number, CatalogLibrary> = new Map();
+  private familyCatalogItemsMap: Map<number, FamilyCatalogItem> = new Map();
+  private currentCatalogLibraryId = 1;
+  private currentFamilyCatalogItemId = 1;
 
   private currentFamilyId = 1;
   private currentUserId = 1;
   private currentChildId = 1;
+  private currentJobCategoryId = 1;
   private currentJobId = 1;
   private currentPaymentId = 1;
   private currentAllocationId = 1;
   private currentAccountTypesId = 1;
+  private currentFamilySettingsId = 1;
+  private currentApprovalRequestId = 1;
+  private currentAllowanceId = 1;
   private currentLessonId = 1;
   private currentQuizId = 1;
   private currentProgressId = 1;
@@ -111,14 +171,17 @@ export class MemStorage implements IStorage {
   private currentSavingsGoalId = 1;
   private currentSpendingLogId = 1;
   private currentDonationId = 1;
+  private currentTransactionId = 1;
+
+  readonly ready: Promise<void>;
 
   constructor() {
-    this.initializeDefaultData();
+    this.ready = this.initializeDefaultData();
   }
 
   private async initializeDefaultData() {
     // Create default family
-    const family = await this.createFamily({ name: "Smith Family" });
+    const family = await this.createFamily({ name: "Our Family" });
 
     // Create parent user
     const hashedPassword = await bcrypt.hash("password123", 10);
@@ -127,41 +190,41 @@ export class MemStorage implements IStorage {
       password: hashedPassword,
       role: "parent",
       familyId: family.id,
-      name: "Jane Smith",
+      name: "Parent",
       age: undefined
     });
 
     // Create child users and profiles
     const childUser1 = await this.createUser({
-      username: "emma",
+      username: "bryson",
       password: hashedPassword,
       role: "child",
       familyId: family.id,
-      name: "Emma",
-      age: 8
+      name: "Bryson",
+      age: 10
     });
 
     const childUser2 = await this.createUser({
-      username: "jake",
+      username: "edison",
       password: hashedPassword,
       role: "child",
       familyId: family.id,
-      name: "Jake",
-      age: 12
+      name: "Edison",
+      age: 5
     });
 
     const child1 = await this.createChild({
       userId: childUser1.id,
       familyId: family.id,
-      name: "Emma",
-      age: 8
+      name: "Bryson",
+      age: 10
     });
 
     const child2 = await this.createChild({
       userId: childUser2.id,
       familyId: family.id,
-      name: "Jake",
-      age: 12
+      name: "Edison",
+      age: 5
     });
 
     // Create default allocation settings
@@ -212,7 +275,7 @@ export class MemStorage implements IStorage {
       familyId: undefined
     });
     await this.createQuiz({ lessonId: lesson2.id, question: "What does saving money mean?", options: ["Spending all your money right away", "Keeping some money for later", "Giving all your money away", "Hiding money under your bed forever"], correctAnswer: 1 });
-    await this.createQuiz({ lessonId: lesson2.id, question: "If Emma earns $10 and saves $3, how much did she save?", options: ["$10", "$7", "$3", "$13"], correctAnswer: 2 });
+    await this.createQuiz({ lessonId: lesson2.id, question: "If Bryson earns $10 and saves $3, how much did he save?", options: ["$10", "$7", "$3", "$13"], correctAnswer: 2 });
     await this.createQuiz({ lessonId: lesson2.id, question: "Which is the BEST reason to save money?", options: ["To never spend any money again", "So you can buy something special you want later", "To make your piggy bank look full", "Because adults told you to"], correctAnswer: 1 });
 
     const lesson3 = await this.createLesson({
@@ -225,7 +288,7 @@ export class MemStorage implements IStorage {
     });
     await this.createQuiz({ lessonId: lesson3.id, question: "What is the difference between a NEED and a WANT?", options: ["They are exactly the same thing", "A need is something required to live; a want is something extra", "A want is more important than a need", "Needs cost more than wants"], correctAnswer: 1 });
     await this.createQuiz({ lessonId: lesson3.id, question: "Which is a NEED?", options: ["A new video game", "A pair of shoes to wear to school", "A toy from the store", "A second bicycle"], correctAnswer: 1 });
-    await this.createQuiz({ lessonId: lesson3.id, question: "Jake has $5. A snack costs $2 and a toy costs $6. What should Jake do first?", options: ["Buy the toy by borrowing money", "Buy the snack since he can afford it", "Spend nothing and keep all $5", "Ask for more money immediately"], correctAnswer: 1 });
+    await this.createQuiz({ lessonId: lesson3.id, question: "Edison has $5. A snack costs $2 and a toy costs $6. What should Edison do first?", options: ["Buy the toy by borrowing money", "Buy the snack since he can afford it", "Spend nothing and keep all $5", "Ask for more money immediately"], correctAnswer: 1 });
 
     const lesson4 = await this.createLesson({
       category: "investing",
@@ -258,9 +321,13 @@ export class MemStorage implements IStorage {
     return Array.from(this.users.values()).find(user => user.username === username);
   }
 
+  async getUserById(id: number): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.currentUserId++;
-    const user: User = { ...insertUser, id };
+    const user: User = { ...insertUser, id, age: insertUser.age ?? null };
     this.users.set(id, user);
     return user;
   }
@@ -284,8 +351,12 @@ export class MemStorage implements IStorage {
       ...insertChild,
       id,
       totalEarned: "0.00",
+      spendingBalance: insertChild.spendingBalance ?? null,
+      savingsBalance: insertChild.savingsBalance ?? null,
+      rothIraBalance: insertChild.rothIraBalance ?? null,
+      brokerageBalance: insertChild.brokerageBalance ?? null,
       completedJobs: 0,
-      learningStreak: 0
+      learningStreak: 0,
     };
     this.children.set(id, child);
     return child;
@@ -312,13 +383,61 @@ export class MemStorage implements IStorage {
     return this.children.delete(id);
   }
 
+  async createJobCategory(insert: InsertJobCategory): Promise<JobCategory> {
+    const id = this.currentJobCategoryId++;
+    const category: JobCategory = {
+      ...insert,
+      id,
+      slug: insert.slug ?? null,
+      description: insert.description ?? null,
+      icon: insert.icon ?? "briefcase",
+      sortOrder: insert.sortOrder ?? 0,
+      enabled: insert.enabled ?? true,
+      paymentMode: insert.paymentMode ?? "none",
+      createdAt: new Date(),
+    };
+    this.jobCategories.set(id, category);
+    return category;
+  }
+
+  async getJobCategoriesByFamily(familyId: number, opts?: { includeDisabled?: boolean }): Promise<JobCategory[]> {
+    let list = Array.from(this.jobCategories.values()).filter((c) => c.familyId === familyId);
+    if (!opts?.includeDisabled) list = list.filter((c) => c.enabled);
+    return list.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  }
+
+  async getJobCategory(id: number): Promise<JobCategory | undefined> {
+    return this.jobCategories.get(id);
+  }
+
+  async updateJobCategory(id: number, updates: Partial<JobCategory>): Promise<JobCategory | undefined> {
+    const cat = this.jobCategories.get(id);
+    if (!cat) return undefined;
+    const updated = { ...cat, ...updates };
+    this.jobCategories.set(id, updated);
+    return updated;
+  }
+
+  async deleteJobCategory(id: number): Promise<boolean> {
+    return this.jobCategories.delete(id);
+  }
+
+  async countJobsInCategory(categoryId: number): Promise<number> {
+    return Array.from(this.jobs.values()).filter((j) => j.categoryId === categoryId).length;
+  }
+
   // Job methods
   async createJob(insertJob: InsertJob): Promise<Job> {
     const id = this.currentJobId++;
     const job: Job = {
       ...insertJob,
       id,
-      createdAt: new Date()
+      description: insertJob.description ?? null,
+      icon: insertJob.icon ?? null,
+      categoryId: insertJob.categoryId ?? null,
+      allowanceId: (insertJob as any).allowanceId ?? null,
+      isFamilyDuty: (insertJob as any).isFamilyDuty ?? false,
+      createdAt: new Date(),
     };
     this.jobs.set(id, job);
     return job;
@@ -389,7 +508,14 @@ export class MemStorage implements IStorage {
   // Allocation settings methods
   async createAllocationSettings(insertSettings: InsertAllocationSettings): Promise<AllocationSettings> {
     const id = this.currentAllocationId++;
-    const settings: AllocationSettings = { ...insertSettings, id };
+    const settings: AllocationSettings = {
+      ...insertSettings,
+      id,
+      spendingPercentage: insertSettings.spendingPercentage ?? null,
+      savingsPercentage: insertSettings.savingsPercentage ?? null,
+      rothIraPercentage: insertSettings.rothIraPercentage ?? null,
+      brokeragePercentage: insertSettings.brokeragePercentage ?? null,
+    };
     this.allocationSettings.set(id, settings);
     return settings;
   }
@@ -410,7 +536,14 @@ export class MemStorage implements IStorage {
   // Account Types methods
   async createAccountTypes(insertAccountTypes: InsertAccountTypes): Promise<AccountTypes> {
     const id = this.currentAccountTypesId++;
-    const accountTypes: AccountTypes = { ...insertAccountTypes, id };
+    const accountTypes: AccountTypes = {
+      ...insertAccountTypes,
+      id,
+      spendingEnabled: insertAccountTypes.spendingEnabled ?? null,
+      savingsEnabled: insertAccountTypes.savingsEnabled ?? null,
+      rothIraEnabled: insertAccountTypes.rothIraEnabled ?? null,
+      brokerageEnabled: insertAccountTypes.brokerageEnabled ?? null,
+    };
     this.accountTypes.set(id, accountTypes);
     return accountTypes;
   }
@@ -428,10 +561,109 @@ export class MemStorage implements IStorage {
     return updatedAccountTypes;
   }
 
+  // Family Settings
+  async getFamilySettings(familyId: number): Promise<FamilySettings | undefined> {
+    return Array.from(this.familySettings.values()).find(s => s.familyId === familyId);
+  }
+
+  async upsertFamilySettings(settings: InsertFamilySettings): Promise<FamilySettings> {
+    const existing = await this.getFamilySettings(settings.familyId);
+    if (existing) {
+      const updated = { ...existing, ...settings };
+      this.familySettings.set(existing.id, updated);
+      return updated;
+    }
+    const id = this.currentFamilySettingsId++;
+    const created: FamilySettings = {
+      ...settings,
+      id,
+      requireSpendingApproval: settings.requireSpendingApproval ?? null,
+      requireDonationApproval: settings.requireDonationApproval ?? null,
+      requireGoalFundingApproval: settings.requireGoalFundingApproval ?? null,
+    };
+    this.familySettings.set(id, created);
+    return created;
+  }
+
+  // Approval Requests
+  async createApprovalRequest(insertReq: InsertApprovalRequest): Promise<ApprovalRequest> {
+    const id = this.currentApprovalRequestId++;
+    const req: ApprovalRequest = {
+      ...insertReq,
+      id,
+      status: insertReq.status ?? "pending",
+      decidedByUserId: insertReq.decidedByUserId ?? null,
+      createdAt: new Date(),
+      decidedAt: null,
+    };
+    this.approvalRequests.set(id, req);
+    return req;
+  }
+
+  async getApprovalRequestsByFamily(familyId: number, status?: string): Promise<ApprovalRequest[]> {
+    return Array.from(this.approvalRequests.values()).filter(r => r.familyId === familyId && (!status || r.status === status));
+  }
+
+  async getApprovalRequest(id: number): Promise<ApprovalRequest | undefined> {
+    return this.approvalRequests.get(id);
+  }
+
+  async decideApprovalRequest(id: number, updates: Partial<ApprovalRequest>): Promise<ApprovalRequest | undefined> {
+    const existing = this.approvalRequests.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...updates };
+    this.approvalRequests.set(id, updated);
+    return updated;
+  }
+
+  // Allowances
+  async createAllowance(insertAllowance: InsertAllowance): Promise<Allowance> {
+    const id = this.currentAllowanceId++;
+    const allowance: Allowance = {
+      ...insertAllowance,
+      guaranteedMinimum: (insertAllowance as any).guaranteedMinimum ?? "0.00",
+      penaltyPerIncompleteJob: (insertAllowance as any).penaltyPerIncompleteJob ?? "0.00",
+      id,
+      dayOfWeek: insertAllowance.dayOfWeek ?? null,
+      dayOfMonth: insertAllowance.dayOfMonth ?? null,
+      enabled: insertAllowance.enabled ?? true,
+      createdAt: new Date(),
+      lastRunAt: null,
+    };
+    this.allowances.set(id, allowance);
+    return allowance;
+  }
+
+  async getAllowancesByFamily(familyId: number): Promise<Allowance[]> {
+    return Array.from(this.allowances.values()).filter(a => a.familyId === familyId);
+  }
+
+  async getEnabledAllowances(): Promise<Allowance[]> {
+    return Array.from(this.allowances.values()).filter(a => a.enabled);
+  }
+
+  async updateAllowance(id: number, updates: Partial<Allowance>): Promise<Allowance | undefined> {
+    const existing = this.allowances.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...updates };
+    this.allowances.set(id, updated);
+    return updated;
+  }
+
+  async deleteAllowance(id: number): Promise<boolean> {
+    return this.allowances.delete(id);
+  }
+
   // Lesson methods
   async createLesson(insertLesson: InsertLesson): Promise<Lesson> {
     const id = this.currentLessonId++;
-    const lesson: Lesson = { ...insertLesson, id };
+    const lesson: Lesson = {
+      ...insertLesson,
+      id,
+      familyId: insertLesson.familyId ?? null,
+      videoUrl: insertLesson.videoUrl ?? null,
+      isCustom: insertLesson.isCustom ?? null,
+    };
     this.lessons.set(id, lesson);
     return lesson;
   }
@@ -459,7 +691,12 @@ export class MemStorage implements IStorage {
   // Learning progress methods
   async createLearningProgress(insertProgress: InsertLearningProgress): Promise<LearningProgress> {
     const id = this.currentProgressId++;
-    const progress: LearningProgress = { ...insertProgress, id };
+    const progress: LearningProgress = {
+      ...insertProgress,
+      id,
+      completed: insertProgress.completed ?? null,
+      quizScore: insertProgress.quizScore ?? null,
+    };
     const key = `${progress.childId}-${progress.lessonId}`;
     this.learningProgress.set(key, progress);
     return progress;
@@ -507,6 +744,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.savingsGoals.values()).filter(g => g.childId === childId);
   }
 
+  async getSavingsGoal(id: number): Promise<SavingsGoal | undefined> {
+    return this.savingsGoals.get(id);
+  }
+
   async updateSavingsGoal(id: number, updates: Partial<SavingsGoal>): Promise<SavingsGoal | undefined> {
     const goal = this.savingsGoals.get(id);
     if (!goal) return undefined;
@@ -531,6 +772,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.spendingLog.values()).filter(e => e.childId === childId);
   }
 
+  async getSpendingLogEntry(id: number): Promise<SpendingLog | undefined> {
+    return this.spendingLog.get(id);
+  }
+
   async deleteSpendingLog(id: number): Promise<boolean> {
     return this.spendingLog.delete(id);
   }
@@ -547,8 +792,102 @@ export class MemStorage implements IStorage {
     return Array.from(this.donations.values()).filter(d => d.childId === childId);
   }
 
+  async getDonation(id: number): Promise<Donation | undefined> {
+    return this.donations.get(id);
+  }
+
   async deleteDonation(id: number): Promise<boolean> {
     return this.donations.delete(id);
+  }
+
+  // Transactions (ledger)
+  async createTransaction(insertTx: InsertTransaction): Promise<Transaction> {
+    const id = this.currentTransactionId++;
+    const tx: Transaction = {
+      ...insertTx,
+      id,
+      fromAccount: insertTx.fromAccount ?? null,
+      toAccount: insertTx.toAccount ?? null,
+      note: insertTx.note ?? null,
+      createdAt: new Date(),
+    };
+    this.transactions.set(id, tx);
+    return tx;
+  }
+
+  async getTransactions(childId: number): Promise<Transaction[]> {
+    return Array.from(this.transactions.values()).filter(t => t.childId === childId);
+  }
+
+  async createCatalogLibraryItem(insert: InsertCatalogLibrary): Promise<CatalogLibrary> {
+    const id = this.currentCatalogLibraryId++;
+    const item: CatalogLibrary = {
+      ...insert,
+      id,
+      description: insert.description ?? null,
+      source: insert.source ?? "builtin",
+      createdAt: new Date(),
+    };
+    this.catalogLibraryItems.set(id, item);
+    return item;
+  }
+
+  async getCatalogLibrary(type?: string, categoryKey?: string): Promise<CatalogLibrary[]> {
+    let list = Array.from(this.catalogLibraryItems.values());
+    if (type) list = list.filter((i) => i.catalogType === type);
+    if (categoryKey) list = list.filter((i) => i.categoryKey === categoryKey);
+    return list.sort((a, b) => a.title.localeCompare(b.title));
+  }
+
+  async getCatalogLibraryItem(id: number): Promise<CatalogLibrary | undefined> {
+    return this.catalogLibraryItems.get(id);
+  }
+
+  async getFamilyCatalogItems(
+    familyId: number,
+    type: string,
+    opts?: { categoryId?: number; categoryKey?: string; enabledOnly?: boolean },
+  ): Promise<FamilyCatalogItem[]> {
+    let list = Array.from(this.familyCatalogItemsMap.values()).filter(
+      (i) => i.familyId === familyId && i.catalogType === type,
+    );
+    if (opts?.categoryId != null) list = list.filter((i) => i.categoryId === opts.categoryId);
+    if (opts?.categoryKey) list = list.filter((i) => i.categoryKey === opts.categoryKey);
+    if (opts?.enabledOnly) list = list.filter((i) => i.enabled);
+    return list.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  }
+
+  async getFamilyCatalogItem(id: number): Promise<FamilyCatalogItem | undefined> {
+    return this.familyCatalogItemsMap.get(id);
+  }
+
+  async createFamilyCatalogItem(insert: InsertFamilyCatalogItem): Promise<FamilyCatalogItem> {
+    const id = this.currentFamilyCatalogItemId++;
+    const item: FamilyCatalogItem = {
+      ...insert,
+      id,
+      categoryId: insert.categoryId ?? null,
+      libraryItemId: insert.libraryItemId ?? null,
+      description: insert.description ?? null,
+      enabled: insert.enabled ?? true,
+      sortOrder: insert.sortOrder ?? 0,
+      publishedLessonId: insert.publishedLessonId ?? null,
+      createdAt: new Date(),
+    };
+    this.familyCatalogItemsMap.set(id, item);
+    return item;
+  }
+
+  async updateFamilyCatalogItem(id: number, updates: Partial<FamilyCatalogItem>): Promise<FamilyCatalogItem | undefined> {
+    const item = this.familyCatalogItemsMap.get(id);
+    if (!item) return undefined;
+    const updated = { ...item, ...updates };
+    this.familyCatalogItemsMap.set(id, updated);
+    return updated;
+  }
+
+  async deleteFamilyCatalogItem(id: number): Promise<boolean> {
+    return this.familyCatalogItemsMap.delete(id);
   }
 }
 

@@ -95,7 +95,7 @@ The application uses a comprehensive schema with the following key entities:
 ### Docker Self-Hosting
 - **Multi-stage Dockerfile**: Optimized production builds with security best practices
 - **Docker Compose**: Complete stack deployment with PostgreSQL and optional Nginx
-- **Database Initialization**: Automated schema creation and demo data seeding
+- **Database Initialization**: Automated schema creation and initial data seeding
 - **SSL Support**: Self-signed certificates for HTTPS deployment
 - **Health Checks**: Built-in monitoring for application and database containers
 - **Volume Management**: Persistent data storage for database and application logs

@@ -10,6 +10,16 @@ import { BookOpen, Video, Trophy, Star, CheckCircle, PlayCircle, Gamepad2 } from
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import ElmoJarsActivity from "@/components/ElmoJarsActivity";
+import { useSelectedChild } from "@/components/navigation";
+import { useKidMode } from "@/hooks/use-kid-mode";
+import { useOpenSprout, SproutBuddyCTA } from "@/components/sprout-buddy";
+import { IconText } from "@/components/icon-text";
+
+const YOUNGEST_CATEGORY_LABELS: Record<string, string> = {
+  earning: "Earn",
+  saving: "Save",
+  spending: "Spend",
+};
 
 const categories = [
   { id: "earning", name: "Earning", icon: "💰", color: "bg-green-500" },
@@ -31,6 +41,9 @@ export default function Learn() {
   const [showElmoActivity, setShowElmoActivity] = useState(false);
 
   const { user } = useAuth();
+  const { selectedChildId } = useSelectedChild();
+  const { mode: kidMode, age: kidAge } = useKidMode();
+  const openSprout = useOpenSprout();
 
   const { data: lessons = [], isLoading } = useQuery({
     queryKey: ["/api/lessons"],
@@ -41,11 +54,13 @@ export default function Learn() {
     enabled: user?.role === "parent",
   });
 
-  // For parents, use the first child's ID, for children use their own progress
-  const firstChildId = Array.isArray(children) && children.length > 0 ? children[0].id : null;
+  const effectiveChildId =
+    user?.role === "parent"
+      ? (selectedChildId ? parseInt(selectedChildId, 10) : null)
+      : null;
 
   const { data: learningProgress = [] } = useQuery({
-    queryKey: user?.role === "parent" ? ["/api/learning-progress", firstChildId] : ["/api/learning-progress"],
+    queryKey: user?.role === "parent" ? ["/api/learning-progress", effectiveChildId] : ["/api/learning-progress"],
     queryFn: async () => {
       const token = localStorage.getItem("auth_token");
       const headers: Record<string, string> = {};
@@ -55,8 +70,8 @@ export default function Learn() {
       }
 
       let url = "/api/learning-progress";
-      if (user?.role === "parent" && firstChildId) {
-        url += `?childId=${firstChildId}`;
+      if (user?.role === "parent" && effectiveChildId) {
+        url += `?childId=${effectiveChildId}`;
       }
 
       const res = await fetch(url, {
@@ -71,7 +86,7 @@ export default function Learn() {
 
       return await res.json();
     },
-    enabled: (user?.role === "parent" && !!firstChildId) || user?.role === "child",
+    enabled: (user?.role === "parent" && !!effectiveChildId) || user?.role === "child",
   });
 
   const categoryLessons = Array.isArray(lessons)
@@ -229,53 +244,88 @@ export default function Learn() {
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Learn About Money</h1>
-        <p className="text-gray-600 text-lg">Discover the secrets of smart money management!</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          {user?.role === "child" && kidMode === "youngest" ? (
+            <IconText icon="🎓" label="Learn" size="lg" />
+          ) : user?.role === "child" && kidMode === "younger" ? (
+            "Money Adventures"
+          ) : (
+            "Learn About Money"
+          )}
+        </h1>
+        <p className="text-gray-600 text-lg">
+          {user?.role === "child" && kidMode === "youngest" ? (
+            <IconText icon="📺" label="Watch and play!" size="sm" className="text-gray-600" />
+          ) : user?.role === "child" && kidMode === "younger" ? (
+            "Watch a short video, then take a quick quiz."
+          ) : (
+            "Discover the secrets of smart money management!"
+          )}
+        </p>
       </div>
 
+      {user?.role === "child" && (
+        <div className="mb-8">
+          <SproutBuddyCTA mode={kidMode} page="learn" />
+        </div>
+      )}
+
       {/* Featured Interactive Activity */}
-      <Card className="mb-8 bg-gradient-to-r from-red-50 to-blue-50 border-2 border-red-200">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="text-4xl">🔴</div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-900 mb-1">
-                  NEW! Elmo's Spend, Share, and Save Jars
-                </h2>
-                <p className="text-gray-600 mb-2">
-                  Interactive activity perfect for ages 3-7! Learn with Elmo how to divide money into three special jars.
-                </p>
-                <div className="flex items-center space-x-2">
-                  <Badge variant="outline" className="bg-white">Ages 3-7</Badge>
-                  <Badge className="bg-red-500">Featured Activity</Badge>
-                  <Badge variant="outline" className="bg-white">15 minutes</Badge>
+      {(user?.role !== "child" || (typeof kidAge === "number" && kidAge <= 7)) && (
+        <Card className="mb-8 bg-gradient-to-r from-red-50 to-blue-50 border-2 border-red-200">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="text-4xl">🔴</div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 mb-1">
+                    NEW! Elmo's Spend, Share, and Save Jars
+                  </h2>
+                  <p className="text-gray-600 mb-2">
+                    Interactive activity perfect for ages 3-7! Learn with Elmo how to divide money into three special jars.
+                  </p>
+                  <div className="flex items-center space-x-2">
+                    <Badge variant="outline" className="bg-white">Ages 3-7</Badge>
+                    <Badge className="bg-red-500">Featured Activity</Badge>
+                    <Badge variant="outline" className="bg-white">15 minutes</Badge>
+                  </div>
                 </div>
               </div>
+              <div className="text-center">
+                <Button
+                  onClick={() => setShowElmoActivity(true)}
+                  className="bg-red-500 hover:bg-red-600 text-white px-6 py-3"
+                >
+                  <Gamepad2 className="h-4 w-4 mr-2" />
+                  Start Activity
+                </Button>
+              </div>
             </div>
-            <div className="text-center">
-              <Button
-                onClick={() => setShowElmoActivity(true)}
-                className="bg-red-500 hover:bg-red-600 text-white px-6 py-3"
-              >
-                <Gamepad2 className="h-4 w-4 mr-2" />
-                Start Activity
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="space-y-8">
-        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
-          {categories.map((category) => (
+        <TabsList className={`grid w-full ${kidMode === "youngest" ? "grid-cols-3" : "grid-cols-5"} lg:w-auto lg:inline-flex`}>
+          {categories
+            .filter((c) => {
+              if (user?.role !== "child") return true;
+              if (kidMode === "youngest") return ["earning", "saving", "spending"].includes(c.id);
+              if (kidMode === "younger") return c.id !== "investing";
+              return true;
+            })
+            .map((category) => (
             <TabsTrigger
               key={category.id}
               value={category.id}
-              className="flex items-center space-x-2 data-[state=active]:bg-primary data-[state=active]:text-white"
+              className={`data-[state=active]:bg-primary data-[state=active]:text-white ${
+                kidMode === "youngest" ? "flex flex-col gap-1 py-3 h-auto" : "flex items-center space-x-2"
+              }`}
             >
-              <span className="text-lg">{category.icon}</span>
-              <span className="hidden sm:inline">{category.name}</span>
+              <span className={kidMode === "youngest" ? "text-2xl" : "text-lg"}>{category.icon}</span>
+              <span className={kidMode === "youngest" ? "text-xs font-bold" : "hidden sm:inline"}>
+                {kidMode === "youngest" ? YOUNGEST_CATEGORY_LABELS[category.id] ?? category.name : category.name}
+              </span>
             </TabsTrigger>
           ))}
         </TabsList>
@@ -536,6 +586,28 @@ export default function Learn() {
                             </Button>
                           )}
 
+                          {user?.role === "child" && openSprout && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="w-full border-emerald-300 bg-emerald-50 hover:bg-emerald-100 font-bold"
+                              onClick={() =>
+                                openSprout.openSprout(
+                                  kidMode === "youngest"
+                                    ? `Tell me about ${lesson.title} in simple words!`
+                                    : `Explain "${lesson.title}" to me and why it matters for my money.`,
+                                  true,
+                                )
+                              }
+                            >
+                              {kidMode === "youngest" ? (
+                                <IconText icon="🎤" label="Ask Sprout" size="sm" />
+                              ) : (
+                                "🎤 Ask Sprout (Voice)"
+                              )}
+                            </Button>
+                          )}
+
                           <div className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
                             <h4 className="font-semibold text-blue-800 mb-1 flex items-center">
                               <Star className="h-4 w-4 mr-1" />
@@ -568,7 +640,14 @@ export default function Learn() {
             Your Learning Progress
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            {categories.map((category) => {
+            {categories
+              .filter((c) => {
+                if (user?.role !== "child") return true;
+                if (kidMode === "youngest") return ["earning", "saving", "spending"].includes(c.id);
+                if (kidMode === "younger") return c.id !== "investing";
+                return true;
+              })
+              .map((category) => {
               const categoryLessonsCount = Array.isArray(lessons)
                 ? lessons.filter((l: any) => l.category === category.id).length
                 : 0;

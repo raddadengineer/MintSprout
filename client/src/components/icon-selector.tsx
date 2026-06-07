@@ -123,7 +123,7 @@ export function IconSelector({ selectedIcon, onIconSelect }: IconSelectorProps) 
       </PopoverTrigger>
       <PopoverContent className="w-96 p-4 max-h-96 overflow-y-auto">
         <div className="space-y-4">
-          <h4 className="font-medium text-sm">Select Job Icon</h4>
+          <h4 className="font-medium text-sm">Select icon</h4>
           {categories.map((category) => (
             <div key={category} className="space-y-2">
               <Badge variant="secondary" className="text-xs">

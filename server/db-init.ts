@@ -1,5 +1,6 @@
 import { db, testConnection } from "./db";
 import * as schema from "@shared/schema";
+import { DEFAULT_JOB_CATEGORIES } from "@shared/job-categories";
 import bcrypt from "bcrypt";
 
 export async function initializeDatabase() {
@@ -30,58 +31,58 @@ export async function initializeDatabase() {
       return;
     }
 
-    // Create demo family
+    // Create initial family
     const [family] = await db.insert(schema.families).values({
-      name: "Demo Family"
+      name: "Our Family"
     }).returning();
 
-    // Hash password for demo users
+    // Hash password for default users
     const hashedPassword = await bcrypt.hash("password123", 10);
 
-    // Create demo users
+    // Create default users
     const [parentUser] = await db.insert(schema.users).values({
       username: "parent",
       password: hashedPassword,
       role: "parent",
       familyId: family.id,
-      name: "Demo Parent",
+      name: "Parent",
       age: null
     }).returning();
 
-    const [emmaUser] = await db.insert(schema.users).values({
-      username: "emma",
+    const [brysonUser] = await db.insert(schema.users).values({
+      username: "bryson",
       password: hashedPassword,
       role: "child",
       familyId: family.id,
-      name: "Emma",
-      age: 8
+      name: "Bryson",
+      age: 10
     }).returning();
 
-    const [jakeUser] = await db.insert(schema.users).values({
-      username: "jake",
+    const [edisonUser] = await db.insert(schema.users).values({
+      username: "edison",
       password: hashedPassword,
       role: "child",
       familyId: family.id,
-      name: "Jake",
-      age: 12
+      name: "Edison",
+      age: 5
     }).returning();
 
     // Create child records
-    const [emma] = await db.insert(schema.children).values({
-      userId: emmaUser.id,
+    const [bryson] = await db.insert(schema.children).values({
+      userId: brysonUser.id,
       familyId: family.id,
-      name: "Emma",
-      age: 8,
+      name: "Bryson",
+      age: 10,
       totalEarned: "0.00",
       completedJobs: 0,
       learningStreak: 0
     }).returning();
 
-    const [jake] = await db.insert(schema.children).values({
-      userId: jakeUser.id,
+    const [edison] = await db.insert(schema.children).values({
+      userId: edisonUser.id,
       familyId: family.id,
-      name: "Jake",
-      age: 12,
+      name: "Edison",
+      age: 5,
       totalEarned: "0.00",
       completedJobs: 0,
       learningStreak: 0
@@ -90,14 +91,14 @@ export async function initializeDatabase() {
     // Create allocation settings
     await db.insert(schema.allocationSettings).values([
       {
-        childId: emma.id,
+        childId: bryson.id,
         spendingPercentage: 20,
         savingsPercentage: 30,
         rothIraPercentage: 25,
         brokeragePercentage: 25
       },
       {
-        childId: jake.id,
+        childId: edison.id,
         spendingPercentage: 20,
         savingsPercentage: 30,
         rothIraPercentage: 25,
@@ -105,7 +106,7 @@ export async function initializeDatabase() {
       }
     ]);
 
-    // Create demo lessons
+    // Create default lessons
     await db.insert(schema.lessons).values([
       {
         category: "earning",
@@ -149,7 +150,24 @@ export async function initializeDatabase() {
       }
     ]);
 
-    // Create some demo jobs
+    const seededCategories = [];
+    for (const seed of DEFAULT_JOB_CATEGORIES) {
+      const [cat] = await db.insert(schema.jobCategories).values({
+        familyId: family.id,
+        slug: seed.slug,
+        label: seed.label,
+        description: seed.description,
+        icon: seed.icon,
+        sortOrder: seed.sortOrder,
+        enabled: true,
+        paymentMode: seed.paymentMode,
+      }).returning();
+      seededCategories.push(cat);
+    }
+    const selfCareCat = seededCategories.find((c) => c.label === "Take Care of Yourself");
+    const allowanceCat = seededCategories.find((c) => c.label === "Earn Your Allowance");
+
+    // Create initial jobs
     await db.insert(schema.jobs).values([
       {
         title: "Clean Your Room",
@@ -157,8 +175,10 @@ export async function initializeDatabase() {
         amount: "5.00",
         status: "assigned",
         recurrence: "weekly",
-        assignedToId: emma.id,
+        assignedToId: bryson.id,
         familyId: family.id,
+        categoryId: selfCareCat?.id,
+        isFamilyDuty: true,
         createdAt: new Date()
       },
       {
@@ -167,17 +187,15 @@ export async function initializeDatabase() {
         amount: "3.00",
         status: "assigned",
         recurrence: "weekly",
-        assignedToId: jake.id,
+        assignedToId: edison.id,
         familyId: family.id,
+        categoryId: allowanceCat?.id,
         createdAt: new Date()
       }
     ]);
 
     console.log("✅ Database initialized successfully!");
-    console.log("🔐 Demo login credentials:");
-    console.log("   Parent: username 'parent', password 'password123'");
-    console.log("   Child: username 'emma', password 'password123'");
-    console.log("   Child: username 'jake', password 'password123'");
+    console.log("Initial accounts created (see README for usernames).");
 
   } catch (error) {
     console.error("❌ Database initialization failed:", error);

@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import type { AccountTypesRow } from "@/lib/api-types";
 
 interface AccountTypesModalProps {
   isOpen: boolean;
@@ -37,7 +38,7 @@ export function AccountTypesModal({ isOpen, onClose }: AccountTypesModalProps) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  const { data: accountTypes } = useQuery({
+  const { data: accountTypes } = useQuery<AccountTypesRow>({
     queryKey: [`/api/account-types/${user?.familyId}`],
     enabled: isOpen && !!user?.familyId,
   });

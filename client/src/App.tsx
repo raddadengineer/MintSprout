@@ -11,13 +11,21 @@ import Payments from "@/pages/payments";
 import Learn from "@/pages/learn";
 import Reports from "@/pages/reports";
 import Family from "@/pages/family";
+import Spending from "@/pages/spending";
+import Donations from "@/pages/donations";
+import Savings from "@/pages/savings";
+import Activity from "@/pages/activity";
+import Controls from "@/pages/controls";
 import Login from "@/pages/login";
+import Kiosk from "@/pages/kiosk";
 import NotFound from "@/pages/not-found";
+import { SproutBuddyProvider } from "@/components/sprout-buddy";
+import { ParentRoute } from "@/components/parent-route";
 
 function AppContent() {
   const { isAuthenticated, isLoading } = useAuth();
 
-  if (isLoading) {
+  if (isAuthenticated && isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -31,23 +39,36 @@ function AppContent() {
   }
 
   if (!isAuthenticated) {
-    return <Login />;
+    return (
+      <Switch>
+        <Route path="/login" component={Login} />
+        <Route path="/kiosk" component={Kiosk} />
+        <Route component={Kiosk} />
+      </Switch>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-16 md:pb-0">
-      <Navigation />
-      <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/dashboard" component={Dashboard} />
-        <Route path="/jobs" component={Jobs} />
-        <Route path="/payments" component={Payments} />
-        <Route path="/learn" component={Learn} />
-        <Route path="/reports" component={Reports} />
-        <Route path="/family" component={Family} />
-        <Route component={NotFound} />
-      </Switch>
-    </div>
+    <SproutBuddyProvider>
+      <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+        <Navigation />
+        <Switch>
+          <Route path="/" component={Dashboard} />
+          <Route path="/dashboard" component={Dashboard} />
+          <Route path="/jobs" component={Jobs} />
+          <Route path="/payments" component={Payments} />
+          <Route path="/savings" component={Savings} />
+          <Route path="/spending" component={Spending} />
+          <Route path="/donations" component={Donations} />
+          <Route path="/activity" component={Activity} />
+          <Route path="/controls" component={() => <ParentRoute component={Controls} />} />
+          <Route path="/learn" component={Learn} />
+          <Route path="/reports" component={Reports} />
+          <Route path="/family" component={() => <ParentRoute component={Family} />} />
+          <Route component={NotFound} />
+        </Switch>
+      </div>
+    </SproutBuddyProvider>
   );
 }
 

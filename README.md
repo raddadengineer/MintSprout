@@ -2,9 +2,6 @@
 
 **A family-friendly financial literacy platform that helps kids learn to earn, save, spend, invest, and donate — while parents stay in control.**
 
-[![Docker Hub](https://img.shields.io/docker/pulls/raddadengineer/mintsprout?style=flat-square&logo=docker)](https://hub.docker.com/r/raddadengineer/mintsprout)
-[![Multi-arch](https://img.shields.io/badge/arch-linux%2Famd64%20%7C%20linux%2Farm64-blue?style=flat-square)](https://hub.docker.com/r/raddadengineer/mintsprout)
-
 ---
 
 ## ✨ Features
@@ -71,15 +68,39 @@ App will be available at **http://localhost:5000**
 
 ---
 
-## 🔑 Default Login Credentials
+## Initial family accounts
 
-> These are seeded automatically on first run. **Change them in production.**
+> Created automatically on first run for your household. Change passwords with `npm run passwords:reset` or from Parent Controls.
 
 | Role | Username | Password |
 |------|----------|----------|
 | Parent | `parent` | `password123` |
-| Child | `emma` | `password123` |
-| Child | `jake` | `password123` |
+| Child | `bryson` | `password123` |
+| Child | `edison` | `password123` |
+
+---
+
+## 🧷 Kiosk Mode (no username/password)
+
+MintSprout can run in a **single-household “kiosk mode”** where the login screen is replaced by:
+
+- **Parent** button → prompts for a **PIN** once → enters parent session
+- **Child** button → pick a child → enters child session
+
+Enable it via environment variables:
+
+- **`KIOSK_MODE=true`**: turns kiosk mode on
+- **`PARENT_PIN=1234`**: required in kiosk mode (parent-only)
+- **`KIOSK_FAMILY_ID=1`**: optional (defaults to `1`)
+
+Example (Docker Compose):
+
+```yaml
+environment:
+  KIOSK_MODE: "true"
+  PARENT_PIN: "1234"
+  KIOSK_FAMILY_ID: "1"
+```
 
 ---
 
@@ -101,6 +122,16 @@ psql -U mintsprout -d mintsprout -f init-db.sql
 ```
 
 All inserts use `ON CONFLICT DO NOTHING` and `CREATE TABLE IF NOT EXISTS` — safe to re-run.
+
+### Backups
+
+Back up before upgrades or any command that removes volumes:
+
+```bash
+./scripts/backup-db.sh ./backups
+```
+
+> **Warning:** `docker compose down -v` permanently deletes all data in `postgres_data`. See [DEPLOYMENT.md](DEPLOYMENT.md) for restore steps.
 
 ---
 
@@ -153,6 +184,9 @@ All inserts use `ON CONFLICT DO NOTHING` and `CREATE TABLE IF NOT EXISTS` — sa
 # Install dependencies
 npm install
 
+# Required env var for auth
+export JWT_SECRET="change-me-to-a-long-random-string"
+
 # Start dev server (frontend + backend with hot reload)
 npm run dev
 
@@ -163,7 +197,7 @@ npm run build
 node dist/index.js
 ```
 
-The dev server starts at **http://localhost:5000** and uses in-memory storage (no Postgres needed locally).
+The dev server starts at **http://localhost:5000** and uses in-memory storage by default (no Postgres needed locally). If `DATABASE_URL` is set, it will use PostgreSQL storage.
 
 ---
 
@@ -205,7 +239,8 @@ MintSprout/
 
 - `JWT_SECRET` must be set at runtime — **never baked into the Docker image**
 - Passwords are hashed with bcrypt (10 salt rounds)
-- All API routes (except `/api/auth/login` and `/api/auth/register`) require a valid JWT
+- All API routes (except `/api/auth/login`) require a valid JWT
+- Sensitive auth data is not logged in server request logs
 - Run as non-root user (`mintsprout`) inside the container
 
 ---

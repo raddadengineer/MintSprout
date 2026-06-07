@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,14 +10,34 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { JobCreationModal } from "@/components/job-creation-modal";
+import { DailyBriefButton } from "@/components/daily-brief";
 import { PaymentApprovalModal } from "@/components/payment-approval-modal";
 import { JobIcon } from "@/components/job-icon";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useKidMode } from "@/hooks/use-kid-mode";
+import { IconText } from "@/components/icon-text";
+import { youngestJobStatus } from "@/lib/youngest-ui";
+import { groupJobsByCategory, type JobCategoryRow } from "@/lib/job-category-groups";
+import type { AccountTypesRow, ChildRow, JobRow, PaymentRow } from "@/lib/api-types";
+import { taskLabels } from "@/lib/task-labels";
+import { needsPaymentModal, taskPayKind } from "@/lib/task-pay-type";
 import { Search, Filter, Edit, Trash2, Calendar, DollarSign, User, MoreHorizontal, Eye } from "lucide-react";
+
+function isFamilyDuty(job: { isFamilyDuty?: boolean | null }): boolean {
+  return !!job.isFamilyDuty;
+}
+
+function jobPayLabel(job: { allowanceId?: number | null; isFamilyDuty?: boolean | null; amount: string }): string {
+  if (isFamilyDuty(job)) return "Family";
+  if (job.allowanceId) return "—";
+  return `$${parseFloat(job.amount).toFixed(2)}`;
+}
 
 export default function Jobs() {
   const { user } = useAuth();
+  const { mode: kidMode } = useKidMode();
+  const isYoungestChild = user?.role === "child" && kidMode === "youngest";
   const [showJobModal, setShowJobModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -35,8 +56,11 @@ export default function Jobs() {
   const [childFilter, setChildFilter] = useState("all");
   const [sortBy, setSortBy] = useState("recent");
   const [activeTab, setActiveTab] = useState("active");
+  const [location] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const labels = taskLabels(user?.role === "parent" ? "parent" : "child", kidMode);
+  const isParent = user?.role === "parent";
 
   // Force refresh all data on component mount to sync with database
   useEffect(() => {
@@ -46,26 +70,30 @@ export default function Jobs() {
     queryClient.invalidateQueries({ queryKey: ["/api/children"] });
   }, [queryClient]);
 
-  const { data: jobs, isLoading, refetch: refetchJobs } = useQuery({
+  const { data: jobs, isLoading, refetch: refetchJobs } = useQuery<JobRow[]>({
     queryKey: ["/api/jobs"],
   });
 
-  const { data: children } = useQuery({
+  const { data: children } = useQuery<ChildRow[]>({
     queryKey: ["/api/children"],
   });
 
-  const { data: accountTypes } = useQuery({
+  const { data: jobCategories = [] } = useQuery<JobCategoryRow[]>({
+    queryKey: ["/api/job-categories"],
+  });
+
+  const { data: accountTypes } = useQuery<AccountTypesRow>({
     queryKey: [`/api/account-types/${user?.familyId}`],
     enabled: !!user?.familyId,
   });
 
   // Fetch payment data for the selected job when editing
-  const { data: existingPayment } = useQuery({
+  const { data: existingPayment } = useQuery<PaymentRow>({
     queryKey: [`/api/payments/job/${selectedJob?.id}`],
     enabled: !!selectedJob?.id && selectedJob?.status === "approved" && editingPayment,
   });
 
-  const { data: payments } = useQuery({
+  const { data: payments } = useQuery<PaymentRow[]>({
     queryKey: ["/api/payments"],
   });
 
@@ -86,7 +114,7 @@ export default function Jobs() {
       
       toast({
         title: "Success!",
-        description: "Job updated successfully",
+        description: "Task updated successfully",
       });
     },
   });
@@ -99,8 +127,32 @@ export default function Jobs() {
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard-stats"] });
       toast({
         title: "Success!",
-        description: "Job deleted successfully",
+        description: "Task deleted successfully",
       });
+    },
+  });
+
+  const markMissedMutation = useMutation({
+    mutationFn: (jobId: number) => apiRequest("POST", `/api/jobs/${jobId}/missed`, {}),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/allowances"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/dashboard-stats"] });
+      toast({ title: "Marked missed", description: "This will count toward the next allowance penalty." });
+    },
+    onError: (err: any) => {
+      try {
+        const msg = typeof err?.message === "string" ? err.message : "";
+        const parts = msg.split(": ");
+        const maybeBody = parts.length > 1 ? parts.slice(1).join(": ") : msg;
+        const parsed = JSON.parse(maybeBody);
+        if (parsed && typeof parsed.message === "string") {
+          toast({ title: "Error", description: parsed.message, variant: "destructive" });
+          return;
+        }
+      } catch {
+        // ignore
+      }
+      toast({ title: "Error", description: "Failed to mark missed", variant: "destructive" });
     },
   });
 
@@ -148,6 +200,15 @@ export default function Jobs() {
   };
 
   const getStatusBadge = (status: string) => {
+    if (isYoungestChild) {
+      const { icon, label } = youngestJobStatus(status);
+      return (
+        <Badge variant="outline" className="bg-gray-50 text-gray-800 border-gray-200 text-sm font-bold gap-1">
+          <span aria-hidden>{icon}</span>
+          {label}
+        </Badge>
+      );
+    }
     switch (status) {
       case "assigned":
         return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Assigned</Badge>;
@@ -175,7 +236,7 @@ export default function Jobs() {
       const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            job.description.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilter === "all" || job.status === statusFilter;
-      const matchesChild = childFilter === "all" || job.childId.toString() === childFilter;
+      const matchesChild = childFilter === "all" || job.assignedToId.toString() === childFilter;
       
       return matchesSearch && matchesStatus && matchesChild;
     });
@@ -199,8 +260,28 @@ export default function Jobs() {
   };
 
   const activeJobs = jobs && Array.isArray(jobs) ? sortJobs(filterJobs(jobs.filter((job: any) => 
-    ["assigned", "in_progress", "completed"].includes(job.status)
+    ["assigned", "in_progress"].includes(job.status)
   ))) : [];
+
+  const awaitingApprovalJobs = jobs && Array.isArray(jobs) ? sortJobs(filterJobs(jobs.filter((job: any) =>
+    job.status === "completed"
+  ))) : [];
+
+  useEffect(() => {
+    if (!isParent || !jobs) return;
+    const params = new URLSearchParams(window.location.search);
+    const awaitingCount = jobs.filter((j: JobRow) => j.status === "completed").length;
+    if (params.get("filter") === "awaiting" || awaitingCount > 0) {
+      setActiveTab("awaiting");
+    }
+  }, [isParent, jobs, location]);
+
+  const activeFamilyDuties = activeJobs.filter((job: any) => isFamilyDuty(job));
+  const activePaidJobs = activeJobs.filter((job: any) => !isFamilyDuty(job));
+  const activeJobGroups = useMemo(
+    () => groupJobsByCategory(activeJobs, jobCategories),
+    [activeJobs, jobCategories],
+  );
 
   const completedJobs = jobs && Array.isArray(jobs) ? sortJobs(filterJobs(jobs.filter((job: any) => 
     job.status === "approved"
@@ -209,15 +290,17 @@ export default function Jobs() {
   const getJobStats = () => {
     if (!jobs || !Array.isArray(jobs)) return { total: 0, pending: 0, completed: 0, totalEarnings: 0 };
     
-    const pending = jobs.filter((job: any) => ["assigned", "in_progress", "completed"].includes(job.status)).length;
+    const pending = jobs.filter((job: any) => ["assigned", "in_progress"].includes(job.status)).length;
+    const awaiting = jobs.filter((job: any) => job.status === "completed").length;
     const completed = jobs.filter((job: any) => job.status === "approved").length;
     const totalEarnings = jobs
-      .filter((job: any) => job.status === "approved")
+      .filter((job: any) => job.status === "approved" && !isFamilyDuty(job))
       .reduce((sum: number, job: any) => sum + parseFloat(job.amount), 0);
       
     return {
       total: jobs.length,
       pending,
+      awaiting,
       completed,
       totalEarnings
     };
@@ -236,7 +319,7 @@ export default function Jobs() {
                 <h3 className="font-semibold text-gray-900">{job.title}</h3>
                 <div className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium flex items-center ml-2 shrink-0">
                   <User className="h-3 w-3 mr-1" />
-                  {getChildName(job.childId)}
+                  {getChildName(job.assignedToId)}
                 </div>
               </div>
               <p className="text-sm text-gray-600 mb-2">{job.description}</p>
@@ -245,12 +328,22 @@ export default function Jobs() {
                   <Calendar className="h-3 w-3 mr-1" />
                   {new Date(job.createdAt).toLocaleDateString()}
                 </span>
+                {job.allowanceId && (
+                  <span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full font-semibold">
+                    Allowance chore
+                  </span>
+                )}
+                {isFamilyDuty(job) && (
+                  <span className="text-xs bg-sky-50 text-sky-700 border border-sky-200 px-2 py-0.5 rounded-full font-semibold">
+                    Part of the family
+                  </span>
+                )}
               </div>
             </div>
           </div>
           <div className="text-right ml-4">
             <div className="text-lg font-bold text-primary mb-1">
-              ${parseFloat(job.amount).toFixed(2)}
+              {jobPayLabel(job)}
             </div>
             {getStatusBadge(job.status)}
           </div>
@@ -259,21 +352,64 @@ export default function Jobs() {
         <div className="flex items-center justify-between">
           <div className="flex space-x-2">
             {job.status === "assigned" && user?.role === "child" && (
-              <Button size="sm" onClick={() => handleJobAction(job.id, "in_progress")} className="text-xs">
-                Start Job
+              <Button
+                size={isYoungestChild ? "lg" : "sm"}
+                onClick={() => handleJobAction(job.id, "in_progress")}
+                className={isYoungestChild ? "w-full h-14" : "text-xs"}
+              >
+                {isYoungestChild ? <IconText icon="🚀" label="Start" size="md" /> : labels.start}
               </Button>
             )}
             {job.status === "in_progress" && user?.role === "child" && (
-              <Button size="sm" onClick={() => handleJobAction(job.id, "completed")} className="text-xs">
-                Mark Complete
+              <Button
+                size={isYoungestChild ? "lg" : "sm"}
+                onClick={() => handleJobAction(job.id, "completed")}
+                className={isYoungestChild ? "w-full h-14" : "text-xs"}
+              >
+                {isYoungestChild ? <IconText icon="✅" label="Done!" size="md" /> : "Mark Complete"}
               </Button>
             )}
             {job.status === "completed" && user?.role === "parent" && (
-              <Button size="sm" onClick={() => {
-                setSelectedJob(job);
-                setShowPaymentModal(true);
-              }} className="text-xs">
-                Approve & Pay
+              (taskPayKind(job) === "allowance" ? (
+                <Button
+                  size="sm"
+                  onClick={() => handleJobAction(job.id, "approved")}
+                  className="text-xs"
+                  disabled={updateJobMutation.isPending}
+                >
+                  {labels.approveAllowance}
+                </Button>
+              ) : taskPayKind(job) === "family_duty" ? (
+                <Button
+                  size="sm"
+                  onClick={() => handleJobAction(job.id, "approved")}
+                  className="text-xs"
+                  disabled={updateJobMutation.isPending}
+                >
+                  {labels.approve}
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setSelectedJob(job);
+                    setShowPaymentModal(true);
+                  }}
+                  className="text-xs"
+                >
+                  {labels.approvePay}
+                </Button>
+              ))
+            )}
+            {user?.role === "parent" && job.allowanceId && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => markMissedMutation.mutate(job.id)}
+                disabled={markMissedMutation.isPending}
+                className="text-xs"
+              >
+                Mark missed today
               </Button>
             )}
           </div>
@@ -326,15 +462,19 @@ export default function Jobs() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Job Management</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            {isParent ? labels.pageTitleParent : labels.pageTitle}
+          </h1>
         </div>
-        {user?.role === "parent" && (
+        {isParent ? (
           <Button
             onClick={() => setShowJobModal(true)}
             className="mint-primary mint-button"
           >
-            ➕ Create New Job
+            ➕ {labels.create}
           </Button>
+        ) : (
+          <DailyBriefButton />
         )}
       </div>
 
@@ -344,13 +484,19 @@ export default function Jobs() {
           <Card>
             <CardContent className="p-4 text-center">
               <div className="text-2xl font-bold text-blue-600">{stats.pending}</div>
-              <div className="text-sm text-gray-600">Active Jobs</div>
+              <div className="text-sm text-gray-600">{labels.activeSection}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-orange-600">{stats.awaiting}</div>
+              <div className="text-sm text-gray-600">{labels.awaitingApproval}</div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4 text-center">
               <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
-              <div className="text-sm text-gray-600">Completed</div>
+              <div className="text-sm text-gray-600">{labels.history}</div>
             </CardContent>
           </Card>
           <Card>
@@ -369,82 +515,147 @@ export default function Jobs() {
       )}
 
       {/* Filters and Search */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input
-            placeholder="Search jobs..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="assigned">Assigned</SelectItem>
-            <SelectItem value="in_progress">In Progress</SelectItem>
-            <SelectItem value="completed">Awaiting Approval</SelectItem>
-            <SelectItem value="approved">Approved</SelectItem>
-          </SelectContent>
-        </Select>
-        {user?.role === "parent" && children && Array.isArray(children) && children.length > 0 && (
-          <Select value={childFilter} onValueChange={setChildFilter}>
+      {!isYoungestChild && (
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Search jobs..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full sm:w-48">
-              <SelectValue placeholder="Filter by child" />
+              <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Children</SelectItem>
-              {children.map((child: any) => (
-                <SelectItem key={child.id} value={child.id.toString()}>
-                  {child.name}
-                </SelectItem>
-              ))}
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="assigned">Assigned</SelectItem>
+              <SelectItem value="in_progress">In Progress</SelectItem>
+              <SelectItem value="completed">Awaiting Approval</SelectItem>
+              <SelectItem value="approved">Approved</SelectItem>
             </SelectContent>
           </Select>
-        )}
-        <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="recent">Most Recent</SelectItem>
-            <SelectItem value="amount">Highest Amount</SelectItem>
-            <SelectItem value="name">Alphabetical</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+          {user?.role === "parent" && children && Array.isArray(children) && children.length > 0 && (
+            <Select value={childFilter} onValueChange={setChildFilter}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue placeholder="Filter by child" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Children</SelectItem>
+                {children.map((child: any) => (
+                  <SelectItem key={child.id} value={child.id.toString()}>
+                    {child.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recent">Most Recent</SelectItem>
+              <SelectItem value="amount">Highest Amount</SelectItem>
+              <SelectItem value="name">Alphabetical</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
-      {/* Job Tabs */}
+      {/* Task Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="active">Active Jobs ({activeJobs.length})</TabsTrigger>
-          <TabsTrigger value="completed">Job History ({completedJobs.length})</TabsTrigger>
+        <TabsList className={`grid w-full ${
+          isYoungestChild ? "grid-cols-1" : isParent ? "grid-cols-3" : "grid-cols-2"
+        }`}>
+          <TabsTrigger value="active">{labels.active} ({activeJobs.length})</TabsTrigger>
+          {isParent && (
+            <TabsTrigger value="awaiting">
+              {labels.awaitingApproval} ({awaitingApprovalJobs.length})
+            </TabsTrigger>
+          )}
+          {!isYoungestChild && (
+            <TabsTrigger value="completed">{labels.history} ({completedJobs.length})</TabsTrigger>
+          )}
         </TabsList>
+
+        <TabsContent value="awaiting" className="mt-6">
+          {awaitingApprovalJobs.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {awaitingApprovalJobs.map(renderJobCard)}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <h3 className="text-lg font-medium text-gray-900 mb-2">All caught up!</h3>
+                <p className="text-gray-600">No tasks waiting for your approval.</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
         
         <TabsContent value="active" className="mt-6">
           {activeJobs.length > 0 ? (
+            user?.role === "child" ? (
+              <div className="space-y-8">
+                {activeJobGroups.length > 0
+                  ? activeJobGroups.map((group) => (
+                      <div key={group.label}>
+                        <h2 className="text-lg font-bold text-gray-900 mb-1 flex items-center gap-2">
+                          <JobIcon iconName={group.icon} className="h-5 w-5" />
+                          {group.label}
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {group.jobs.map(renderJobCard)}
+                        </div>
+                      </div>
+                    ))
+                  : (
+                    <>
+                {activeFamilyDuties.length > 0 && (
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900 mb-1">🏠 Part of the family</h2>
+                    <p className="text-sm text-gray-500 mb-4">Things you do because you live here — no pay, just pride!</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {activeFamilyDuties.map(renderJobCard)}
+                    </div>
+                  </div>
+                )}
+                {activePaidJobs.length > 0 && (
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900 mb-1">💰 Earn money</h2>
+                    <p className="text-sm text-gray-500 mb-4">Tasks that pay when you finish them.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {activePaidJobs.map(renderJobCard)}
+                    </div>
+                  </div>
+                )}
+                    </>
+                  )}
+              </div>
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {activeJobs.map(renderJobCard)}
             </div>
+            )
           ) : (
             <Card>
               <CardContent className="p-8 text-center">
                 <div className="text-gray-400 mb-4">
                   <DollarSign className="h-12 w-12 mx-auto" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Active Jobs</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">{labels.noActive}</h3>
                 <p className="text-gray-500 mb-4">
                   {user?.role === "parent" 
-                    ? "Create new jobs to get started with earning opportunities for your children."
-                    : "No jobs have been assigned to you yet. Check back later!"}
+                    ? `Create new ${labels.plural} to get started with earning opportunities for your children.`
+                    : `No ${labels.plural} have been assigned to you yet. Check back later!`}
                 </p>
                 {user?.role === "parent" && (
                   <Button onClick={() => setShowJobModal(true)} className="mint-primary">
-                    Create First Job
+                    {labels.createFirst}
                   </Button>
                 )}
               </CardContent>
@@ -452,6 +663,7 @@ export default function Jobs() {
           )}
         </TabsContent>
         
+        {!isYoungestChild && (
         <TabsContent value="completed" className="mt-6">
           {completedJobs.length > 0 ? (
             <div className="space-y-4">
@@ -459,7 +671,7 @@ export default function Jobs() {
                 <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg mb-4">
                   <div className="flex items-center space-x-4">
                     <div className="text-sm text-gray-600">
-                      <strong>{completedJobs.length}</strong> completed jobs • Total paid: <strong>${completedJobs.reduce((sum: number, job: any) => sum + parseFloat(job.amount), 0).toFixed(2)}</strong>
+                      <strong>{completedJobs.length}</strong> completed {labels.plural} • Total paid: <strong>${completedJobs.reduce((sum: number, job: any) => sum + parseFloat(job.amount), 0).toFixed(2)}</strong>
                     </div>
                     {selectedJobs.length > 0 && (
                       <div className="text-sm text-blue-600 font-medium">
@@ -481,7 +693,7 @@ export default function Jobs() {
                         size="sm" 
                         variant="outline"
                         onClick={() => {
-                          if (window.confirm(`Delete ${selectedJobs.length} selected jobs? This action cannot be undone.`)) {
+                          if (window.confirm(`Delete ${selectedJobs.length} selected ${labels.plural}? This action cannot be undone.`)) {
                             selectedJobs.forEach(jobId => handleDeleteJob(jobId));
                             setSelectedJobs([]);
                             setShowBulkActions(false);
@@ -496,7 +708,7 @@ export default function Jobs() {
                       size="sm" 
                       variant="outline"
                       onClick={() => {
-                        if (window.confirm(`Export ${completedJobs.length} completed jobs to CSV?`)) {
+                        if (window.confirm(`Export ${completedJobs.length} completed ${labels.plural} to CSV?`)) {
                           console.log("Exporting completed jobs...");
                         }
                       }}
@@ -532,7 +744,7 @@ export default function Jobs() {
                             <h4 className="font-medium text-gray-900">{job.title}</h4>
                             <div className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium flex items-center ml-2 shrink-0">
                               <User className="h-3 w-3 mr-1" />
-                              {getChildName(job.childId)}
+                              {getChildName(job.assignedToId)}
                             </div>
                           </div>
                           <p className="text-sm text-gray-600 mb-2">{job.description}</p>
@@ -605,7 +817,7 @@ export default function Jobs() {
                 <div className="text-gray-400 mb-4">
                   <Calendar className="h-12 w-12 mx-auto" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Completed Jobs</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No completed {labels.plural}</h3>
                 <p className="text-gray-500">
                   Completed and approved jobs will appear here.
                 </p>
@@ -613,6 +825,7 @@ export default function Jobs() {
             </Card>
           )}
         </TabsContent>
+        )}
       </Tabs>
 
       {/* Modals */}
@@ -631,7 +844,7 @@ export default function Jobs() {
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>
-              Edit Job {selectedJob?.status === "approved" ? "(Completed)" : ""}
+              Edit task {selectedJob?.status === "approved" ? "(Completed)" : ""}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 overflow-y-auto flex-1 pr-2">
@@ -679,7 +892,7 @@ export default function Jobs() {
                     onClick={() => setEditingPayment(false)}
                     className="text-xs"
                   >
-                    Job Details
+                    Task details
                   </Button>
                   <Button 
                     size="sm" 

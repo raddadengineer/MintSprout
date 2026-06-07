@@ -1,16 +1,21 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { useKidMode } from "@/hooks/use-kid-mode";
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useState, createContext, useContext } from "react";
+import { useEffect, useState, createContext, useContext, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { YOUNGEST_NAV } from "@/lib/youngest-ui";
+import { taskLabels } from "@/lib/task-labels";
+import { Menu as MenuIcon, Check, ChevronDown } from "lucide-react";
 
 interface Child {
   id: number;
@@ -18,7 +23,8 @@ interface Child {
   age: number;
 }
 
-// Context so other pages can read the selected child
+type NavItem = { href: string; icon: string; label: string };
+
 export const SelectedChildContext = createContext<{ selectedChildId: string; setSelectedChildId: (id: string) => void }>({
   selectedChildId: "",
   setSelectedChildId: () => { },
@@ -27,122 +33,171 @@ export const useSelectedChild = () => useContext(SelectedChildContext);
 
 export function Navigation() {
   const { user, logout } = useAuth();
+  const { mode: kidMode } = useKidMode();
   const [location] = useLocation();
   const [selectedChildId, setSelectedChildId] = useState<string>("");
 
-  const { data: children } = useQuery({
+  const { data: children } = useQuery<Child[]>({
     queryKey: ["/api/children"],
     enabled: user?.role === "parent",
   });
 
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
-  };
+  useEffect(() => {
+    if (user?.role !== "parent") return;
+    if (!children || children.length === 0) return;
+    if (selectedChildId) return;
+    setSelectedChildId(children[0].id.toString());
+  }, [children, selectedChildId, user?.role]);
+
+  const getInitials = (name: string) =>
+    name.split(" ").map((n) => n[0]).join("").toUpperCase();
 
   const isActive = (path: string) => {
-    return location === path || location.startsWith(path);
+    if (path === "/dashboard") {
+      return location === "/" || location === "/dashboard" || location.startsWith("/dashboard/");
+    }
+    return location === path || location.startsWith(`${path}/`);
   };
 
-  const navItems: { href: string; icon: string; label: string }[] = [
-    { href: "/dashboard", icon: "🏠", label: "Home" },
-    { href: "/jobs", icon: "✅", label: "Jobs" },
-    { href: "/learn", icon: "🎓", label: "Learn" },
-    { href: "/payments", icon: "💰", label: "Money" },
-    { href: "/reports", icon: "📊", label: "Reports" },
-    ...(user?.role === "parent" ? [{ href: "/family", icon: "👨‍👩‍👧‍👦", label: "Family" }] : []),
-  ];
+  const isYoungest = user?.role === "child" && kidMode === "youngest";
+  const taskNavLabel = taskLabels(user?.role === "parent" ? "parent" : "child", kidMode).nav;
+
+  const navItems: NavItem[] = useMemo(() => {
+    const base: NavItem[] = [
+      { href: "/dashboard", icon: "🏠", label: "Home" },
+      { href: "/jobs", icon: "✅", label: taskNavLabel },
+      { href: "/learn", icon: "🎓", label: "Learn" },
+      { href: "/payments", icon: "💰", label: kidMode === "older" ? "Money" : "My Money" },
+      { href: "/savings", icon: "🎯", label: "Goals" },
+      { href: "/spending", icon: "🛒", label: "Spending" },
+      { href: "/donations", icon: "❤️", label: "Donations" },
+      { href: "/activity", icon: "🧾", label: "History" },
+      { href: "/reports", icon: "📊", label: "Reports" },
+    ];
+
+    let items: NavItem[];
+    if (user?.role === "child" && (kidMode === "youngest" || kidMode === "younger")) {
+      items = base.filter((i) =>
+        kidMode === "youngest"
+          ? ["/dashboard", "/jobs", "/learn", "/payments"].includes(i.href)
+          : ["/dashboard", "/jobs", "/learn", "/payments", "/savings"].includes(i.href),
+      );
+    } else {
+      items = [
+        ...base,
+        ...(user?.role === "parent"
+          ? [
+              { href: "/controls", icon: "🛡️", label: "Controls" },
+              { href: "/family", icon: "👨‍👩‍👧‍👦", label: "Family" },
+            ]
+          : []),
+      ];
+    }
+
+    if (isYoungest) {
+      return items.map((item) => {
+        const youngest = YOUNGEST_NAV[item.href as keyof typeof YOUNGEST_NAV];
+        return youngest ? { ...item, icon: youngest.icon, label: youngest.label } : item;
+      });
+    }
+    return items;
+  }, [user?.role, kidMode, isYoungest, taskNavLabel]);
+
+  const activeItem = navItems.find((i) => isActive(i.href));
 
   return (
     <SelectedChildContext.Provider value={{ selectedChildId, setSelectedChildId }}>
-      <nav className="bg-white shadow-sm border-b-2 border-primary/10 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
-              <div className="flex-shrink-0 flex items-center">
-                <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center mr-2 shadow-md">
-                  <span className="text-white font-black text-xl">🌱</span>
-                </div>
-                <h1 className="text-xl font-black text-gray-900">MintSprout</h1>
+      <nav className="bg-white shadow-sm border-b-2 border-primary/10 sticky top-0 z-40 w-full overflow-hidden">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4">
+          <div className="flex items-center justify-between h-14 gap-2">
+            {/* Logo */}
+            <Link href="/dashboard" className="flex items-center gap-2 shrink-0 min-w-0">
+              <div className="w-9 h-9 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center shadow-md shrink-0">
+                <span className="text-white font-black text-lg">🌱</span>
               </div>
+              <span className="font-black text-gray-900 truncate hidden sm:inline">MintSprout</span>
+            </Link>
 
-              <div className="hidden md:block ml-8">
-                <div className="flex space-x-1">
-                  {navItems.map(({ href, icon, label }) => (
-                    <Link key={href} href={href}>
-                      <Button
-                        variant={isActive(href) ? "default" : "ghost"}
-                        className={`font-bold ${isActive(href) ? "mint-primary" : "text-gray-600 hover:text-primary"}`}
-                      >
-                        {icon} {label}
-                      </Button>
+            {/* Pages menu — icon only, all routes inside */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 shrink-0 font-bold gap-1.5 px-3"
+                  aria-label="Open navigation menu"
+                >
+                  <MenuIcon className="h-4 w-4 shrink-0" />
+                  <span>Menu</span>
+                  <ChevronDown className="h-3.5 w-3.5 opacity-60 shrink-0" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56 max-h-[75vh] overflow-y-auto">
+                {activeItem && (
+                  <>
+                    <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
+                      Current: {activeItem.icon} {activeItem.label}
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                {navItems.map(({ href, icon, label }) => (
+                  <DropdownMenuItem
+                    key={href}
+                    asChild
+                    className={`cursor-pointer font-medium ${isActive(href) ? "bg-primary/10 text-primary font-bold" : ""}`}
+                  >
+                    <Link href={href} className="flex w-full items-center gap-2">
+                      <span>{icon}</span>
+                      {label}
+                      {isActive(href) && <Check className="h-4 w-4 ml-auto text-primary" />}
                     </Link>
-                  ))}
-                </div>
-              </div>
-            </div>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-            <div className="flex items-center space-x-3">
-              {user?.role === "parent" && children && (
-                <Select value={selectedChildId} onValueChange={setSelectedChildId}>
-                  <SelectTrigger className="w-44 font-bold">
-                    <SelectValue placeholder="👶 Select child" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(children as Child[]).map((child: Child) => (
-                      <SelectItem key={child.id} value={child.id.toString()} className="font-medium">
-                        {child.name} (Age {child.age})
-                      </SelectItem>
+            <div className="flex-1" />
+
+            {/* Account — child switch + logout */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 rounded-full p-0">
+                  <Avatar className="h-9 w-9 ring-2 ring-primary/20">
+                    <AvatarFallback className="bg-gradient-to-br from-green-400 to-green-600 text-white font-black text-xs">
+                      {getInitials(user?.name || "?")}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuLabel className="font-bold truncate">{user?.name}</DropdownMenuLabel>
+                {user?.role === "parent" && children && children.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
+                      View as child
+                    </DropdownMenuLabel>
+                    {children.map((child) => (
+                      <DropdownMenuItem
+                        key={child.id}
+                        className="cursor-pointer font-medium"
+                        onClick={() => setSelectedChildId(child.id.toString())}
+                      >
+                        <span className="flex-1">{child.name}</span>
+                        {selectedChildId === child.id.toString() && (
+                          <Check className="h-4 w-4 text-primary shrink-0" />
+                        )}
+                      </DropdownMenuItem>
                     ))}
-                  </SelectContent>
-                </Select>
-              )}
-
-              <div className="flex items-center space-x-2">
-                <Avatar className="w-9 h-9 ring-2 ring-primary/30">
-                  <AvatarFallback className="bg-gradient-to-br from-green-400 to-green-600 text-white font-black text-sm">
-                    {getInitials(user?.name || "")}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="hidden md:block font-bold text-gray-700">{user?.name}</span>
-                <Button variant="ghost" onClick={logout} className="text-gray-500 hover:text-gray-800 font-bold text-sm">
-                  Logout
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Bottom Navigation */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t-2 border-gray-100 z-50 shadow-lg">
-          <div className="flex">
-            {navItems.slice(0, 5).map(({ href, icon, label }) => (
-              <Link key={href} href={href} className="flex-1">
-                <Button
-                  variant="ghost"
-                  className={`w-full h-16 flex flex-col items-center justify-center space-y-1 rounded-none ${isActive(href)
-                    ? "text-primary bg-primary/5 font-black"
-                    : "text-gray-400 hover:text-gray-600 font-bold"
-                    }`}
-                >
-                  <span className="text-xl">{icon}</span>
-                  <span className="text-xs font-bold">{label}</span>
-                </Button>
-              </Link>
-            ))}
-            {user?.role === "parent" && (
-              <Link href="/family" className="flex-1">
-                <Button
-                  variant="ghost"
-                  className={`w-full h-16 flex flex-col items-center justify-center space-y-1 rounded-none ${isActive("/family")
-                    ? "text-primary bg-primary/5 font-black"
-                    : "text-gray-400 hover:text-gray-600 font-bold"
-                    }`}
-                >
-                  <span className="text-xl">👪</span>
-                  <span className="text-xs font-bold">Family</span>
-                </Button>
-              </Link>
-            )}
+                  </>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={logout} className="cursor-pointer font-medium">
+                  {isYoungest ? "🚪 Bye" : "Logout"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </nav>

@@ -73,29 +73,50 @@ Access via: http://localhost:8080
 MintSprout automatically uses PostgreSQL in production Docker deployments for persistent data storage. The application includes:
 
 - Automatic database schema creation and initialization
-- Demo family data with pre-configured accounts
+- Initial family data with pre-configured accounts
 - Persistent storage for all financial transactions and learning progress
 - Database connection retry logic for container startup timing
 
-## Default Login Credentials
+## Initial family accounts
 
-After deployment, use these demo accounts (automatically created in PostgreSQL):
+After deployment, these accounts are created automatically in PostgreSQL:
 
-**Parent Account:**
+**Parent account:**
 - Username: `parent`
 - Password: `password123`
 
-**Child Accounts:**
-- Username: `emma`
+**Child accounts:**
+- Username: `bryson`
 - Password: `password123`
-- Username: `jake`
+- Username: `edison`
 - Password: `password123`
 
-**IMPORTANT:** Change these credentials immediately in production!
+**Recommended:** Change passwords after setup (`npm run passwords:reset` in the app container).
 
 ## Database Management
 
-### Backup Database
+### Automated backup (recommended)
+
+Use the included script before upgrades or destructive operations:
+
+```bash
+chmod +x scripts/backup-db.sh
+./scripts/backup-db.sh ./backups
+```
+
+Optional environment variables:
+
+- `BACKUP_RETENTION_DAYS` — delete backups older than N days (default `14`)
+- `DB_CONTAINER` — Postgres container name (default `mintsprout-db`)
+
+**Restore from a plain SQL dump:**
+
+```bash
+gunzip -c backups/mintsprout-YYYYMMDD-HHMMSS.sql.gz | docker exec -i mintsprout-db psql -U mintsprout -d mintsprout
+```
+
+### Manual backup
+
 ```bash
 docker exec mintsprout-db pg_dump -U mintsprout mintsprout > backup.sql
 ```
@@ -178,6 +199,9 @@ Never commit `.env` files to version control. Use Docker secrets or external sec
 3. Verify network connectivity between containers
 
 ### Reset Everything
+
+> **Warning:** `docker compose down -v` **permanently deletes** all database data in the `postgres_data` volume. Run `./scripts/backup-db.sh` first if you need to keep family data.
+
 ```bash
 docker-compose down -v
 docker-compose up -d

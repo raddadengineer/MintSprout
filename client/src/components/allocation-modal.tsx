@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { AccountTypesRow, AllocationRow } from "@/lib/api-types";
 
 interface AllocationModalProps {
   isOpen: boolean;
@@ -38,12 +39,12 @@ export function AllocationModal({ isOpen, onClose, childId }: AllocationModalPro
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  const { data: currentSettings } = useQuery({
+  const { data: currentSettings } = useQuery<AllocationRow>({
     queryKey: [`/api/allocation/${childId}`],
     enabled: isOpen && !!childId,
   });
 
-  const { data: accountTypes } = useQuery({
+  const { data: accountTypes } = useQuery<AccountTypesRow>({
     queryKey: [`/api/account-types/${user?.familyId}`],
     enabled: isOpen && !!user?.familyId,
   });

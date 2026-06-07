@@ -1,13 +1,16 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { db } from "./db";
 import * as schema from "@shared/schema";
 import { IStorage } from "./storage";
 import {
-  User, Family, Child, Job, Payment, AllocationSettings, AccountTypes,
-  Lesson, Quiz, LearningProgress, Achievement, SavingsGoal, SpendingLog, Donation,
-  InsertUser, InsertFamily, InsertChild, InsertJob, InsertPayment,
-  InsertAllocationSettings, InsertAccountTypes, InsertLesson, InsertQuiz,
-  InsertLearningProgress, InsertAchievement, InsertSavingsGoal, InsertSpendingLog, InsertDonation
+  User, Family, Child, JobCategory, Job, Payment, AllocationSettings, AccountTypes,
+  FamilySettings, ApprovalRequest, Allowance,
+  Lesson, Quiz, LearningProgress, Achievement, SavingsGoal, SpendingLog, Donation, Transaction,
+  CatalogLibrary, FamilyCatalogItem,
+  InsertUser, InsertFamily, InsertChild, InsertJobCategory, InsertJob, InsertPayment,
+  InsertAllocationSettings, InsertAccountTypes, InsertFamilySettings, InsertApprovalRequest, InsertAllowance, InsertLesson, InsertQuiz,
+  InsertLearningProgress, InsertAchievement, InsertSavingsGoal, InsertSpendingLog, InsertDonation, InsertTransaction,
+  InsertCatalogLibrary, InsertFamilyCatalogItem,
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 
@@ -17,8 +20,16 @@ export class PostgresStorage implements IStorage {
     return result[0] || undefined;
   }
 
+  async getUserById(id: number): Promise<User | undefined> {
+    const result = await db.select().from(schema.users).where(eq(schema.users.id, id));
+    return result[0] || undefined;
+  }
+
   async createUser(insertUser: InsertUser): Promise<User> {
-    const hashedPassword = await bcrypt.hash(insertUser.password, 10);
+    const passwordLooksHashed = /^\$2[aby]\$/.test(insertUser.password);
+    const hashedPassword = passwordLooksHashed
+      ? insertUser.password
+      : await bcrypt.hash(insertUser.password, 10);
     const result = await db.insert(schema.users).values({
       ...insertUser,
       password: hashedPassword
@@ -70,6 +81,43 @@ export class PostgresStorage implements IStorage {
     return result.length > 0;
   }
 
+  async createJobCategory(insert: InsertJobCategory): Promise<JobCategory> {
+    const result = await db.insert(schema.jobCategories).values({
+      ...insert,
+      createdAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async getJobCategoriesByFamily(familyId: number, opts?: { includeDisabled?: boolean }): Promise<JobCategory[]> {
+    const rows = await db.select().from(schema.jobCategories).where(eq(schema.jobCategories.familyId, familyId));
+    const filtered = opts?.includeDisabled ? rows : rows.filter((c) => c.enabled);
+    return filtered.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  }
+
+  async getJobCategory(id: number): Promise<JobCategory | undefined> {
+    const result = await db.select().from(schema.jobCategories).where(eq(schema.jobCategories.id, id));
+    return result[0] || undefined;
+  }
+
+  async updateJobCategory(id: number, updates: Partial<JobCategory>): Promise<JobCategory | undefined> {
+    const result = await db.update(schema.jobCategories)
+      .set(updates)
+      .where(eq(schema.jobCategories.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async deleteJobCategory(id: number): Promise<boolean> {
+    const result = await db.delete(schema.jobCategories).where(eq(schema.jobCategories.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async countJobsInCategory(categoryId: number): Promise<number> {
+    const rows = await db.select().from(schema.jobs).where(eq(schema.jobs.categoryId, categoryId));
+    return rows.length;
+  }
+
   async createJob(insertJob: InsertJob): Promise<Job> {
     const result = await db.insert(schema.jobs).values({
       ...insertJob,
@@ -101,7 +149,7 @@ export class PostgresStorage implements IStorage {
 
   async deleteJob(id: number): Promise<boolean> {
     const result = await db.delete(schema.jobs).where(eq(schema.jobs.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async createPayment(insertPayment: InsertPayment): Promise<Payment> {
@@ -122,9 +170,7 @@ export class PostgresStorage implements IStorage {
 
     if (childIds.length === 0) return [];
 
-    // Get payments for all children in the family
-    const payments = await db.select().from(schema.payments);
-    return payments.filter(payment => childIds.includes(payment.childId));
+    return await db.select().from(schema.payments).where(inArray(schema.payments.childId, childIds));
   }
 
   async updatePayment(id: number, updates: Partial<Payment>): Promise<Payment | undefined> {
@@ -137,7 +183,7 @@ export class PostgresStorage implements IStorage {
 
   async deletePaymentsByJob(jobId: number): Promise<boolean> {
     const result = await db.delete(schema.payments).where(eq(schema.payments.jobId, jobId));
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async createAllocationSettings(insertSettings: InsertAllocationSettings): Promise<AllocationSettings> {
@@ -176,6 +222,78 @@ export class PostgresStorage implements IStorage {
       .where(eq(schema.accountTypes.familyId, familyId))
       .returning();
     return result[0] || undefined;
+  }
+
+  // Family Settings
+  async getFamilySettings(familyId: number): Promise<FamilySettings | undefined> {
+    const result = await db.select().from(schema.familySettings).where(eq(schema.familySettings.familyId, familyId));
+    return result[0] || undefined;
+  }
+
+  async upsertFamilySettings(settings: InsertFamilySettings): Promise<FamilySettings> {
+    const existing = await this.getFamilySettings(settings.familyId);
+    if (existing) {
+      const result = await db.update(schema.familySettings)
+        .set(settings)
+        .where(eq(schema.familySettings.familyId, settings.familyId))
+        .returning();
+      return result[0];
+    }
+    const result = await db.insert(schema.familySettings).values(settings).returning();
+    return result[0];
+  }
+
+  // Approval Requests
+  async createApprovalRequest(insertReq: InsertApprovalRequest): Promise<ApprovalRequest> {
+    const result = await db.insert(schema.approvalRequests).values(insertReq).returning();
+    return result[0];
+  }
+
+  async getApprovalRequestsByFamily(familyId: number, status?: string): Promise<ApprovalRequest[]> {
+    if (status) {
+      return await db.select().from(schema.approvalRequests).where(and(eq(schema.approvalRequests.familyId, familyId), eq(schema.approvalRequests.status, status)));
+    }
+    return await db.select().from(schema.approvalRequests).where(eq(schema.approvalRequests.familyId, familyId));
+  }
+
+  async getApprovalRequest(id: number): Promise<ApprovalRequest | undefined> {
+    const result = await db.select().from(schema.approvalRequests).where(eq(schema.approvalRequests.id, id));
+    return result[0] || undefined;
+  }
+
+  async decideApprovalRequest(id: number, updates: Partial<ApprovalRequest>): Promise<ApprovalRequest | undefined> {
+    const result = await db.update(schema.approvalRequests)
+      .set(updates)
+      .where(eq(schema.approvalRequests.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  // Allowances
+  async createAllowance(insertAllowance: InsertAllowance): Promise<Allowance> {
+    const result = await db.insert(schema.allowances).values(insertAllowance).returning();
+    return result[0];
+  }
+
+  async getAllowancesByFamily(familyId: number): Promise<Allowance[]> {
+    return await db.select().from(schema.allowances).where(eq(schema.allowances.familyId, familyId));
+  }
+
+  async getEnabledAllowances(): Promise<Allowance[]> {
+    return await db.select().from(schema.allowances).where(eq(schema.allowances.enabled, true));
+  }
+
+  async updateAllowance(id: number, updates: Partial<Allowance>): Promise<Allowance | undefined> {
+    const result = await db.update(schema.allowances)
+      .set(updates)
+      .where(eq(schema.allowances.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async deleteAllowance(id: number): Promise<boolean> {
+    const result = await db.delete(schema.allowances).where(eq(schema.allowances.id, id)).returning();
+    return result.length > 0;
   }
 
   async createLesson(insertLesson: InsertLesson): Promise<Lesson> {
@@ -247,6 +365,11 @@ export class PostgresStorage implements IStorage {
       .where(eq(schema.savingsGoals.childId, childId));
   }
 
+  async getSavingsGoal(id: number): Promise<SavingsGoal | undefined> {
+    const result = await db.select().from(schema.savingsGoals).where(eq(schema.savingsGoals.id, id));
+    return result[0] || undefined;
+  }
+
   async updateSavingsGoal(id: number, updates: Partial<SavingsGoal>): Promise<SavingsGoal | undefined> {
     const result = await db.update(schema.savingsGoals)
       .set(updates)
@@ -271,6 +394,11 @@ export class PostgresStorage implements IStorage {
       .where(eq(schema.spendingLog.childId, childId));
   }
 
+  async getSpendingLogEntry(id: number): Promise<SpendingLog | undefined> {
+    const result = await db.select().from(schema.spendingLog).where(eq(schema.spendingLog.id, id));
+    return result[0] || undefined;
+  }
+
   async deleteSpendingLog(id: number): Promise<boolean> {
     const result = await db.delete(schema.spendingLog).where(eq(schema.spendingLog.id, id)).returning();
     return result.length > 0;
@@ -287,8 +415,90 @@ export class PostgresStorage implements IStorage {
       .where(eq(schema.donations.childId, childId));
   }
 
+  async getDonation(id: number): Promise<Donation | undefined> {
+    const result = await db.select().from(schema.donations).where(eq(schema.donations.id, id));
+    return result[0] || undefined;
+  }
+
   async deleteDonation(id: number): Promise<boolean> {
     const result = await db.delete(schema.donations).where(eq(schema.donations.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Transactions (ledger)
+  async createTransaction(insertTx: InsertTransaction): Promise<Transaction> {
+    const result = await db.insert(schema.transactions).values(insertTx).returning();
+    return result[0];
+  }
+
+  async getTransactions(childId: number): Promise<Transaction[]> {
+    return await db.select().from(schema.transactions).where(eq(schema.transactions.childId, childId));
+  }
+
+  async createCatalogLibraryItem(insert: InsertCatalogLibrary): Promise<CatalogLibrary> {
+    const result = await db.insert(schema.catalogLibrary).values({
+      ...insert,
+      createdAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async getCatalogLibrary(type?: string, categoryKey?: string): Promise<CatalogLibrary[]> {
+    const conditions = [];
+    if (type) conditions.push(eq(schema.catalogLibrary.catalogType, type));
+    if (categoryKey) conditions.push(eq(schema.catalogLibrary.categoryKey, categoryKey));
+    const query = db.select().from(schema.catalogLibrary);
+    const rows = conditions.length
+      ? await query.where(conditions.length === 1 ? conditions[0] : and(...conditions))
+      : await query;
+    return rows.sort((a, b) => a.title.localeCompare(b.title));
+  }
+
+  async getCatalogLibraryItem(id: number): Promise<CatalogLibrary | undefined> {
+    const result = await db.select().from(schema.catalogLibrary).where(eq(schema.catalogLibrary.id, id));
+    return result[0] || undefined;
+  }
+
+  async getFamilyCatalogItems(
+    familyId: number,
+    type: string,
+    opts?: { categoryId?: number; categoryKey?: string; enabledOnly?: boolean },
+  ): Promise<FamilyCatalogItem[]> {
+    const conditions = [
+      eq(schema.familyCatalogItems.familyId, familyId),
+      eq(schema.familyCatalogItems.catalogType, type),
+    ];
+    if (opts?.categoryId != null) conditions.push(eq(schema.familyCatalogItems.categoryId, opts.categoryId));
+    if (opts?.categoryKey) conditions.push(eq(schema.familyCatalogItems.categoryKey, opts.categoryKey));
+    if (opts?.enabledOnly) conditions.push(eq(schema.familyCatalogItems.enabled, true));
+
+    const rows = await db.select().from(schema.familyCatalogItems).where(and(...conditions));
+    return rows.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  }
+
+  async getFamilyCatalogItem(id: number): Promise<FamilyCatalogItem | undefined> {
+    const result = await db.select().from(schema.familyCatalogItems).where(eq(schema.familyCatalogItems.id, id));
+    return result[0] || undefined;
+  }
+
+  async createFamilyCatalogItem(insert: InsertFamilyCatalogItem): Promise<FamilyCatalogItem> {
+    const result = await db.insert(schema.familyCatalogItems).values({
+      ...insert,
+      createdAt: new Date(),
+    }).returning();
+    return result[0];
+  }
+
+  async updateFamilyCatalogItem(id: number, updates: Partial<FamilyCatalogItem>): Promise<FamilyCatalogItem | undefined> {
+    const result = await db.update(schema.familyCatalogItems)
+      .set(updates)
+      .where(eq(schema.familyCatalogItems.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async deleteFamilyCatalogItem(id: number): Promise<boolean> {
+    const result = await db.delete(schema.familyCatalogItems).where(eq(schema.familyCatalogItems.id, id)).returning();
     return result.length > 0;
   }
 }

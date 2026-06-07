@@ -31,6 +31,10 @@ CREATE TABLE IF NOT EXISTS children (
     name TEXT NOT NULL,
     age INTEGER NOT NULL,
     total_earned DECIMAL(10,2) DEFAULT 0.00,
+    spending_balance DECIMAL(10,2) DEFAULT 0.00,
+    savings_balance DECIMAL(10,2) DEFAULT 0.00,
+    roth_ira_balance DECIMAL(10,2) DEFAULT 0.00,
+    brokerage_balance DECIMAL(10,2) DEFAULT 0.00,
     completed_jobs INTEGER DEFAULT 0,
     learning_streak INTEGER DEFAULT 0
 );
@@ -45,6 +49,9 @@ CREATE TABLE IF NOT EXISTS jobs (
     recurrence TEXT NOT NULL CHECK (recurrence IN ('once', 'daily', 'weekly', 'monthly')),
     assigned_to_id INTEGER NOT NULL REFERENCES children(id),
     family_id INTEGER NOT NULL REFERENCES families(id),
+    allowance_id INTEGER,
+    icon TEXT DEFAULT 'briefcase',
+    is_family_duty BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -71,6 +78,173 @@ CREATE TABLE IF NOT EXISTS allocation_settings (
     brokerage_percentage INTEGER DEFAULT 25
 );
 
+-- Create account_types table
+CREATE TABLE IF NOT EXISTS account_types (
+    id SERIAL PRIMARY KEY,
+    family_id INTEGER NOT NULL REFERENCES families(id),
+    spending_enabled BOOLEAN DEFAULT TRUE,
+    savings_enabled BOOLEAN DEFAULT TRUE,
+    roth_ira_enabled BOOLEAN DEFAULT FALSE,
+    brokerage_enabled BOOLEAN DEFAULT FALSE
+);
+
+-- Create family_settings table
+CREATE TABLE IF NOT EXISTS family_settings (
+    id SERIAL PRIMARY KEY,
+    family_id INTEGER NOT NULL UNIQUE REFERENCES families(id) ON DELETE CASCADE,
+    require_spending_approval BOOLEAN DEFAULT FALSE,
+    require_donation_approval BOOLEAN DEFAULT FALSE,
+    require_goal_funding_approval BOOLEAN DEFAULT FALSE
+);
+
+-- Create approval_requests table
+CREATE TABLE IF NOT EXISTS approval_requests (
+    id SERIAL PRIMARY KEY,
+    family_id INTEGER NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+    child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    details TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    decided_by_user_id INTEGER REFERENCES users(id),
+    decided_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_approval_requests_family_id ON approval_requests(family_id);
+CREATE INDEX IF NOT EXISTS idx_approval_requests_child_id ON approval_requests(child_id);
+CREATE INDEX IF NOT EXISTS idx_approval_requests_status ON approval_requests(status);
+
+-- Create allowances table
+CREATE TABLE IF NOT EXISTS allowances (
+    id SERIAL PRIMARY KEY,
+    family_id INTEGER NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+    child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+    amount DECIMAL(10,2) NOT NULL,
+    guaranteed_minimum DECIMAL(10,2) DEFAULT 0.00,
+    penalty_per_incomplete_job DECIMAL(10,2) DEFAULT 0.00,
+    cadence TEXT NOT NULL CHECK (cadence IN ('weekly', 'monthly')),
+    day_of_week INTEGER,
+    day_of_month INTEGER,
+    enabled BOOLEAN DEFAULT TRUE,
+    last_run_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Existing databases: add columns if missing
+ALTER TABLE allowances ADD COLUMN IF NOT EXISTS guaranteed_minimum DECIMAL(10,2) DEFAULT 0.00;
+ALTER TABLE allowances ADD COLUMN IF NOT EXISTS penalty_per_incomplete_job DECIMAL(10,2) DEFAULT 0.00;
+
+-- Allowance-tied chores on jobs (nullable, no FK to keep init ordering simple)
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS allowance_id INTEGER;
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS icon TEXT DEFAULT 'briefcase';
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS is_family_duty BOOLEAN DEFAULT FALSE;
+
+-- Job categories (parent-editable buckets)
+CREATE TABLE IF NOT EXISTS job_categories (
+    id SERIAL PRIMARY KEY,
+    family_id INTEGER NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+    slug TEXT,
+    label TEXT NOT NULL,
+    description TEXT,
+    icon TEXT DEFAULT 'briefcase',
+    sort_order INTEGER DEFAULT 0,
+    enabled BOOLEAN DEFAULT TRUE,
+    payment_mode TEXT NOT NULL DEFAULT 'none' CHECK (payment_mode IN ('none', 'allowance', 'standalone')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_job_categories_family_id ON job_categories(family_id);
+
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS category_id INTEGER REFERENCES job_categories(id) ON DELETE SET NULL;
+
+-- Seed default categories for family 1
+INSERT INTO job_categories (family_id, slug, label, description, icon, sort_order, payment_mode)
+SELECT 1, v.slug, v.label, v.description, v.icon, v.sort_order, v.payment_mode
+FROM (VALUES
+    ('self_care', 'Take Care of Yourself', 'Everyday habits for yourself and your space.', 'bed', 0, 'none'),
+    ('allowance', 'Earn Your Allowance', 'Extra chores that count toward allowance.', 'dollarSign', 1, 'allowance'),
+    ('mind_body', 'Grow Your Mind and Body', 'Learning, reading, and skills.', 'bookOpen', 2, 'none'),
+    ('help_others', 'Help Others', 'Kind acts for family, friends, or neighbors.', 'gift', 3, 'none')
+) AS v(slug, label, description, icon, sort_order, payment_mode)
+WHERE NOT EXISTS (SELECT 1 FROM job_categories WHERE family_id = 1 LIMIT 1);
+
+-- Backfill category_id on existing jobs
+UPDATE jobs j SET category_id = c.id
+FROM job_categories c
+WHERE j.family_id = c.family_id AND j.category_id IS NULL
+  AND j.is_family_duty = TRUE AND c.label = 'Take Care of Yourself';
+
+UPDATE jobs j SET category_id = c.id
+FROM job_categories c
+WHERE j.family_id = c.family_id AND j.category_id IS NULL
+  AND j.allowance_id IS NOT NULL AND c.label = 'Earn Your Allowance';
+
+UPDATE jobs j SET category_id = c.id
+FROM job_categories c
+WHERE j.family_id = c.family_id AND j.category_id IS NULL
+  AND j.is_family_duty = FALSE AND j.allowance_id IS NULL
+  AND j.amount::numeric > 0 AND c.label = 'Earn Your Allowance';
+
+UPDATE jobs j SET category_id = c.id
+FROM job_categories c
+WHERE j.family_id = c.family_id AND j.category_id IS NULL
+  AND c.label = 'Take Care of Yourself';
+
+-- Global catalog library (builtin + AI-generated templates)
+CREATE TABLE IF NOT EXISTS catalog_library (
+    id SERIAL PRIMARY KEY,
+    catalog_type TEXT NOT NULL CHECK (catalog_type IN ('job', 'lesson')),
+    category_key TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    payload TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT 'builtin' CHECK (source IN ('builtin', 'ai')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (catalog_type, category_key, title)
+);
+CREATE INDEX IF NOT EXISTS idx_catalog_library_type_key ON catalog_library(catalog_type, category_key);
+
+-- Family responsibility completion log (recurring duties reopen each occurrence)
+CREATE TABLE IF NOT EXISTS family_duty_completed_log (
+    id SERIAL PRIMARY KEY,
+    job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    occurrence_key TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS family_duty_completed_job_occurrence ON family_duty_completed_log(job_id, occurrence_key);
+
+CREATE INDEX IF NOT EXISTS idx_allowances_family_id ON allowances(family_id);
+CREATE INDEX IF NOT EXISTS idx_allowances_child_id ON allowances(child_id);
+
+-- Idempotent allowance payouts (one row per allowance per UTC calendar day key)
+CREATE TABLE IF NOT EXISTS allowance_payout_log (
+    id SERIAL PRIMARY KEY,
+    allowance_id INTEGER NOT NULL REFERENCES allowances(id) ON DELETE CASCADE,
+    period_key TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS allowance_payout_log_allowance_period ON allowance_payout_log(allowance_id, period_key);
+
+-- Allowance missed chores (penalty log)
+CREATE TABLE IF NOT EXISTS allowance_missed_job_log (
+    id SERIAL PRIMARY KEY,
+    allowance_id INTEGER NOT NULL REFERENCES allowances(id) ON DELETE CASCADE,
+    job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    occurrence_key TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS allowance_missed_job_job_occurrence ON allowance_missed_job_log(job_id, occurrence_key);
+
+-- Allowance completed chores (completion log; prevents multiple completions per day)
+CREATE TABLE IF NOT EXISTS allowance_completed_job_log (
+    id SERIAL PRIMARY KEY,
+    allowance_id INTEGER NOT NULL REFERENCES allowances(id) ON DELETE CASCADE,
+    job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    occurrence_key TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS allowance_completed_job_job_occurrence ON allowance_completed_job_log(job_id, occurrence_key);
+
 -- Create lessons table
 CREATE TABLE IF NOT EXISTS lessons (
     id SERIAL PRIMARY KEY,
@@ -81,6 +255,24 @@ CREATE TABLE IF NOT EXISTS lessons (
     is_custom BOOLEAN DEFAULT FALSE,
     family_id INTEGER REFERENCES families(id)
 );
+
+-- Per-family catalog picks (editable copies; after lessons for FK)
+CREATE TABLE IF NOT EXISTS family_catalog_items (
+    id SERIAL PRIMARY KEY,
+    family_id INTEGER NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+    catalog_type TEXT NOT NULL CHECK (catalog_type IN ('job', 'lesson')),
+    category_id INTEGER REFERENCES job_categories(id) ON DELETE SET NULL,
+    category_key TEXT NOT NULL,
+    library_item_id INTEGER REFERENCES catalog_library(id) ON DELETE SET NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    payload TEXT NOT NULL,
+    enabled BOOLEAN DEFAULT TRUE,
+    sort_order INTEGER DEFAULT 0,
+    published_lesson_id INTEGER REFERENCES lessons(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_family_catalog_family_type ON family_catalog_items(family_id, catalog_type);
 
 -- Create quizzes table
 CREATE TABLE IF NOT EXISTS quizzes (
@@ -110,20 +302,20 @@ CREATE TABLE IF NOT EXISTS achievements (
     earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Insert default family
-INSERT INTO families (name) VALUES ('Demo Family') ON CONFLICT DO NOTHING;
+-- Insert initial family
+INSERT INTO families (name) VALUES ('Our Family') ON CONFLICT DO NOTHING;
 
 -- Insert default users (passwords are hashed for 'password123')
 INSERT INTO users (username, password, role, family_id, name, age) VALUES 
-    ('parent', '$2b$10$rOW8w/H1Ld8/LJ2l3K9kGO8vZ1nKJo5sXKl3Hms5wRtFQgR1m0pzS', 'parent', 1, 'Demo Parent', NULL),
-    ('emma', '$2b$10$rOW8w/H1Ld8/LJ2l3K9kGO8vZ1nKJo5sXKl3Hms5wRtFQgR1m0pzS', 'child', 1, 'Emma', 8),
-    ('jake', '$2b$10$rOW8w/H1Ld8/LJ2l3K9kGO8vZ1nKJo5sXKl3Hms5wRtFQgR1m0pzS', 'child', 1, 'Jake', 12)
+    ('parent', '$2b$10$rOW8w/H1Ld8/LJ2l3K9kGO8vZ1nKJo5sXKl3Hms5wRtFQgR1m0pzS', 'parent', 1, 'Parent', NULL),
+    ('bryson', '$2b$10$rOW8w/H1Ld8/LJ2l3K9kGO8vZ1nKJo5sXKl3Hms5wRtFQgR1m0pzS', 'child', 1, 'Bryson', 10),
+    ('edison', '$2b$10$rOW8w/H1Ld8/LJ2l3K9kGO8vZ1nKJo5sXKl3Hms5wRtFQgR1m0pzS', 'child', 1, 'Edison', 5)
 ON CONFLICT (username) DO NOTHING;
 
 -- Insert default children
 INSERT INTO children (user_id, family_id, name, age) VALUES 
-    (2, 1, 'Emma', 8),
-    (3, 1, 'Jake', 12)
+    (2, 1, 'Bryson', 10),
+    (3, 1, 'Edison', 5)
 ON CONFLICT DO NOTHING;
 
 -- Insert default allocation settings
@@ -194,6 +386,20 @@ CREATE TABLE IF NOT EXISTS donations (
 
 CREATE INDEX IF NOT EXISTS idx_donations_child_id ON donations(child_id);
 
+-- Transactions (Ledger)
+CREATE TABLE IF NOT EXISTS transactions (
+    id SERIAL PRIMARY KEY,
+    child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    from_account TEXT,
+    to_account TEXT,
+    note TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_transactions_child_id ON transactions(child_id);
+
 -- ─── Phase 4: Expanded Learning Curriculum ────────────────────────────────
 -- Money Grower Track (Ages 7-10)
 INSERT INTO lessons (category, title, content, video_url, is_custom, family_id) VALUES
@@ -229,14 +435,14 @@ INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
 -- Lesson 2: Why Save Money?
 INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
     (2, 'What does saving money mean?', ARRAY['Spending all your money right away', 'Keeping some money for later', 'Giving all your money away', 'Hiding money under your bed forever'], 1),
-    (2, 'If Emma earns $10 and saves $3, how much did she save?', ARRAY['$10', '$7', '$3', '$13'], 2),
+    (2, 'If Bryson earns $10 and saves $3, how much did he save?', ARRAY['$10', '$7', '$3', '$13'], 2),
     (2, 'Which is the BEST reason to save money?', ARRAY['To never spend any money again', 'So you can buy something special you want later', 'To make your piggy bank look full', 'Because adults told you to'], 1);
 
 -- Lesson 3: Smart Spending
 INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
     (3, 'What is the difference between a NEED and a WANT?', ARRAY['They are exactly the same thing', 'A need is something required to live; a want is something extra you would like', 'A want is more important than a need', 'Needs cost more than wants'], 1),
     (3, 'Which is a NEED?', ARRAY['A new video game', 'A pair of shoes to wear to school', 'A toy from the store', 'A second bicycle'], 1),
-    (3, 'Jake has $5. A snack costs $2 and a toy costs $6. What should Jake do first?', ARRAY['Buy the toy by borrowing money', 'Buy the snack since he can afford it', 'Spend nothing and keep all $5 in the jar', 'Ask for more money immediately'], 1);
+    (3, 'Edison has $5. A snack costs $2 and a toy costs $6. What should Edison do first?', ARRAY['Buy the toy by borrowing money', 'Buy the snack since he can afford it', 'Spend nothing and keep all $5 in the jar', 'Ask for more money immediately'], 1);
 
 -- Lesson 4: Growing Your Money (Investing intro)
 INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
@@ -259,7 +465,7 @@ INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
 -- Lesson 7: Why We Save — The Magic of Goals
 INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
     (7, 'What is a savings GOAL?', ARRAY['A rule that says you must spend all your money', 'A specific thing you want to save up enough money to buy or do', 'A game you play with coins', 'A type of bank account'], 1),
-    (7, 'Emma wants a bike that costs $40. She saves $5 each week. How many weeks will it take her?', ARRAY['4 weeks', '8 weeks', '10 weeks', '6 weeks'], 1),
+    (7, 'Bryson wants a bike that costs $40. He saves $5 each week. How many weeks will it take him?', ARRAY['4 weeks', '8 weeks', '10 weeks', '6 weeks'], 1),
     (7, 'What happens to your savings jar each time you add money?', ARRAY['It gets smaller', 'It stays the same', 'It grows bigger toward your goal', 'The money disappears'], 2);
 
 -- Lesson 8: Earning More Ways
@@ -321,3 +527,17 @@ INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
     (17, 'What is a Roth IRA?', ARRAY['A type of checking account you use every day', 'A retirement savings account where your money grows tax-free', 'A loan from the government', 'A special type of stock'], 1),
     (17, 'What is the BIG advantage of a Roth IRA compared to a regular savings account?', ARRAY['It has no limits on withdrawals', 'The money and all its growth is tax-free when you retire', 'The bank pays you every month for free', 'You can spend it on anything right away'], 1),
     (17, 'To contribute to a Roth IRA as a kid, you need to have…', ARRAY['Your parents'' credit card', 'Earned income (money from a job or chores)', 'A college degree', 'At least $10,000 saved already'], 1);
+
+-- Default family responsibilities (no pay — part of being in the family)
+INSERT INTO jobs (title, description, amount, status, recurrence, assigned_to_id, family_id, icon, is_family_duty, category_id)
+SELECT v.title, v.description, '0.00', 'assigned', v.recurrence, v.child_id, 1, v.icon, TRUE,
+  (SELECT id FROM job_categories WHERE family_id = 1 AND label = 'Take Care of Yourself' LIMIT 1)
+FROM (VALUES
+    ('Make my bed', 'Straighten sheets and pillows every morning.', 'daily', 1, 'bed'),
+    ('Clean my room', 'Pick up toys, books, and clothes so the floor is clear.', 'weekly', 1, 'sparkles'),
+    ('Pick up after myself', 'Put things back where they belong after I use them.', 'daily', 1, 'home'),
+    ('Make my bed', 'Straighten sheets and pillows every morning.', 'daily', 2, 'bed'),
+    ('Clean my room', 'Pick up clothes, gear, and clutter so the room stays tidy.', 'weekly', 2, 'sparkles'),
+    ('Pick up after myself', 'Clear my dishes, towels, and stuff when I am done with them.', 'daily', 2, 'home')
+) AS v(title, description, recurrence, child_id, icon)
+WHERE NOT EXISTS (SELECT 1 FROM jobs WHERE is_family_duty = TRUE AND family_id = 1 LIMIT 1);

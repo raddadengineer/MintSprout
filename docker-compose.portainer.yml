@@ -23,7 +23,7 @@ services:
       PORT: 5000
       DATABASE_URL: postgresql://mintsprout:mintsprout_password@postgres:5432/mintsprout
       JWT_SECRET: my_secure_jwt_secret_example
-      ALLOWED_ORIGINS: http://localhost:8080,http://127.00.1:8080
+      ALLOWED_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
     ports:
       - "8080:5000"
     depends_on:
