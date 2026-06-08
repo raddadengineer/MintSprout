@@ -1,4 +1,5 @@
 import type { Child, Job, JobCategory } from "@shared/schema";
+import { getAppConfig } from "./app-config";
 import { chatCompletion, checkLlmAvailable, type LlmMessage } from "./llm-client";
 
 export type KidMode = "youngest" | "younger" | "older" | "unknown";
@@ -11,20 +12,19 @@ export function kidModeFromAge(age: number | null | undefined): KidMode {
 }
 
 export function isAiCoachEnabled(): boolean {
-  const raw = process.env.AI_COACH_ENABLED;
-  if (raw === "0" || raw === "false" || raw === "FALSE" || raw === "no") return false;
-  return true;
+  return getAppConfig().aiCoachEnabled !== false;
 }
 
 function voiceBase(): string {
-  return (process.env.KIDS_VOICE_BASE_URL || "http://192.168.10.7:8880/v1").replace(/\/$/, "");
+  return (getAppConfig().kidsVoiceBaseUrl || "http://192.168.10.7:8880/v1").replace(/\/$/, "");
 }
 
 export function voiceForKidMode(mode: KidMode): string | null {
-  if (mode === "youngest") return process.env.AI_VOICE_YOUNGEST || "af_bella";
-  if (mode === "younger") return process.env.AI_VOICE_YOUNGER || "af_sky";
-  if (mode === "older") return process.env.AI_VOICE_OLDER || null;
-  return process.env.AI_VOICE_DEFAULT || "af_nova";
+  const cfg = getAppConfig();
+  if (mode === "youngest") return cfg.aiVoiceYoungest || "af_bella";
+  if (mode === "younger") return cfg.aiVoiceYounger || "af_sky";
+  if (mode === "older") return cfg.aiVoiceOlder || null;
+  return cfg.aiVoiceYounger || "af_nova";
 }
 
 export function quickPromptsForMode(mode: KidMode): string[] {
@@ -177,7 +177,7 @@ export async function synthesizeSpeech(text: string, voice: string, maxChars = 5
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: process.env.KIDS_VOICE_MODEL || "kokoro",
+      model: getAppConfig().kidsVoiceModel || "kokoro",
       input: text.slice(0, maxChars),
       voice,
       response_format: "mp3",

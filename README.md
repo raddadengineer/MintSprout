@@ -102,6 +102,8 @@ environment:
   KIOSK_FAMILY_ID: "1"
 ```
 
+**Parent UI:** After login, open **Controls → Sprout & App** to change kiosk mode, parent PIN, JWT secret, Sprout/LLM/voice URLs, and models without restarting Docker. Values saved in the UI override `.env` at runtime. `DATABASE_URL` stays in `.env` only.
+
 ---
 
 ## 🗄️ Database

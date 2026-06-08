@@ -511,4 +511,22 @@ export class PostgresStorage implements IStorage {
     const result = await db.delete(schema.familyCatalogItems).where(eq(schema.familyCatalogItems.id, id)).returning();
     return result.length > 0;
   }
+
+  async getAppSettings(key: string): Promise<schema.AppSettings | undefined> {
+    const result = await db.select().from(schema.appSettings).where(eq(schema.appSettings.key, key));
+    return result[0];
+  }
+
+  async upsertAppSettings(key: string, value: string): Promise<schema.AppSettings> {
+    const existing = await this.getAppSettings(key);
+    if (existing) {
+      const result = await db.update(schema.appSettings)
+        .set({ value, updatedAt: new Date() })
+        .where(eq(schema.appSettings.key, key))
+        .returning();
+      return result[0];
+    }
+    const result = await db.insert(schema.appSettings).values({ key, value }).returning();
+    return result[0];
+  }
 }

@@ -1,7 +1,7 @@
 import {
   families, users, children, jobCategories, jobs, payments, allocationSettings, accountTypes, familySettings, approvalRequests, allowances, lessons, quizzes, learningProgress, achievements, savingsGoals, spendingLog, donations, transactions, catalogLibrary, familyCatalogItems,
   type Family, type User, type Child, type JobCategory, type Job, type Payment, type AllocationSettings, type AccountTypes, type FamilySettings, type ApprovalRequest, type Allowance, type Lesson, type Quiz, type LearningProgress, type Achievement, type SavingsGoal, type SpendingLog, type Donation, type Transaction, type CatalogLibrary, type FamilyCatalogItem,
-  type InsertFamily, type InsertUser, type InsertChild, type InsertJobCategory, type InsertJob, type InsertPayment, type InsertAllocationSettings, type InsertAccountTypes, type InsertFamilySettings, type InsertApprovalRequest, type InsertAllowance, type InsertLesson, type InsertQuiz, type InsertLearningProgress, type InsertAchievement, type InsertSavingsGoal, type InsertSpendingLog, type InsertDonation, type InsertTransaction, type InsertCatalogLibrary, type InsertFamilyCatalogItem
+  type InsertFamily, type InsertUser, type InsertChild, type InsertJobCategory, type InsertJob, type InsertPayment, type InsertAllocationSettings, type InsertAccountTypes, type InsertFamilySettings, type InsertApprovalRequest, type InsertAllowance, type InsertLesson, type InsertQuiz, type InsertLearningProgress, type InsertAchievement, type InsertSavingsGoal, type InsertSpendingLog, type InsertDonation, type InsertTransaction, type InsertCatalogLibrary, type InsertFamilyCatalogItem, type AppSettings
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 
@@ -128,6 +128,10 @@ export interface IStorage {
   createFamilyCatalogItem(item: InsertFamilyCatalogItem): Promise<FamilyCatalogItem>;
   updateFamilyCatalogItem(id: number, updates: Partial<FamilyCatalogItem>): Promise<FamilyCatalogItem | undefined>;
   deleteFamilyCatalogItem(id: number): Promise<boolean>;
+
+  // App settings (deployment-wide)
+  getAppSettings(key: string): Promise<AppSettings | undefined>;
+  upsertAppSettings(key: string, value: string): Promise<AppSettings>;
 }
 
 export class MemStorage implements IStorage {
@@ -152,6 +156,8 @@ export class MemStorage implements IStorage {
   private transactions: Map<number, Transaction> = new Map();
   private catalogLibraryItems: Map<number, CatalogLibrary> = new Map();
   private familyCatalogItemsMap: Map<number, FamilyCatalogItem> = new Map();
+  private appSettingsMap: Map<string, AppSettings> = new Map();
+  private currentAppSettingsId = 1;
   private currentCatalogLibraryId = 1;
   private currentFamilyCatalogItemId = 1;
 
@@ -907,6 +913,27 @@ export class MemStorage implements IStorage {
 
   async deleteFamilyCatalogItem(id: number): Promise<boolean> {
     return this.familyCatalogItemsMap.delete(id);
+  }
+
+  async getAppSettings(key: string): Promise<AppSettings | undefined> {
+    return this.appSettingsMap.get(key);
+  }
+
+  async upsertAppSettings(key: string, value: string): Promise<AppSettings> {
+    const existing = this.appSettingsMap.get(key);
+    if (existing) {
+      const updated: AppSettings = { ...existing, value, updatedAt: new Date() };
+      this.appSettingsMap.set(key, updated);
+      return updated;
+    }
+    const row: AppSettings = {
+      id: this.currentAppSettingsId++,
+      key,
+      value,
+      updatedAt: new Date(),
+    };
+    this.appSettingsMap.set(key, row);
+    return row;
   }
 }
 

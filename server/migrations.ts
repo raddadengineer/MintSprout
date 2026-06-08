@@ -268,6 +268,17 @@ ALTER TABLE lessons ADD COLUMN IF NOT EXISTS voice_steps TEXT;
 ALTER TABLE learning_progress ADD COLUMN IF NOT EXISTS prepared_at TIMESTAMP;
 `,
   },
+  {
+    id: "app_settings_v1",
+    sql: `
+CREATE TABLE IF NOT EXISTS app_settings (
+    id SERIAL PRIMARY KEY,
+    key TEXT NOT NULL UNIQUE,
+    value TEXT NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+`,
+  },
 ];
 
 async function migrationApplied(id: string): Promise<boolean> {

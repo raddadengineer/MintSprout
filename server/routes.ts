@@ -49,6 +49,9 @@ import { ensureCatalogLibrary, ensureFamilyCatalog } from "./catalog-seed";
 import { importFromLibrary, publishLessonCatalogItem } from "./catalog-publish";
 import { normalizeLessonPayload } from "@shared/catalog/normalize-lesson-payload";
 import { handleLessonVoiceSession } from "./lesson-voice-session";
+import { getAppConfig, loadAppConfig, maskSettings, saveSettingsPatch, getJwtSecret } from "./app-config";
+import { deploymentSettingsPatchSchema } from "@shared/deployment-settings";
+import { checkLlmAvailable } from "./llm-client";
 import { db } from "./db";
 import * as schema from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -77,19 +80,9 @@ function occurrenceKeyForRecurrence(recurrence: string, now: Date): string {
   return isoDayKeyUTC(now);
 }
 
-function getJwtSecret(): string {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    throw new Error("JWT_SECRET environment variable is required");
-  }
-  return secret;
-}
-
 /** Profile picker (kiosk) is on by default; set KIOSK_MODE=false to require username/password login. */
 function isProfilePickerEnabled(): boolean {
-  const raw = process.env.KIOSK_MODE;
-  if (raw === "0" || raw === "false" || raw === "FALSE" || raw === "no") return false;
-  return true;
+  return getAppConfig().kioskMode !== false;
 }
 
 function requireProfilePicker(req: any, res: any, next: any) {
@@ -100,10 +93,14 @@ function requireProfilePicker(req: any, res: any, next: any) {
 }
 
 function getKioskFamilyId(): number | null {
-  const raw = process.env.KIOSK_FAMILY_ID;
-  if (!raw) return null;
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : null;
+  const id = getAppConfig().kioskFamilyId;
+  if (id == null || !Number.isFinite(id)) return null;
+  return id;
+}
+
+function getParentPin(): string | undefined {
+  const pin = getAppConfig().parentPin;
+  return pin?.trim() || undefined;
 }
 
 // Middleware to verify JWT token
@@ -129,7 +126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({
       profilePicker: isProfilePickerEnabled(),
       kioskMode: isProfilePickerEnabled(),
-      requiresParentPin: !!process.env.PARENT_PIN,
+      requiresParentPin: !!getParentPin(),
     });
   });
 
@@ -178,7 +175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const bodySchema = z.object({ pin: z.string().min(1) }).strict();
       const { pin } = bodySchema.parse(req.body);
 
-      const expectedPin = process.env.PARENT_PIN;
+      const expectedPin = getParentPin();
       if (!expectedPin) {
         return res.status(500).json({ message: "PARENT_PIN is not configured" });
       }
@@ -2286,6 +2283,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ─── AI COACH (Ollama + kids voice) ───────────────────────────────
+
+  app.get("/api/admin/settings", verifyToken, async (req: any, res) => {
+    try {
+      if (req.user.role !== "parent") {
+        return res.status(403).json({ message: "Only parents can view app settings" });
+      }
+      const services = await checkAiServices();
+      res.json({
+        settings: maskSettings(getAppConfig()),
+        llmAvailable: services.ollama,
+        voiceAvailable: services.voice,
+      });
+    } catch (err) {
+      console.error("Admin settings GET error:", err);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.patch("/api/admin/settings", verifyToken, async (req: any, res) => {
+    try {
+      if (req.user.role !== "parent") {
+        return res.status(403).json({ message: "Only parents can update app settings" });
+      }
+      const patch = deploymentSettingsPatchSchema.parse(req.body ?? {});
+      const jwtRotated = typeof patch.jwtSecret === "string" && patch.jwtSecret.trim().length >= 16;
+      const next = await saveSettingsPatch(storage, patch);
+      const services = await checkAiServices();
+      res.json({
+        settings: maskSettings(next),
+        llmAvailable: services.ollama,
+        voiceAvailable: services.voice,
+        jwtRotated,
+      });
+    } catch (err: any) {
+      if (err instanceof z.ZodError) return res.status(400).json({ message: "Invalid settings" });
+      console.error("Admin settings PATCH error:", err);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/admin/settings/test-llm", verifyToken, async (req: any, res) => {
+    try {
+      if (req.user.role !== "parent") {
+        return res.status(403).json({ message: "Only parents can test settings" });
+      }
+      const ok = await checkLlmAvailable();
+      res.json({ ok, message: ok ? "LLM connection successful" : "Could not reach LLM" });
+    } catch (err: any) {
+      res.status(503).json({ ok: false, message: err.message ?? "LLM test failed" });
+    }
+  });
+
+  app.post("/api/admin/settings/test-voice", verifyToken, async (req: any, res) => {
+    try {
+      if (req.user.role !== "parent") {
+        return res.status(403).json({ message: "Only parents can test settings" });
+      }
+      const voice = voiceForKidMode("younger");
+      if (!voice) {
+        return res.json({ ok: false, message: "No voice configured" });
+      }
+      const audio = await synthesizeSpeech("Hi! I'm Sprout. Voice test successful!", voice, 120);
+      res.json({
+        ok: true,
+        message: "Voice synthesis successful",
+        audioBase64: audio.toString("base64"),
+        mimeType: "audio/mpeg",
+      });
+    } catch (err: any) {
+      res.status(503).json({ ok: false, message: err.message ?? "Voice test failed" });
+    }
+  });
 
   app.get("/api/ai/config", verifyToken, async (req: any, res) => {
     try {

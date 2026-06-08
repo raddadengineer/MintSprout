@@ -115,6 +115,13 @@ CREATE INDEX IF NOT EXISTS idx_approval_requests_family_id ON approval_requests(
 CREATE INDEX IF NOT EXISTS idx_approval_requests_child_id ON approval_requests(child_id);
 CREATE INDEX IF NOT EXISTS idx_approval_requests_status ON approval_requests(status);
 
+CREATE TABLE IF NOT EXISTS app_settings (
+    id SERIAL PRIMARY KEY,
+    key TEXT NOT NULL UNIQUE,
+    value TEXT NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create allowances table
 CREATE TABLE IF NOT EXISTS allowances (
     id SERIAL PRIMARY KEY,

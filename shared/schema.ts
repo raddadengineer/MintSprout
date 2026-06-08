@@ -320,6 +320,13 @@ export const transactions = pgTable("transactions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const appSettings = pgTable("app_settings", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertFamilySchema = createInsertSchema(families).omit({ id: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true });
@@ -342,6 +349,7 @@ export const insertSavingsGoalSchema = createInsertSchema(savingsGoals).omit({ i
 export const insertSpendingLogSchema = createInsertSchema(spendingLog).omit({ id: true, createdAt: true });
 export const insertDonationSchema = createInsertSchema(donations).omit({ id: true, createdAt: true });
 export const insertTransactionSchema = createInsertSchema(transactions).omit({ id: true, createdAt: true });
+export const insertAppSettingsSchema = createInsertSchema(appSettings).omit({ id: true, updatedAt: true });
 
 // Types
 export type Family = typeof families.$inferSelect;
@@ -387,4 +395,6 @@ export type InsertSavingsGoal = z.infer<typeof insertSavingsGoalSchema>;
 export type InsertSpendingLog = z.infer<typeof insertSpendingLogSchema>;
 export type InsertDonation = z.infer<typeof insertDonationSchema>;
 export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
+export type AppSettings = typeof appSettings.$inferSelect;
+export type InsertAppSettings = z.infer<typeof insertAppSettingsSchema>;
 

@@ -2,6 +2,8 @@
  * LLM access: Open WebUI (OpenAI-compatible) when configured, else direct Ollama.
  */
 
+import { getAppConfig } from "./app-config";
+
 export type LlmMessage = { role: "system" | "user" | "assistant"; content: string };
 
 type LlmBackend =
@@ -9,20 +11,21 @@ type LlmBackend =
   | { kind: "ollama"; base: string; model: string };
 
 function resolveBackend(): LlmBackend {
-  const openWebUiBase = (process.env.OPENWEBUI_BASE_URL || process.env.AI_BASE_URL || "").replace(/\/$/, "");
-  const apiKey = process.env.OPENWEBUI_API_KEY || process.env.AI_API_KEY || "";
+  const cfg = getAppConfig();
+  const openWebUiBase = (cfg.openWebUiBaseUrl || "").replace(/\/$/, "");
+  const apiKey = cfg.openWebUiApiKey || "";
   if (openWebUiBase && apiKey) {
     return {
       kind: "openwebui",
       base: openWebUiBase,
       apiKey,
-      model: process.env.OPENWEBUI_MODEL || process.env.AI_MODEL || "gemma3:kids",
+      model: cfg.openWebUiModel || "gemma3:kids",
     };
   }
   return {
     kind: "ollama",
-    base: (process.env.OLLAMA_BASE_URL || "http://192.168.10.7:11434").replace(/\/$/, ""),
-    model: process.env.OLLAMA_MODEL || "llama3.1:latest",
+    base: (cfg.ollamaBaseUrl || "http://192.168.10.7:11434").replace(/\/$/, ""),
+    model: cfg.ollamaModel || "llama3.1:latest",
   };
 }
 

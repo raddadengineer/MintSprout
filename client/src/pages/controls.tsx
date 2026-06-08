@@ -22,13 +22,14 @@ import { PAYMENT_MODE_LABELS, categoryPaymentLabel, isFlexiblePayCategory } from
 import type { JobCategoryPaymentMode } from "@shared/job-categories";
 import { LESSON_CATEGORY_KEYS, LESSON_CATEGORY_LABELS } from "@shared/catalog/types";
 import { CatalogEditor } from "@/components/catalog-editor";
+import { AppSettingsPanel } from "@/components/app-settings-panel";
 import { DayOfWeekSelect } from "@/components/day-of-week-select";
 import { dayOfWeekLabel, periodEndDayOfWeek, periodStartDayOfWeek, payDayOfWeek } from "@shared/allowance-week";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { Link } from "wouter";
 
-const CONTROLS_TABS = ["approvals", "allowances", "jobs", "lessons"] as const;
+const CONTROLS_TABS = ["approvals", "allowances", "jobs", "lessons", "sprout"] as const;
 type ControlsTab = (typeof CONTROLS_TABS)[number];
 
 function parseControlsTab(search: string): ControlsTab {
@@ -606,7 +607,7 @@ export default function Controls() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 h-auto sm:grid-cols-4 gap-1 p-1">
+        <TabsList className="grid w-full grid-cols-2 h-auto sm:grid-cols-5 gap-1 p-1">
           <TabsTrigger value="approvals" className="text-xs sm:text-sm py-2">
             Approvals
             {pendingRequests.length > 0 && (
@@ -623,6 +624,9 @@ export default function Controls() {
           </TabsTrigger>
           <TabsTrigger value="lessons" className="text-xs sm:text-sm py-2">
             Lessons
+          </TabsTrigger>
+          <TabsTrigger value="sprout" className="text-xs sm:text-sm py-2">
+            Sprout &amp; App
           </TabsTrigger>
         </TabsList>
 
@@ -982,6 +986,14 @@ export default function Controls() {
               ))}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="sprout" className="space-y-6 mt-0">
+          <div className="mb-2">
+            <h2 className="text-xl font-semibold text-gray-900">Sprout &amp; app settings</h2>
+            <p className="text-sm text-gray-600">Configure AI, voice, and login options without editing .env or restarting Docker.</p>
+          </div>
+          <AppSettingsPanel />
         </TabsContent>
       </Tabs>
     </main>

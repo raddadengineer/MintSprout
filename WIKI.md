@@ -25,7 +25,7 @@ Selection logic lives in `server/storage.ts`:
 
 MintSprout requires:
 
-- **`JWT_SECRET`**: required in *all* environments (dev and prod). The server will refuse to verify/sign tokens without it.
+- **`JWT_SECRET`**: required in *all* environments (dev and prod). Set via `.env` / Docker, or rotate in **Controls → Sprout & App**. The server will refuse to verify/sign tokens without it.
 
 When using PostgreSQL storage (production or when `DATABASE_URL` is set), you also need:
 
@@ -47,6 +47,23 @@ Related endpoints:
 - `GET /api/kiosk/children` → public list of children in the kiosk household
 - `POST /api/kiosk/child-session` → `{ childId }` returns a normal JWT session
 - `POST /api/kiosk/parent-session` → `{ pin }` returns a normal JWT session (parent-only)
+
+### Sprout & app settings (parent UI)
+
+Parents can manage AI, voice, and kiosk options at **Controls → Sprout & App** (`/controls?tab=sprout`):
+
+- Sprout on/off, Open WebUI URL/key/model, Ollama fallback, Kokoro voice URL, voice profile IDs
+- Profile picker (kiosk mode), parent PIN, kiosk family ID, **JWT secret** (rotation logs everyone out)
+- **Test LLM** / **Test Voice** buttons for connectivity checks
+
+Settings are stored in the `app_settings` database table and override `.env` defaults immediately (no container restart). API keys, PINs, and JWT secrets are masked in GET responses. `DATABASE_URL` remains environment-only.
+
+Admin API (parent JWT required):
+
+- `GET /api/admin/settings`
+- `PATCH /api/admin/settings`
+- `POST /api/admin/settings/test-llm`
+- `POST /api/admin/settings/test-voice`
 
 ### Default accounts
 

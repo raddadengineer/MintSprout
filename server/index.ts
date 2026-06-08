@@ -6,6 +6,7 @@ import { initializeDatabase } from "./db-init";
 import { runMigrations, listFamilyIds } from "./migrations";
 import { storage } from "./storage";
 import { startAllowanceScheduler } from "./allowance-scheduler";
+import { loadAppConfig } from "./app-config";
 
 const app = express();
 app.use(express.json());
@@ -51,6 +52,11 @@ app.use((req, res, next) => {
       process.exit(1);
     }
   }
+
+  if ("ready" in storage) {
+    await storage.ready;
+  }
+  await loadAppConfig(storage);
 
   const server = await registerRoutes(app);
   startAllowanceScheduler(storage);
