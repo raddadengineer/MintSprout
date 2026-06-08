@@ -301,6 +301,16 @@ export class PostgresStorage implements IStorage {
     return result[0];
   }
 
+  async getLessonById(id: number): Promise<Lesson | undefined> {
+    const result = await db.select().from(schema.lessons).where(eq(schema.lessons.id, id));
+    return result[0];
+  }
+
+  async updateLesson(id: number, updates: Partial<Lesson>): Promise<Lesson | undefined> {
+    const result = await db.update(schema.lessons).set(updates).where(eq(schema.lessons.id, id)).returning();
+    return result[0];
+  }
+
   async getLessonsByCategory(category: string): Promise<Lesson[]> {
     return await db.select().from(schema.lessons)
       .where(and(eq(schema.lessons.category, category), eq(schema.lessons.isCustom, false)));

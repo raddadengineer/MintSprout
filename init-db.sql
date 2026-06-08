@@ -258,6 +258,7 @@ CREATE TABLE IF NOT EXISTS lessons (
     title TEXT NOT NULL,
     content TEXT NOT NULL,
     video_url TEXT,
+    voice_steps TEXT,
     is_custom BOOLEAN DEFAULT FALSE,
     family_id INTEGER REFERENCES families(id)
 );
@@ -295,7 +296,8 @@ CREATE TABLE IF NOT EXISTS learning_progress (
     child_id INTEGER NOT NULL REFERENCES children(id),
     lesson_id INTEGER NOT NULL REFERENCES lessons(id),
     completed BOOLEAN DEFAULT FALSE,
-    quiz_score INTEGER
+    quiz_score INTEGER,
+    prepared_at TIMESTAMP
 );
 
 -- Create achievements table

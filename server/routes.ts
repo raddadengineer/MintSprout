@@ -48,6 +48,7 @@ import { generateCatalogItems } from "./catalog-generator";
 import { ensureCatalogLibrary, ensureFamilyCatalog } from "./catalog-seed";
 import { importFromLibrary, publishLessonCatalogItem } from "./catalog-publish";
 import { normalizeLessonPayload } from "@shared/catalog/normalize-lesson-payload";
+import { handleLessonVoiceSession } from "./lesson-voice-session";
 import { db } from "./db";
 import * as schema from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -1742,6 +1743,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(quizzes);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/lessons/:id/voice-session", verifyToken, async (req: any, res) => {
+    try {
+      if (req.user.role !== "child") {
+        return res.status(403).json({ message: "Voice lessons are for kids only" });
+      }
+
+      const lessonId = parseInt(req.params.id);
+      if (Number.isNaN(lessonId)) {
+        return res.status(400).json({ message: "Invalid lesson id" });
+      }
+
+      const childId = await resolveChildId(req);
+      if (!childId) return res.status(404).json({ message: "Child profile not found" });
+
+      const child = await storage.getChild(childId);
+      if (!child) return res.status(404).json({ message: "Child not found" });
+
+      const bodySchema = z.object({
+        action: z.enum(["start", "advance", "respond"]),
+        stepIndex: z.number().int().min(0).optional(),
+        userMessage: z.string().max(500).optional(),
+        withSpeech: z.boolean().optional(),
+      });
+      const body = bodySchema.parse(req.body ?? {});
+
+      const result = await handleLessonVoiceSession(
+        storage,
+        childId,
+        child.age,
+        lessonId,
+        body,
+        body.withSpeech ?? true,
+      );
+      res.json(result);
+    } catch (err: any) {
+      const status = err.status ?? (err instanceof z.ZodError ? 400 : 500);
+      res.status(status).json({ message: err.message ?? "Voice session failed" });
     }
   });
 

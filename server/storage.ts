@@ -74,6 +74,8 @@ export interface IStorage {
 
   // Lessons
   createLesson(lesson: InsertLesson): Promise<Lesson>;
+  getLessonById(id: number): Promise<Lesson | undefined>;
+  updateLesson(id: number, updates: Partial<Lesson>): Promise<Lesson | undefined>;
   getLessonsByCategory(category: string): Promise<Lesson[]>;
   getCustomLessons(familyId: number): Promise<Lesson[]>;
 
@@ -665,10 +667,23 @@ export class MemStorage implements IStorage {
       id,
       familyId: insertLesson.familyId ?? null,
       videoUrl: insertLesson.videoUrl ?? null,
+      voiceSteps: insertLesson.voiceSteps ?? null,
       isCustom: insertLesson.isCustom ?? null,
     };
     this.lessons.set(id, lesson);
     return lesson;
+  }
+
+  async getLessonById(id: number): Promise<Lesson | undefined> {
+    return this.lessons.get(id);
+  }
+
+  async updateLesson(id: number, updates: Partial<Lesson>): Promise<Lesson | undefined> {
+    const existing = this.lessons.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...updates };
+    this.lessons.set(id, updated);
+    return updated;
   }
 
   async getLessonsByCategory(category: string): Promise<Lesson[]> {
@@ -699,6 +714,7 @@ export class MemStorage implements IStorage {
       id,
       completed: insertProgress.completed ?? null,
       quizScore: insertProgress.quizScore ?? null,
+      preparedAt: insertProgress.preparedAt ?? null,
     };
     const key = `${progress.childId}-${progress.lessonId}`;
     this.learningProgress.set(key, progress);

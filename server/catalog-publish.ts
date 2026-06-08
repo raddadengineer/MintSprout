@@ -4,6 +4,8 @@ import type { IStorage } from "./storage";
 import { parsePayload } from "./catalog-seed";
 import { generateCatalogItems } from "./catalog-generator";
 import { quizStubsForLessonTitle } from "@shared/catalog/lesson-quizzes";
+import { serializeVoiceSteps } from "@shared/catalog/build-voice-steps";
+import { generateVoiceStepsForLesson } from "./voice-steps-generator";
 
 async function enrichLessonFromAi(
   categoryKey: string,
@@ -77,11 +79,22 @@ export async function publishLessonCatalogItem(
     ];
   }
 
+  let voiceSteps = normalized.voiceSteps ?? [];
+  if (voiceSteps.length === 0) {
+    voiceSteps = await generateVoiceStepsForLesson(
+      item.title,
+      content,
+      item.categoryKey,
+      quizStubs.map((stub) => stub.question),
+    );
+  }
+
   const lesson = await storage.createLesson({
     category: item.categoryKey,
     title: item.title,
     content,
     videoUrl,
+    voiceSteps: serializeVoiceSteps(voiceSteps),
     isCustom: true,
     familyId,
   });

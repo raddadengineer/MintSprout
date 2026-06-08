@@ -68,9 +68,9 @@ export async function generateCatalogItems(
   const payloadShape =
     type === "job"
       ? '{ "icon": "briefcase|bed|sparkles|bookOpen|gift|trash2|utensils|wind|target|home|sprout", "recurrence": "once|daily|weekly|monthly" }'
-      : '{ "content": "REQUIRED: 2-4 kid-friendly paragraphs (at least 200 characters) teaching the topic before any quiz", "videoUrl": null, "quizStubs": [{ "question": "...", "options": ["a","b","c","d"], "correctAnswer": 0 }] }';
+      : '{ "content": "REQUIRED: 2-4 kid-friendly paragraphs (at least 200 characters) teaching the topic before any quiz", "videoUrl": null, "quizStubs": [{ "question": "...", "options": ["a","b","c","d"], "correctAnswer": 0 }], "voiceSteps": [{ "narration": "...", "prompt": "optional voice check-in", "acceptKeywords": ["save","money"] }] }';
 
-  const system = `You generate catalog templates for a family finance app for kids. Reply with ONLY valid JSON: an array of objects with keys title, description, payload. payload must match: ${payloadShape}. For lessons, content is the main teaching text kids read BEFORE the quiz — never leave content empty or shorter than description. Include 2-3 quizStubs per lesson. No markdown.`;
+  const system = `You generate catalog templates for a family finance app for kids. Reply with ONLY valid JSON: an array of objects with keys title, description, payload. payload must match: ${payloadShape}. For lessons, content is the main teaching text kids read BEFORE the quiz — never leave content empty or shorter than description. Include 2-3 quizStubs per lesson. voiceSteps is optional (3-5 Sprout voice beats with 1-2 kid prompts); omit if unsure. No markdown.`;
 
   const user = `Generate ${count} unique ${type} catalog items for ${ctx}. Avoid duplicating common defaults like "Make my bed" unless fresh angle.`;
 

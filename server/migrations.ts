@@ -261,6 +261,13 @@ UPDATE allowances SET period_start_day_of_week = 1 WHERE cadence = 'weekly' AND 
 UPDATE allowances SET period_end_day_of_week = 0 WHERE cadence = 'weekly' AND period_end_day_of_week IS NULL;
 `,
   },
+  {
+    id: "voice_lessons_v1",
+    sql: `
+ALTER TABLE lessons ADD COLUMN IF NOT EXISTS voice_steps TEXT;
+ALTER TABLE learning_progress ADD COLUMN IF NOT EXISTS prepared_at TIMESTAMP;
+`,
+  },
 ];
 
 async function migrationApplied(id: string): Promise<boolean> {

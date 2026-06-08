@@ -181,4 +181,26 @@ describe("catalog import and publish", () => {
     expect(quizzes[0]!.question).toBe("AI question?");
     expect(quizzes[0]!.correctAnswer).toBe(1);
   });
+
+  it("stores voice steps when publishing a lesson", async () => {
+    const familyItem = await storage.createFamilyCatalogItem({
+      familyId: 1,
+      catalogType: "lesson",
+      categoryKey: "saving",
+      categoryId: null,
+      title: "Voice Lesson",
+      description: "Save money",
+      payload: JSON.stringify({ content: "Saving is smart. Keep money for later goals." }),
+      enabled: true,
+      sortOrder: 0,
+    });
+
+    const result = await publishLessonCatalogItem(storage, 1, familyItem.id);
+    const lessons = await storage.getCustomLessons(1);
+    const lesson = lessons.find((l) => l.id === result.lessonId);
+    expect(lesson?.voiceSteps).toBeTruthy();
+    const steps = JSON.parse(lesson!.voiceSteps!);
+    expect(Array.isArray(steps)).toBe(true);
+    expect(steps.length).toBeGreaterThanOrEqual(2);
+  });
 });

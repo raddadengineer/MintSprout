@@ -247,6 +247,7 @@ export const lessons = pgTable("lessons", {
   title: text("title").notNull(),
   content: text("content").notNull(),
   videoUrl: text("video_url"),
+  voiceSteps: text("voice_steps"), // JSON array of VoiceLessonStep
   isCustom: boolean("is_custom").default(false),
   familyId: integer("family_id"),
 });
@@ -265,6 +266,7 @@ export const learningProgress = pgTable("learning_progress", {
   lessonId: integer("lesson_id").notNull(),
   completed: boolean("completed").default(false),
   quizScore: integer("quiz_score"),
+  preparedAt: timestamp("prepared_at"),
 });
 
 export const achievements = pgTable("achievements", {

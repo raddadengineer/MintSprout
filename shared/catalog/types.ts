@@ -7,10 +7,17 @@ export type JobCatalogPayload = {
   recurrence: "once" | "daily" | "weekly" | "monthly";
 };
 
+export type VoiceLessonStep = {
+  narration: string;
+  prompt?: string;
+  acceptKeywords?: string[];
+};
+
 export type LessonCatalogPayload = {
   content: string;
   videoUrl?: string | null;
   quizStubs?: { question: string; options: string[]; correctAnswer: number }[];
+  voiceSteps?: VoiceLessonStep[];
 };
 
 export type CatalogPayload = JobCatalogPayload | LessonCatalogPayload;

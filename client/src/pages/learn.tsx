@@ -16,6 +16,7 @@ import { useOpenSprout, SproutBuddyCTA } from "@/components/sprout-buddy";
 import { IconText } from "@/components/icon-text";
 import { isQuizAnswerCorrect } from "@shared/quiz-utils";
 import { useQuizSpeech } from "@/hooks/use-quiz-speech";
+import { SproutLessonSession } from "@/components/sprout-lesson-session";
 
 const YOUNGEST_CATEGORY_LABELS: Record<string, string> = {
   earning: "Earn",
@@ -45,6 +46,8 @@ export default function Learn() {
   const [quizScore, setQuizScore] = useState(0);
   const [showQuizResults, setShowQuizResults] = useState(false);
   const [showElmoActivity, setShowElmoActivity] = useState(false);
+  const [voiceLesson, setVoiceLesson] = useState<any>(null);
+  const [showVoiceSession, setShowVoiceSession] = useState(false);
 
   const { user } = useAuth();
   const { selectedChildId } = useSelectedChild();
@@ -234,6 +237,16 @@ export default function Learn() {
     return progress?.quizScore || 0;
   };
 
+  const isLessonPrepared = (lessonId: number) => {
+    return Array.isArray(learningProgress) &&
+      learningProgress.some((p: any) => p.lessonId === lessonId && p.preparedAt);
+  };
+
+  const openVoiceLesson = (lesson: any) => {
+    setVoiceLesson(lesson);
+    setShowVoiceSession(true);
+  };
+
   if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -398,6 +411,7 @@ export default function Learn() {
                   const score = getLessonScore(lesson.id);
                   const displayContent = lessonDisplayContent(lesson);
                   const hasLessonBody = displayContent.length > 0;
+                  const prepared = isLessonPrepared(lesson.id);
 
                   return (
                     <Card key={lesson.id} className="mint-card relative overflow-hidden">
@@ -625,24 +639,30 @@ export default function Learn() {
                               <Gamepad2 className="h-4 w-4 mr-2" />
                               Start Interactive Activity
                             </Button>
+                          ) : user?.role === "child" && !prepared ? (
+                            <Button
+                              className="w-full bg-emerald-600 hover:bg-emerald-700"
+                              onClick={() => openVoiceLesson(lesson)}
+                            >
+                              <Volume2 className="h-4 w-4 mr-2" />
+                              {kidMode === "youngest" ? (
+                                <IconText icon="🌱" label="Learn with Sprout" size="sm" />
+                              ) : (
+                                "Learn with Sprout"
+                              )}
+                            </Button>
                           ) : (
                             <Button
                               className="w-full"
                               onClick={() => startQuiz(lesson)}
-                              disabled={
-                                markProgressMutation.isPending ||
-                                !hasLessonBody ||
-                                (lesson.videoUrl && !watchedVideos.has(lesson.id))
-                              }
+                              disabled={markProgressMutation.isPending || (user?.role === "child" && !prepared)}
                             >
                               <Trophy className="h-4 w-4 mr-2" />
-                              {!hasLessonBody
-                                ? "Lesson Not Ready"
-                                : lesson.videoUrl && !watchedVideos.has(lesson.id)
-                                  ? "Watch Video First"
-                                  : isCompleted
-                                    ? `Retake Quiz (${score}%)`
-                                    : "Take Quiz"}
+                              {user?.role === "child" && !prepared
+                                ? "Complete Sprout Lesson First"
+                                : isCompleted
+                                  ? `Retake Quiz (${score}%)`
+                                  : "Take Quiz"}
                             </Button>
                           )}
 
@@ -870,6 +890,21 @@ export default function Learn() {
           )}
         </DialogContent>
       </Dialog>
+
+      {voiceLesson && (
+        <SproutLessonSession
+          lesson={voiceLesson}
+          open={showVoiceSession}
+          onClose={() => {
+            setShowVoiceSession(false);
+            setVoiceLesson(null);
+          }}
+          onComplete={() => {
+            if (voiceLesson) startQuiz(voiceLesson);
+          }}
+          kidMode={kidMode}
+        />
+      )}
     </main>
   );
 }

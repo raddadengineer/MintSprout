@@ -70,6 +70,10 @@ function quizCountFromPayload(payload: Record<string, unknown>): number {
   return Array.isArray(payload.quizStubs) ? payload.quizStubs.length : 0;
 }
 
+function voiceStepCountFromPayload(payload: Record<string, unknown>): number {
+  return Array.isArray(payload.voiceSteps) ? payload.voiceSteps.length : 0;
+}
+
 function videoLabel(payload: Record<string, unknown>, categoryKey: string): string {
   const url = typeof payload.videoUrl === "string" ? payload.videoUrl.trim() : "";
   if (url) return "Custom video";
@@ -547,6 +551,7 @@ export function CatalogEditor({
           {generateReview?.map((proposal, index) => {
             const content = lessonContentFromPayload(proposal.payload, proposal.description);
             const quizCount = quizCountFromPayload(proposal.payload);
+            const voiceStepCount = voiceStepCountFromPayload(proposal.payload);
             const isExpanded = expandedProposals.has(index);
             const contentShort = content.length < 80;
             return (
@@ -576,6 +581,9 @@ export function CatalogEditor({
                   </span>
                   <span className="text-xs bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded">
                     {videoLabel(proposal.payload, categoryKey)}
+                  </span>
+                  <span className="text-xs bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded">
+                    {voiceStepCount > 0 ? `${voiceStepCount} voice steps` : "Voice lesson on publish"}
                   </span>
                 </div>
                 {content && (
