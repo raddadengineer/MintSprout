@@ -28,6 +28,7 @@ FROM base AS runner
 WORKDIR /app
 
 # Create a non-root user
+RUN apk add --no-cache postgresql-client
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 mintsprout
 

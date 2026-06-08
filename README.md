@@ -2,6 +2,10 @@
 
 **A family-friendly financial literacy platform that helps kids learn to earn, save, spend, invest, and donate — while parents stay in control.**
 
+## For parents
+
+See **[docs/parent-guide.md](docs/parent-guide.md)** for a full manual on using MintSprout — tasks, allowances, lessons, approvals, Sprout AI, and day-to-day workflows.
+
 ---
 
 ## ✨ Features
@@ -27,23 +31,207 @@
 
 ---
 
-## 🚀 Quick Start (Docker)
+## 🚀 Docker setup (Docker Compose)
 
-### Option 1 — Docker Compose (Portainer Stack)
+This is the recommended way to run MintSprout on a home server, NAS, or dev machine.
 
-Use the included [`docker-compose.portainer.yml`](docker-compose.portainer.yml) to deploy via Portainer:
+### Prerequisites
 
-```yaml
-# Minimal environment variables needed:
-POSTGRES_DB: mintsprout
-POSTGRES_USER: mintsprout
-POSTGRES_PASSWORD: your_secure_password
-JWT_SECRET: your_32_char_plus_secret_key
+- [Docker Engine](https://docs.docker.com/engine/install/) 20.10+
+- [Docker Compose](https://docs.docker.com/compose/install/) v2 (`docker compose`, not legacy `docker-compose`)
+- ~2 GB RAM and ~5 GB disk
+
+### 1. Get the project
+
+```bash
+git clone https://github.com/raddadengineer/MintSprout.git
+cd MintSprout
 ```
 
-> ⚠️ **Never bake `JWT_SECRET` into an image.** Always pass it at runtime via environment variables or Docker secrets.
+### 2. Create your `.env` file
 
-### Option 2 — Manual Docker Run
+Docker Compose reads a `.env` file in the project root automatically and substitutes `${VAR}` values into [`docker-compose.yml`](docker-compose.yml).
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` before your first `docker compose up`. See [`.env.example`](.env.example) for a copy-paste template.
+
+> ⚠️ **Never commit `.env` or bake secrets into the Docker image.** Pass them at runtime only. Several Sprout/kiosk settings can be changed later in **Controls → Sprout & App** without editing `.env` again.
+
+#### Required variables
+
+These must be set in `.env` before the app container will start (Compose fails fast if `JWT_SECRET` is missing).
+
+| Variable | What it does | Example / notes |
+|----------|--------------|-----------------|
+| **`JWT_SECRET`** | Secret key the server uses to **sign and verify login tokens** (parent, child, and kiosk sessions). If you change it, everyone is logged out. Minimum 32 random characters. Can also be rotated in **Controls → Sprout & App**. | `openssl rand -base64 48` |
+| **`POSTGRES_PASSWORD`** | Password for the **PostgreSQL database**. Compose uses this for both the `postgres` service (`POSTGRES_PASSWORD`) and the app’s **`DATABASE_URL`** — they must stay in sync. Choose a strong password; this is not the parent login password. | `my-family-db-secret-2024` |
+| **`ALLOWED_ORIGINS`** | Comma-separated list of **browser URLs** that may access the API (scheme + host + port, no trailing slash). Prevents other websites from calling your MintSprout API with a stolen token. For local dev use localhost; in production add your real domain(s). | `http://localhost:8080,http://127.0.0.1:8080` or `https://mintsprout.example.com` |
+
+**How they connect in Compose**
+
+- `POSTGRES_PASSWORD` → Postgres container + `DATABASE_URL=postgresql://mintsprout:PASSWORD@postgres:5432/mintsprout` inside the app.
+- `JWT_SECRET` → read only by the app (not stored in the DB unless you save a new value via the parent UI).
+- `ALLOWED_ORIGINS` → CORS / origin checks on API requests from the browser.
+
+`DATABASE_URL` itself is **built automatically** in `docker-compose.yml` — you normally do not set it in `.env` unless you customize the compose file for an external database.
+
+#### Profile picker (kiosk mode)
+
+Used when the login screen shows child names instead of username/password. Overridable in **Controls → Sprout & App → Login and profiles**.
+
+| Variable | Default | What it does |
+|----------|---------|--------------|
+| **`KIOSK_MODE`** | `true` | When `true`, the app shows the **profile picker** (tap a child’s name or Parent). When `false`, everyone uses username/password on `/login`. |
+| **`PARENT_PIN`** | `1234` | PIN the parent enters on the profile picker to open a **parent session**. Required when kiosk mode is on. Change from the default immediately. |
+| **`KIOSK_FAMILY_ID`** | `1` | Which **family row** in the database kiosk mode uses. Leave at `1` for a single-household install; only change if you know you have multiple families in one DB. |
+
+#### Sprout AI coach (optional)
+
+Sprout powers chat, daily briefs, and voice-led lessons. If you disable AI or leave URLs empty, the rest of MintSprout still works. All of these can be updated in **Controls → Sprout & App** after deploy.
+
+| Variable | Default (compose) | What it does |
+|----------|-------------------|--------------|
+| **`AI_COACH_ENABLED`** | `true` | Master switch for Sprout features in the kid UI. Set `false` to hide Sprout if you have no LLM/voice server. |
+| **`OPENWEBUI_BASE_URL`** | (see compose) | Base URL of your **[Open WebUI](https://github.com/open-webui/open-webui)** instance — primary LLM for Sprout chat. |
+| **`OPENWEBUI_API_KEY`** | *(empty)* | API key Open WebUI expects in the `Authorization` header. Required if your Open WebUI instance is not open. |
+| **`OPENWEBUI_MODEL`** | `gemma3:kids` | Model id/name as Open WebUI lists it (e.g. a fine-tuned kids model). |
+| **`OLLAMA_BASE_URL`** | (see compose) | Direct **Ollama** URL (e.g. `http://192.168.1.10:11434`). Used as fallback when Open WebUI URL or key is not set. |
+| **`OLLAMA_MODEL`** | `llama3.1:latest` | Ollama model tag to use for fallback requests. |
+| **`KIDS_VOICE_BASE_URL`** | (see compose) | Base URL for **text-to-speech** (Kokoro-compatible API, often `http://host:8880/v1`). Powers Sprout voice and quiz read-aloud. |
+| **`KIDS_VOICE_MODEL`** | `kokoro` | Voice API model identifier. |
+| **`AI_VOICE_YOUNGEST`** | `af_bella` | Voice profile id for children **age 6 and under**. |
+| **`AI_VOICE_YOUNGER`** | `af_sky` | Voice profile id for children **ages 7–10**. |
+| **`AI_VOICE_OLDER`** | *(empty)* | Voice profile id for children **11+**. Optional; falls back to younger voice if unset. |
+
+#### Variables set in Compose (not in `.env.example`)
+
+These are fixed in [`docker-compose.yml`](docker-compose.yml) for the standard stack — listed here so you know what they mean if you read the compose file:
+
+| Variable | Value | What it does |
+|----------|-------|--------------|
+| `POSTGRES_DB` | `mintsprout` | Database name created inside Postgres. |
+| `POSTGRES_USER` | `mintsprout` | Database user name (paired with `POSTGRES_PASSWORD`). |
+| `NODE_ENV` | `production` | Runs the app in production mode (Postgres storage, static frontend). |
+| `PORT` | `5000` | Port the Node server listens on **inside** the container (mapped to `8080` on your host). |
+
+#### Example `.env` files
+
+**Minimal local install**
+
+```bash
+JWT_SECRET=your-long-random-secret-from-openssl-rand-base64-48
+POSTGRES_PASSWORD=your-strong-db-password
+ALLOWED_ORIGINS=http://localhost:8080,http://127.0.0.1:8080
+KIOSK_MODE=true
+PARENT_PIN=5678
+```
+
+**With Sprout on a home LAN** (replace IPs with your LLM/TTS hosts)
+
+```bash
+JWT_SECRET=your-long-random-secret
+POSTGRES_PASSWORD=your-strong-db-password
+ALLOWED_ORIGINS=https://mintsprout.home.local
+
+KIOSK_MODE=true
+PARENT_PIN=8642
+
+AI_COACH_ENABLED=true
+OPENWEBUI_BASE_URL=https://ai.example.com
+OPENWEBUI_API_KEY=sk-your-key-here
+OPENWEBUI_MODEL=gemma3:kids
+OLLAMA_BASE_URL=http://192.168.1.10:11434
+OLLAMA_MODEL=llama3.1:latest
+KIDS_VOICE_BASE_URL=http://192.168.1.10:8880/v1
+KIDS_VOICE_MODEL=kokoro
+AI_VOICE_YOUNGEST=af_bella
+AI_VOICE_YOUNGER=af_sky
+```
+
+**What you cannot put in `.env` (by design)**
+
+| Item | Where to configure |
+|------|-------------------|
+| Parent/child **login passwords** | Default users are seeded in the DB; reset with `npm run passwords:reset` in the app container, or manage via your workflow. |
+| **JWT secret** (after first run) | Optional: **Controls → Sprout & App** (overrides `.env` in the database). |
+| Kiosk PIN, Sprout URLs, models | **Controls → Sprout & App** (overrides `.env` at runtime). |
+| **Database backup/restore** | **Controls → Sprout & App**, or `./scripts/backup-db.sh` on the Docker host. |
+
+### 3. Start the stack
+
+Build the app image and start Postgres + MintSprout:
+
+```bash
+docker compose up -d --build
+```
+
+Check status:
+
+```bash
+docker compose ps
+docker compose logs -f mintsprout
+```
+
+The app waits for Postgres to become healthy before starting. First boot runs database migrations and seeds default family data.
+
+### 4. Open the app
+
+| Service | URL |
+|---------|-----|
+| MintSprout | **http://localhost:8080** |
+| PostgreSQL | `localhost:5432` (only if you need external DB tools) |
+
+### 5. First login
+
+Default accounts are created on first run — **change passwords immediately**:
+
+| Role | Username | Password |
+|------|----------|----------|
+| Parent | `parent` | `password123` |
+| Child | `bryson` | `password123` |
+| Child | `edison` | `password123` |
+
+After login as parent:
+
+1. Change passwords (`npm run passwords:reset` inside the app container, or add users from the UI).
+2. Open **Controls → Sprout & App** to tune kiosk PIN, JWT secret, Sprout/LLM/voice, and **database backup/restore**.
+
+### Common commands
+
+```bash
+# Stop (keeps data)
+docker compose down
+
+# Stop and DELETE all database data (back up first!)
+docker compose down -v
+
+# Rebuild after pulling code changes
+docker compose up -d --build
+
+# Shell into the app container
+docker exec -it mintsprout-app sh
+
+# Reset passwords (inside app container)
+docker exec -it mintsprout-app npm run passwords:reset
+```
+
+### Portainer
+
+To deploy from Portainer without building locally, use [`docker-compose.portainer.yml`](docker-compose.portainer.yml) — it pulls `raddadengineer/mintsprout:latest` instead of building. Set the same environment variables in the stack editor (`JWT_SECRET`, `POSTGRES_PASSWORD`, `DATABASE_URL`, `ALLOWED_ORIGINS`, plus optional Sprout/kiosk vars).
+
+Rebuild and push the image after code changes:
+
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -t raddadengineer/mintsprout:latest --push .
+```
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for HTTPS, backups, and production checklist.
+
+### Manual Docker run (advanced)
 
 ```bash
 # 1. Start Postgres
@@ -57,26 +245,13 @@ docker run -d \
 # 2. Run the app
 docker run -d \
   --name mintsprout \
-  -p 5000:5000 \
-  --link mintsprout-db:db \
-  -e DATABASE_URL=postgresql://mintsprout:your_secure_password@db:5432/mintsprout \
+  -p 8080:5000 \
+  --link mintsprout-db:postgres \
+  -e DATABASE_URL=postgresql://mintsprout:your_secure_password@postgres:5432/mintsprout \
   -e JWT_SECRET=your_secret_key \
+  -e ALLOWED_ORIGINS=http://localhost:8080 \
   raddadengineer/mintsprout:latest
 ```
-
-App will be available at **http://localhost:5000**
-
----
-
-## Initial family accounts
-
-> Created automatically on first run for your household. Change passwords with `npm run passwords:reset` or from Parent Controls.
-
-| Role | Username | Password |
-|------|----------|----------|
-| Parent | `parent` | `password123` |
-| Child | `bryson` | `password123` |
-| Child | `edison` | `password123` |
 
 ---
 
@@ -132,6 +307,8 @@ Back up before upgrades or any command that removes volumes:
 ```bash
 ./scripts/backup-db.sh ./backups
 ```
+
+**Parent UI:** **Controls → Sprout & App → Database backup & restore** — download a `.sql` dump or upload one to restore on a new host.
 
 > **Warning:** `docker compose down -v` permanently deletes all data in `postgres_data`. See [DEPLOYMENT.md](DEPLOYMENT.md) for restore steps.
 
@@ -231,8 +408,11 @@ MintSprout/
 ├── shared/
 │   └── schema.ts           # Drizzle ORM schema (shared types)
 ├── init-db.sql             # PostgreSQL seed data
+├── docs/
+│   └── parent-guide.md     # Parent usage manual
+├── docker-compose.yml      # Local / self-hosted Compose stack
 ├── Dockerfile              # Multi-stage production build
-└── docker-compose.portainer.yml  # Portainer stack config
+└── docker-compose.portainer.yml  # Portainer stack (pre-built image)
 ```
 
 ---

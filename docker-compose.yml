@@ -9,7 +9,7 @@ services:
     environment:
       POSTGRES_DB: mintsprout
       POSTGRES_USER: mintsprout
-      POSTGRES_PASSWORD: mintsprout_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mintsprout_password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
@@ -31,9 +31,9 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5000
-      DATABASE_URL: postgresql://mintsprout:mintsprout_password@postgres:5432/mintsprout
-      JWT_SECRET: your-super-secure-jwt-secret-change-this-in-production
-      ALLOWED_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
+      DATABASE_URL: postgresql://mintsprout:${POSTGRES_PASSWORD:-mintsprout_password}@postgres:5432/mintsprout
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
       # Profile picker (default on): children tap their name; parent uses PIN
       KIOSK_MODE: ${KIOSK_MODE:-true}
       PARENT_PIN: ${PARENT_PIN:-1234}

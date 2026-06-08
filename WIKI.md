@@ -55,6 +55,7 @@ Parents can manage AI, voice, and kiosk options at **Controls → Sprout & App**
 - Sprout on/off, Open WebUI URL/key/model, Ollama fallback, Kokoro voice URL, voice profile IDs
 - Profile picker (kiosk mode), parent PIN, kiosk family ID, **JWT secret** (rotation logs everyone out)
 - **Test LLM** / **Test Voice** buttons for connectivity checks
+- **Database backup & restore** — download a `.sql` dump or restore when moving hosts (parent-only)
 
 Settings are stored in the `app_settings` database table and override `.env` defaults immediately (no container restart). API keys, PINs, and JWT secrets are masked in GET responses. `DATABASE_URL` remains environment-only.
 
@@ -64,6 +65,8 @@ Admin API (parent JWT required):
 - `PATCH /api/admin/settings`
 - `POST /api/admin/settings/test-llm`
 - `POST /api/admin/settings/test-voice`
+- `POST /api/admin/settings/backup` — download PostgreSQL dump
+- `POST /api/admin/settings/restore` — `{ confirm: "RESTORE", sql: "..." }`
 
 ### Default accounts
 
@@ -74,6 +77,8 @@ Initial family login details are documented in `README.md`. Change default passw
 The server logs request method/path/status and duration for `/api/*`, but it does **not** log response JSON bodies. This prevents accidental token leakage in logs.
 
 ### Common workflows
+
+**Parents:** see [docs/parent-guide.md](docs/parent-guide.md) for how to use the app (tasks, allowances, lessons, approvals, and Sprout settings).
 
 #### Local dev
 

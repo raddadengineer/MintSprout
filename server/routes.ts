@@ -52,6 +52,13 @@ import { handleLessonVoiceSession } from "./lesson-voice-session";
 import { getAppConfig, loadAppConfig, maskSettings, saveSettingsPatch, getJwtSecret } from "./app-config";
 import { deploymentSettingsPatchSchema } from "@shared/deployment-settings";
 import { checkLlmAvailable } from "./llm-client";
+import {
+  getDbBackupStatus,
+  createDatabaseBackup,
+  backupFilename,
+  normalizeRestoreSql,
+  restoreDatabase,
+} from "./db-backup";
 import { db } from "./db";
 import * as schema from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -2290,10 +2297,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Only parents can view app settings" });
       }
       const services = await checkAiServices();
+      const dbBackup = await getDbBackupStatus();
       res.json({
         settings: maskSettings(getAppConfig()),
         llmAvailable: services.ollama,
         voiceAvailable: services.voice,
+        dbBackupAvailable: dbBackup.available,
+        dbBackupReason: dbBackup.reason,
       });
     } catch (err) {
       console.error("Admin settings GET error:", err);
@@ -2353,6 +2363,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (err: any) {
       res.status(503).json({ ok: false, message: err.message ?? "Voice test failed" });
+    }
+  });
+
+  app.post("/api/admin/settings/backup", verifyToken, async (req: any, res) => {
+    try {
+      if (req.user.role !== "parent") {
+        return res.status(403).json({ message: "Only parents can back up the database" });
+      }
+      const sql = await createDatabaseBackup();
+      res.setHeader("Content-Type", "application/sql; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${backupFilename()}"`);
+      res.send(sql);
+    } catch (err: any) {
+      console.error("Database backup error:", err);
+      res.status(503).json({ message: err.message ?? "Database backup failed" });
+    }
+  });
+
+  const restoreBodySchema = z.object({
+    confirm: z.literal("RESTORE"),
+    sql: z.string().min(20),
+  });
+
+  app.post("/api/admin/settings/restore", verifyToken, async (req: any, res) => {
+    try {
+      if (req.user.role !== "parent") {
+        return res.status(403).json({ message: "Only parents can restore the database" });
+      }
+      const body = restoreBodySchema.parse(req.body ?? {});
+      const sql = normalizeRestoreSql(body.sql);
+      await restoreDatabase(sql);
+      res.json({ ok: true, message: "Database restored. Refresh the page to reload data." });
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: "Type RESTORE in the confirm field to proceed." });
+      }
+      console.error("Database restore error:", err);
+      res.status(500).json({ message: err.message ?? "Database restore failed" });
     }
   });
 

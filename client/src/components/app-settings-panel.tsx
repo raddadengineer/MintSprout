@@ -31,6 +31,8 @@ type SettingsResponse = {
   llmAvailable: boolean;
   voiceAvailable: boolean;
   jwtRotated?: boolean;
+  dbBackupAvailable?: boolean;
+  dbBackupReason?: string;
 };
 
 export function AppSettingsPanel() {
@@ -40,6 +42,8 @@ export function AppSettingsPanel() {
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [pinInput, setPinInput] = useState("");
   const [jwtSecretInput, setJwtSecretInput] = useState("");
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [restoreConfirm, setRestoreConfirm] = useState("");
 
   const { data, isLoading } = useQuery<SettingsResponse>({
     queryKey: ["/api/admin/settings"],
@@ -149,6 +153,63 @@ export function AppSettingsPanel() {
     const secret = btoa(Array.from(bytes, (b) => String.fromCharCode(b)).join("")).replace(/[+/=]/g, "").slice(0, 48);
     setJwtSecretInput(secret);
   };
+
+  const backupMutation = useMutation({
+    mutationFn: async () => {
+      const token = localStorage.getItem("auth_token");
+      const res = await fetch("/api/admin/settings/backup", {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(err?.message ?? res.statusText);
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition");
+      const filename = disposition?.match(/filename="([^"]+)"/)?.[1] ?? "mintsprout-backup.sql";
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+    },
+    onSuccess: () => {
+      toast({ title: "Backup downloaded", description: "Store the file somewhere safe before moving hosts." });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Backup failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const readBackupFile = async (file: File): Promise<string> => {
+    if (file.name.endsWith(".gz")) {
+      const stream = file.stream().pipeThrough(new DecompressionStream("gzip"));
+      return await new Response(stream).text();
+    }
+    return await file.text();
+  };
+
+  const restoreMutation = useMutation({
+    mutationFn: async () => {
+      if (!restoreFile) throw new Error("Choose a backup file first.");
+      if (restoreConfirm !== "RESTORE") throw new Error('Type RESTORE in the confirm field.');
+      const sql = await readBackupFile(restoreFile);
+      const res = await apiRequest("POST", "/api/admin/settings/restore", { confirm: "RESTORE", sql });
+      return (await res.json()) as { ok: boolean; message: string };
+    },
+    onSuccess: (result) => {
+      setRestoreFile(null);
+      setRestoreConfirm("");
+      toast({ title: "Database restored", description: result.message });
+      queryClient.invalidateQueries();
+    },
+    onError: (err: Error) => {
+      toast({ title: "Restore failed", description: err.message, variant: "destructive" });
+    },
+  });
 
   if (isLoading) {
     return <div className="text-sm text-gray-500">Loading settings…</div>;
@@ -298,6 +359,74 @@ export function AppSettingsPanel() {
             </div>
             <Button type="button" variant="outline" size="sm" onClick={generateJwtSecret}>
               Generate random secret
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mint-card">
+        <CardHeader>
+          <CardTitle>Database backup &amp; restore</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Download a full PostgreSQL dump before upgrades or when moving to a new host. Restore replaces all family
+            data, jobs, lessons, and app settings in the database.
+          </p>
+          {!data?.dbBackupAvailable && (
+            <p className="text-xs text-amber-700">
+              Backup unavailable: {data?.dbBackupReason ?? "PostgreSQL tools not configured."}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!data?.dbBackupAvailable || backupMutation.isPending}
+              onClick={() => backupMutation.mutate()}
+            >
+              {backupMutation.isPending ? "Creating backup…" : "Download backup"}
+            </Button>
+          </div>
+          <div className="border-t border-gray-200 pt-4 space-y-3">
+            <div>
+              <Label className="font-bold text-red-700">Restore from backup</Label>
+              <p className="text-xs text-red-700 mt-1">
+                This overwrites the current database. Back up first if you might need to undo this.
+              </p>
+            </div>
+            <div>
+              <Label>Backup file (.sql or .sql.gz)</Label>
+              <Input
+                className="mint-input mt-1"
+                type="file"
+                accept=".sql,.gz,application/sql,text/plain,application/gzip,application/x-gzip"
+                onChange={(e) => setRestoreFile(e.target.files?.[0] ?? null)}
+              />
+              {restoreFile && <p className="text-xs text-gray-500 mt-1">{restoreFile.name}</p>}
+            </div>
+            <div>
+              <Label>Type RESTORE to confirm</Label>
+              <Input
+                className="mint-input mt-1"
+                value={restoreConfirm}
+                onChange={(e) => setRestoreConfirm(e.target.value)}
+                placeholder="RESTORE"
+                autoComplete="off"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={
+                !data?.dbBackupAvailable ||
+                !restoreFile ||
+                restoreConfirm !== "RESTORE" ||
+                restoreMutation.isPending
+              }
+              onClick={() => restoreMutation.mutate()}
+            >
+              {restoreMutation.isPending ? "Restoring…" : "Restore database"}
             </Button>
           </div>
         </CardContent>
