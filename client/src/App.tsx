@@ -23,7 +23,7 @@ import { SproutBuddyProvider } from "@/components/sprout-buddy";
 import { ParentRoute } from "@/components/parent-route";
 
 function AppContent() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isAuthenticated && isLoading) {
     return (
@@ -50,7 +50,11 @@ function AppContent() {
 
   return (
     <SproutBuddyProvider>
-      <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+      <div
+        className={`min-h-screen bg-gray-50 overflow-x-hidden ${
+          user?.role === "child" ? "pb-safe-fab" : ""
+        }`}
+      >
         <Navigation />
         <Switch>
           <Route path="/" component={Dashboard} />

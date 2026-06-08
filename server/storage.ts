@@ -370,7 +370,49 @@ export class MemStorage implements IStorage {
   }
 
   async deleteChild(id: number): Promise<boolean> {
-    return this.children.delete(id);
+    const child = this.children.get(id);
+    if (!child) return false;
+
+    for (const [jobId, job] of Array.from(this.jobs.entries())) {
+      if (job.assignedToId === id) {
+        await this.deletePaymentsByJob(jobId);
+        this.jobs.delete(jobId);
+      }
+    }
+    for (const [payId, pay] of Array.from(this.payments.entries())) {
+      if (pay.childId === id) this.payments.delete(payId);
+    }
+    for (const [aid, allowance] of Array.from(this.allowances.entries())) {
+      if (allowance.childId === id) this.allowances.delete(aid);
+    }
+    for (const [sid, settings] of Array.from(this.allocationSettings.entries())) {
+      if (settings.childId === id) this.allocationSettings.delete(sid);
+    }
+    for (const [key, progress] of Array.from(this.learningProgress.entries())) {
+      if (progress.childId === id) this.learningProgress.delete(key);
+    }
+    for (const [aid, achievement] of Array.from(this.achievements.entries())) {
+      if (achievement.childId === id) this.achievements.delete(aid);
+    }
+    for (const [gid, goal] of Array.from(this.savingsGoals.entries())) {
+      if (goal.childId === id) this.savingsGoals.delete(gid);
+    }
+    for (const [lid, entry] of Array.from(this.spendingLog.entries())) {
+      if (entry.childId === id) this.spendingLog.delete(lid);
+    }
+    for (const [did, donation] of Array.from(this.donations.entries())) {
+      if (donation.childId === id) this.donations.delete(did);
+    }
+    for (const [tid, tx] of Array.from(this.transactions.entries())) {
+      if (tx.childId === id) this.transactions.delete(tid);
+    }
+    for (const [rid, req] of Array.from(this.approvalRequests.entries())) {
+      if (req.childId === id) this.approvalRequests.delete(rid);
+    }
+
+    this.children.delete(id);
+    this.users.delete(child.userId);
+    return true;
   }
 
   async createJobCategory(insert: InsertJobCategory): Promise<JobCategory> {

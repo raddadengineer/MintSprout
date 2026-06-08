@@ -216,7 +216,11 @@ export default function Payments() {
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <h3 className="font-medium text-gray-900">
-                        {linkedJob ? linkedJob.title : "Task payment"}
+                        {linkedJob
+                          ? linkedJob.title
+                          : payment.source === "allowance" || payment.jobId === 0
+                            ? payment.label ?? "Allowance payout"
+                            : "Task payment"}
                       </h3>
                       <p className="text-sm text-gray-600">
                         {linkedJob && linkedJob.description && (

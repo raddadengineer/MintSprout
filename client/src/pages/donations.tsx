@@ -6,6 +6,7 @@ import { useSelectedChild } from "@/components/navigation";
 import { useKidMode } from "@/hooks/use-kid-mode";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { PageHeader, PageShell } from "@/components/page-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -130,13 +131,13 @@ export default function Donations() {
   if (isYoungestChild) return null;
 
   return (
-    <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">❤️ Donations</h1>
-        <p className="text-gray-600">
-          {isParent ? "Review donations for the selected child." : "Track giving and causes you care about."}
-        </p>
-      </div>
+    <PageShell className="max-w-5xl">
+      <PageHeader
+        title="❤️ Donations"
+        description={
+          isParent ? "Review donations for the selected child." : "Track giving and causes you care about."
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
@@ -270,7 +271,7 @@ export default function Donations() {
           </Card>
         </div>
       </div>
-    </main>
+    </PageShell>
   );
 }
 

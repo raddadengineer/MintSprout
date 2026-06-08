@@ -16,6 +16,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import type { AccountTypesRow, ChildRow, JobRow, PaymentRow } from "@/lib/api-types";
 import { PaymentApprovalModal } from "@/components/payment-approval-modal";
+import { PageHeader, PageShell } from "@/components/page-shell";
 import { taskLabels } from "@/lib/task-labels";
 import { needsPaymentModal, taskPayKind } from "@/lib/task-pay-type";
 
@@ -246,20 +247,18 @@ export default function FamilyPage() {
 
   if (childrenLoading || jobsLoading || paymentsLoading) {
     return (
-      <div className="p-6">
-        <div className="text-center">Loading family data...</div>
-      </div>
+      <PageShell>
+        <div className="text-center py-12">Loading family data...</div>
+      </PageShell>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Family Management</h1>
-          <p className="text-gray-600 mt-1">Manage your family's financial learning journey</p>
-        </div>
-      </div>
+    <PageShell className="space-y-6">
+      <PageHeader
+        title="Family Management"
+        description="Manage your family's financial learning journey"
+      />
 
       {/* Family Overview Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -573,6 +572,6 @@ export default function FamilyPage() {
         }}
         job={selectedJob}
       />
-    </div>
+    </PageShell>
   );
 }

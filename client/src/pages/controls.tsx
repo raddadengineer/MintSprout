@@ -28,6 +28,7 @@ import { dayOfWeekLabel, periodEndDayOfWeek, periodStartDayOfWeek, payDayOfWeek 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { Link } from "wouter";
+import { PageHeader, PageShell } from "@/components/page-shell";
 
 const CONTROLS_TABS = ["approvals", "allowances", "jobs", "lessons", "sprout"] as const;
 type ControlsTab = (typeof CONTROLS_TABS)[number];
@@ -591,23 +592,23 @@ export default function Controls() {
 
   if (user?.role !== "parent") {
     return (
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <PageShell wide="narrow">
         <Card className="mint-card">
           <CardContent className="p-6">Only parents can access controls.</CardContent>
         </Card>
-      </main>
+      </PageShell>
     );
   }
 
   return (
-    <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">🛡️ Parent Controls</h1>
-        <p className="text-gray-600">Approvals, allowances, and task & lesson catalogs.</p>
-      </div>
+    <PageShell wide="wide">
+      <PageHeader
+        title="🛡️ Parent Controls"
+        description="Approvals, allowances, and task & lesson catalogs."
+      />
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 h-auto sm:grid-cols-5 gap-1 p-1">
+        <TabsList className="grid w-full grid-cols-2 h-auto md:grid-cols-3 lg:grid-cols-5 gap-1 p-1">
           <TabsTrigger value="approvals" className="text-xs sm:text-sm py-2">
             Approvals
             {pendingRequests.length > 0 && (
@@ -996,7 +997,7 @@ export default function Controls() {
           <AppSettingsPanel />
         </TabsContent>
       </Tabs>
-    </main>
+    </PageShell>
   );
 }
 

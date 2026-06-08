@@ -161,19 +161,6 @@ export type AllowancePeriodStatus = {
 };
 
 async function countMissedInPeriod(allowance: Allowance, now: Date, storage: IStorage): Promise<number> {
-  if (supportsInteractiveTransactions) {
-    const rows = await db
-      .select()
-      .from(schema.allowanceMissedJobLog)
-      .where(
-        and(
-          eq(schema.allowanceMissedJobLog.allowanceId, allowance.id),
-          gte(schema.allowanceMissedJobLog.createdAt, periodStartForAllowance(allowance, now)),
-          lte(schema.allowanceMissedJobLog.createdAt, now),
-        ),
-      );
-    return rows.length;
-  }
   const jobs = await storage.getJobsByChild(allowance.childId);
   const allowanceJobs = jobs.filter((j) => (j as Job & { allowanceId?: number }).allowanceId === allowance.id);
   return allowanceJobs.filter((j) => j.status !== "approved").length;

@@ -279,6 +279,30 @@ CREATE TABLE IF NOT EXISTS app_settings (
 );
 `,
   },
+  {
+    id: "child_fk_cascade_v1",
+    sql: `
+ALTER TABLE jobs DROP CONSTRAINT IF EXISTS jobs_assigned_to_id_fkey;
+ALTER TABLE jobs ADD CONSTRAINT jobs_assigned_to_id_fkey
+  FOREIGN KEY (assigned_to_id) REFERENCES children(id) ON DELETE CASCADE;
+
+ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_child_id_fkey;
+ALTER TABLE payments ADD CONSTRAINT payments_child_id_fkey
+  FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE;
+
+ALTER TABLE allocation_settings DROP CONSTRAINT IF EXISTS allocation_settings_child_id_fkey;
+ALTER TABLE allocation_settings ADD CONSTRAINT allocation_settings_child_id_fkey
+  FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE;
+
+ALTER TABLE learning_progress DROP CONSTRAINT IF EXISTS learning_progress_child_id_fkey;
+ALTER TABLE learning_progress ADD CONSTRAINT learning_progress_child_id_fkey
+  FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE;
+
+ALTER TABLE achievements DROP CONSTRAINT IF EXISTS achievements_child_id_fkey;
+ALTER TABLE achievements ADD CONSTRAINT achievements_child_id_fkey
+  FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE;
+`,
+  },
 ];
 
 async function migrationApplied(id: string): Promise<boolean> {
@@ -330,6 +354,9 @@ export async function runMigrations(): Promise<void> {
       }
     }
   }
+
+  const { seedExpandedCurriculum } = await import("./seed-expanded-lessons");
+  await seedExpandedCurriculum();
 }
 
 export async function listFamilyIds(): Promise<number[]> {

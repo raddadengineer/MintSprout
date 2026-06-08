@@ -62,6 +62,8 @@ import {
   listBackupFiles,
 } from "./db-backup";
 import { runBackupNow } from "./backup-scheduler";
+import { checkLessonAchievements, checkSavingsGoalAchievement } from "./achievements";
+import { getPaymentHistory } from "./payment-history";
 import { db } from "./db";
 import * as schema from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -465,7 +467,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const success = await storage.deleteChild(childId);
 
       if (success) {
-        await storage.deleteUser(child.userId);
         res.json({ message: "Child removed successfully" });
       } else {
         res.status(500).json({ message: "Failed to remove child" });
@@ -1761,18 +1762,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Payments routes
   app.get("/api/payments", verifyToken, async (req: any, res) => {
     try {
-      let payments;
       if (req.user.role === "parent") {
-        payments = await storage.getPaymentsByFamily(req.user.familyId);
-      } else {
-        // Find child ID for this user
-        const children = await storage.getChildrenByFamily(req.user.familyId);
-        const child = children.find(c => c.userId === req.user.id);
-        if (!child) {
-          return res.status(404).json({ message: "Child profile not found" });
-        }
-        payments = await storage.getPaymentsByChild(child.id);
+        const payments = await getPaymentHistory(storage, req.user.familyId);
+        return res.json(payments);
       }
+      const children = await storage.getChildrenByFamily(req.user.familyId);
+      const child = children.find((c) => c.userId === req.user.id);
+      if (!child) {
+        return res.status(404).json({ message: "Child profile not found" });
+      }
+      const payments = await getPaymentHistory(storage, req.user.familyId, child.id);
       res.json(payments);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
@@ -1894,20 +1893,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existing = existingProgress.find(p => p.lessonId === lessonId);
 
       if (existing) {
-        // Update existing progress
         const updated = await storage.updateLearningProgress(childId, lessonId, {
           completed: completed || existing.completed,
           quizScore: quizScore !== undefined ? quizScore : existing.quizScore
         });
+        if (updated?.completed) await checkLessonAchievements(storage, childId);
         res.json(updated);
       } else {
-        // Create new progress
         const progress = await storage.createLearningProgress({
           childId,
           lessonId,
           completed: completed || false,
           quizScore: quizScore || null
         });
+        if (progress.completed) await checkLessonAchievements(storage, childId);
         res.json(progress);
       }
     } catch (error) {
@@ -2155,6 +2154,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         note: `Fund goal: ${goal.name}`,
       });
 
+      if (nextCompleted) await checkSavingsGoalAchievement(storage, child.id);
+
       res.json(updated);
     } catch {
       res.status(500).json({ message: "Internal server error" });
@@ -2198,6 +2199,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const entryBody = spendingLogCreateSchema.parse(req.body);
 
       const settings = await storage.getFamilySettings(req.user.familyId);
+      if (req.user.role === "parent" && settings?.requireSpendingApproval) {
+        return res.status(403).json({
+          message: "Spending requires child approval requests when that setting is enabled.",
+        });
+      }
       if (req.user.role === "child" && settings?.requireSpendingApproval) {
         const created = await storage.createApprovalRequest({
           familyId: req.user.familyId,
@@ -2294,6 +2300,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const donationBody = donationCreateSchema.parse(req.body);
 
       const settings = await storage.getFamilySettings(req.user.familyId);
+      if (req.user.role === "parent" && settings?.requireDonationApproval) {
+        return res.status(403).json({
+          message: "Donations require child approval requests when that setting is enabled.",
+        });
+      }
       if (req.user.role === "child" && settings?.requireDonationApproval) {
         const created = await storage.createApprovalRequest({
           familyId: req.user.familyId,

@@ -148,7 +148,7 @@ Configured in **Controls → Allowances** for each child:
 
 - **Total allowance** — Full amount if all allowance chores are done and approved.
 - **Guaranteed minimum** — The child always receives at least this much, even with missed chores.
-- **Penalty per incomplete job** — Each chore still not approved before payout reduces the *non-guaranteed* part of allowance.
+- **Penalty per incomplete job** — Each allowance chore still **not approved** before payout reduces the *non-guaranteed* part of allowance. You do not need to click **Mark missed** for penalties to apply; that button is optional for tracking chores in the Payments panel.
 - **Period** — Weekly (with configurable start/end/pay days) or monthly.
 - **Payout mode**:
   - **Automatic** — Pays on schedule when the period ends.
@@ -241,8 +241,10 @@ Direct link: **Tasks → Payments** (`/jobs?view=payments`) for allowance payout
 Financial lessons with videos, Sprout voice sessions, and quizzes.
 
 - **Parents**: Use **View as child** first, then open Learn to see **that child's progress** (completed lessons, quiz scores, voice lesson completion).
-- **Kids**: Browse categories (Earning, Saving, Spending, Investing, Donating), watch videos, complete **Learn with Sprout** voice session, then take the quiz.
-- Quiz is **locked** until the Sprout voice lesson is completed (`preparedAt` on progress).
+- **Kids (ages 11+)**: Browse categories, **read** lesson text or watch videos, optionally use **Learn with Sprout** voice, then take the quiz — reading and voice are both available when content exists.
+- **Kids (ages 7–10)**: Watch videos when available; lessons **without** a video or readable text require **Learn with Sprout** before the quiz. Quiz questions are read aloud automatically.
+- **Kids (ages 5–6)**: Same voice/video rules as 7–10; UI uses icons and Sprout voice is the primary path for text-only lessons.
+- Quiz is **locked** until preparation: Sprout voice session (`preparedAt`), **watching the video** (younger kids), or **reading published content** (older kids).
 
 **Publishing lessons (parents)**
 
@@ -385,9 +387,10 @@ Same pattern for donations and goal funding with their respective toggles.
 ### 6. Sprout voice lesson flow (what kids experience)
 
 1. Child opens **Learn** and selects a lesson.
-2. Primary action: **Learn with Sprout** — interactive voice session walks through the topic.
-3. After completing the voice session, the **quiz unlocks**.
-4. Child passes quiz → lesson marked complete; achievements may update.
+2. **If the lesson has no video and little readable text** (voice-only): **Learn with Sprout** is required before the quiz (all ages).
+3. **Ages 7–10**: If a **video** is published, watching it unlocks the quiz; Sprout voice is optional. Text-only lessons still require Sprout voice.
+4. **Ages 11+**: If the lesson has **text or video**, the child may read/watch and take the quiz directly, or choose **Learn with Sprout** instead.
+5. Child passes quiz → lesson marked complete; achievements may update.
 
 As parent, ensure Sprout is enabled and LLM/voice URLs work (**Controls → Sprout & App → Test LLM / Test Voice**). Without AI configured, voice lessons may not run; lesson text and video may still be available depending on content.
 

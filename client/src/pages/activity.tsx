@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { PageHeader, PageShell } from "@/components/page-shell";
 
 type Transaction = {
   id: number;
@@ -175,17 +176,17 @@ export default function Activity() {
   if (isYoungestChild) return null;
 
   return (
-    <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">🧾 Activity</h1>
-        <p className="text-gray-600">A timeline of money moving in and out of accounts.</p>
-      </div>
+    <PageShell wide="default" className="max-w-5xl">
+      <PageHeader
+        title="🧾 Activity"
+        description="A timeline of money moving in and out of accounts."
+      />
 
       <Card className="mint-card">
         <CardHeader>
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle>Transaction history</CardTitle>
-            <Button variant="outline" onClick={exportCsv} disabled={filtered.length === 0 || isLoading}>
+            <Button variant="outline" onClick={exportCsv} disabled={filtered.length === 0 || isLoading} className="w-full sm:w-auto">
               Export CSV
             </Button>
           </div>
@@ -276,7 +277,7 @@ export default function Activity() {
                 const bal = runningBalance?.map.get(t.id);
 
                 return (
-                  <div key={t.id} className="border border-gray-200 rounded-xl p-4 bg-white flex items-start justify-between gap-4">
+                  <div key={t.id} className="border border-gray-200 rounded-xl p-4 bg-white flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-xl">{iconForType(t.type)}</span>
@@ -302,7 +303,7 @@ export default function Activity() {
           )}
         </CardContent>
       </Card>
-    </main>
+    </PageShell>
   );
 }
 

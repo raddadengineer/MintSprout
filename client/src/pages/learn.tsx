@@ -28,6 +28,30 @@ function lessonDisplayContent(lesson: { content?: string | null }): string {
   return lesson.content?.trim() ?? "";
 }
 
+const READABLE_CONTENT_MIN = 80;
+
+function lessonHasReadableText(lesson: { content?: string | null }): boolean {
+  return lessonDisplayContent(lesson).length > READABLE_CONTENT_MIN;
+}
+
+function lessonHasWatchableVideo(lesson: { videoUrl?: string | null }): boolean {
+  return !!lesson.videoUrl?.trim();
+}
+
+function lessonHasView(lesson: { content?: string | null; videoUrl?: string | null }): boolean {
+  return lessonHasWatchableVideo(lesson) || lessonHasReadableText(lesson);
+}
+
+/** Ages ≤10 — still learning to read; voice or watch-only paths apply. */
+function isPreReaderKid(role: string | undefined, kidMode: string): boolean {
+  return role === "child" && (kidMode === "youngest" || kidMode === "younger");
+}
+
+/** Ages 11+ (or unknown age) — can read lesson text and choose voice or reading. */
+function canReadAlong(role: string | undefined, kidMode: string): boolean {
+  return role !== "child" || kidMode === "older" || kidMode === "unknown";
+}
+
 const categories = [
   { id: "earning", name: "Earning", icon: "💰", color: "bg-green-500" },
   { id: "saving", name: "Saving", icon: "🐷", color: "bg-blue-500" },
@@ -237,9 +261,28 @@ export default function Learn() {
     return progress?.quizScore || 0;
   };
 
-  const isLessonPrepared = (lessonId: number) => {
-    return Array.isArray(learningProgress) &&
-      learningProgress.some((p: any) => p.lessonId === lessonId && p.preparedAt);
+  const isVoicePrepared = (lessonId: number) =>
+    Array.isArray(learningProgress) &&
+    learningProgress.some((p: any) => p.lessonId === lessonId && p.preparedAt);
+
+  const isLessonPrepared = (lesson: { id: number; content?: string; videoUrl?: string | null }) => {
+    if (user?.role === "parent") return true;
+
+    if (isVoicePrepared(lesson.id)) return true;
+
+    const preReader = isPreReaderKid(user?.role, kidMode);
+    const hasVideo = lessonHasWatchableVideo(lesson);
+    const hasText = lessonHasReadableText(lesson);
+
+    if (preReader) {
+      // Pre-readers: video counts as preparation; text-only lessons need Sprout voice.
+      if (hasVideo) return watchedVideos.has(lesson.id);
+      return false;
+    }
+
+    // Readers: published text or video is enough without a voice session.
+    if (hasText || hasVideo) return true;
+    return false;
   };
 
   const openVoiceLesson = (lesson: any) => {
@@ -311,7 +354,9 @@ export default function Learn() {
           {user?.role === "child" && kidMode === "youngest" ? (
             <IconText icon="📺" label="Watch and play!" size="sm" className="text-gray-600" />
           ) : user?.role === "child" && kidMode === "younger" ? (
-            "Watch a short video, then take a quick quiz."
+            "Watch, listen with Sprout, or read — then take the quiz."
+          ) : user?.role === "child" && kidMode === "older" ? (
+            "Read the lesson or use Sprout voice — your choice before the quiz."
           ) : (
             "Discover the secrets of smart money management!"
           )}
@@ -360,7 +405,12 @@ export default function Learn() {
       )}
 
       <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="space-y-8">
-        <TabsList className={`grid w-full ${kidMode === "youngest" ? "grid-cols-3" : "grid-cols-5"} lg:w-auto lg:inline-flex`}>
+        <div className="mint-scroll-tabs -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList
+            className={`inline-flex h-auto w-max min-w-full sm:min-w-0 gap-1 p-1 ${
+              kidMode === "youngest" ? "" : "flex-nowrap"
+            } lg:w-auto`}
+          >
           {categories
             .filter((c) => {
               if (user?.role !== "child") return true;
@@ -382,7 +432,8 @@ export default function Learn() {
               </span>
             </TabsTrigger>
           ))}
-        </TabsList>
+          </TabsList>
+        </div>
 
         {categories.map((category) => (
           <TabsContent key={category.id} value={category.id} className="space-y-6">
@@ -411,7 +462,20 @@ export default function Learn() {
                   const score = getLessonScore(lesson.id);
                   const displayContent = lessonDisplayContent(lesson);
                   const hasLessonBody = displayContent.length > 0;
-                  const prepared = isLessonPrepared(lesson.id);
+                  const hasVideo = lessonHasWatchableVideo(lesson);
+                  const hasReadableText = lessonHasReadableText(lesson);
+                  const hasView = lessonHasView(lesson);
+                  const preReader = isPreReaderKid(user?.role, kidMode);
+                  const reader = canReadAlong(user?.role, kidMode);
+                  const isChild = user?.role === "child";
+                  const voicePrepared = isVoicePrepared(lesson.id);
+                  const prepared = isLessonPrepared(lesson);
+                  const canTakeQuiz = !isChild || prepared;
+                  const needsVoiceFirst = isChild && !prepared && !hasView;
+                  const needsWatchFirst =
+                    isChild && preReader && hasVideo && !watchedVideos.has(lesson.id) && !voicePrepared;
+                  const showOptionalVoiceLesson =
+                    isChild && !needsVoiceFirst && (reader || (preReader && hasView));
 
                   return (
                     <Card key={lesson.id} className="mint-card relative overflow-hidden">
@@ -639,7 +703,7 @@ export default function Learn() {
                               <Gamepad2 className="h-4 w-4 mr-2" />
                               Start Interactive Activity
                             </Button>
-                          ) : user?.role === "child" && !prepared ? (
+                          ) : needsVoiceFirst ? (
                             <Button
                               className="w-full bg-emerald-600 hover:bg-emerald-700"
                               onClick={() => openVoiceLesson(lesson)}
@@ -652,21 +716,43 @@ export default function Learn() {
                               )}
                             </Button>
                           ) : (
-                            <Button
-                              className="w-full"
-                              onClick={() => startQuiz(lesson)}
-                              disabled={markProgressMutation.isPending || (user?.role === "child" && !prepared)}
-                            >
-                              <Trophy className="h-4 w-4 mr-2" />
-                              {user?.role === "child" && !prepared
-                                ? "Complete Sprout Lesson First"
-                                : isCompleted
-                                  ? `Retake Quiz (${score}%)`
-                                  : "Take Quiz"}
-                            </Button>
+                            <>
+                              <Button
+                                className="w-full"
+                                onClick={() => startQuiz(lesson)}
+                                disabled={markProgressMutation.isPending || !canTakeQuiz}
+                              >
+                                <Trophy className="h-4 w-4 mr-2" />
+                                {!canTakeQuiz && isChild
+                                  ? needsWatchFirst
+                                    ? "Watch the video first"
+                                    : "Complete Sprout lesson first"
+                                  : isCompleted
+                                    ? `Retake Quiz (${score}%)`
+                                    : "Take Quiz"}
+                              </Button>
+
+                              {showOptionalVoiceLesson && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="w-full border-emerald-300 bg-emerald-50 hover:bg-emerald-100 font-bold"
+                                  onClick={() => openVoiceLesson(lesson)}
+                                >
+                                  <Volume2 className="h-4 w-4 mr-2" />
+                                  {kidMode === "youngest" ? (
+                                    <IconText icon="🌱" label="Or learn with Sprout" size="sm" />
+                                  ) : reader ? (
+                                    "Or learn with Sprout (voice)"
+                                  ) : (
+                                    "Or learn with Sprout"
+                                  )}
+                                </Button>
+                              )}
+                            </>
                           )}
 
-                          {user?.role === "child" && openSprout && (
+                          {isChild && openSprout && (
                             <Button
                               type="button"
                               variant="outline"

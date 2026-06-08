@@ -251,8 +251,8 @@ export function SproutBuddy({
           onClick={() => setOpen(true)}
           className={`fixed z-50 shadow-xl rounded-full flex items-center gap-2 font-black transition-transform hover:scale-105 active:scale-95 ${
             kidMode === "youngest"
-              ? "bottom-24 right-4 bg-gradient-to-r from-green-400 to-emerald-500 text-white px-5 py-4 text-lg"
-              : "bottom-20 right-4 md:bottom-6 bg-primary text-white px-4 py-3"
+              ? "bottom-[max(6rem,calc(env(safe-area-inset-bottom)+5rem))] right-4 bg-gradient-to-r from-green-400 to-emerald-500 text-white px-5 py-4 text-lg"
+              : "bottom-[max(5rem,calc(env(safe-area-inset-bottom)+4rem))] right-4 md:bottom-[max(1.5rem,env(safe-area-inset-bottom))] bg-primary text-white px-4 py-3"
           }`}
           aria-label="Talk to Sprout"
         >
@@ -268,8 +268,8 @@ export function SproutBuddy({
             voiceMode ? "border-emerald-400 ring-2 ring-emerald-200" : "border-primary/20"
           } ${
             kidMode === "youngest"
-              ? "inset-x-3 bottom-20 top-auto max-h-[70vh] rounded-3xl"
-              : "bottom-20 right-3 left-3 md:left-auto md:w-96 max-h-[min(520px,75vh)] rounded-2xl"
+              ? "inset-x-3 bottom-[max(5.5rem,calc(env(safe-area-inset-bottom)+4.5rem))] top-auto max-h-[70vh] rounded-3xl"
+              : "bottom-[max(5rem,calc(env(safe-area-inset-bottom)+4rem))] right-3 left-3 md:left-auto md:w-96 md:bottom-[max(1.5rem,env(safe-area-inset-bottom))] max-h-[min(520px,75vh)] rounded-2xl"
           }`}
         >
           <div className="flex items-center justify-between px-4 py-3 border-b bg-gradient-to-r from-green-50 to-emerald-50 rounded-t-2xl">

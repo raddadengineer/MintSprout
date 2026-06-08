@@ -22,6 +22,7 @@ import { youngestJobStatus } from "@/lib/youngest-ui";
 import { groupJobsByCategory, type JobCategoryRow } from "@/lib/job-category-groups";
 import type { AccountTypesRow, ChildRow, JobRow, PaymentRow } from "@/lib/api-types";
 import { taskLabels } from "@/lib/task-labels";
+import { PageHeader } from "@/components/page-shell";
 import { needsPaymentModal, taskPayKind, taskPayLabel } from "@/lib/task-pay-type";
 import { Search, Filter, Edit, Trash2, Calendar, DollarSign, User, MoreHorizontal, Eye } from "lucide-react";
 
@@ -475,23 +476,18 @@ export default function Jobs() {
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {isParent ? labels.pageTitleParent : labels.pageTitle}
-          </h1>
-        </div>
-        {isParent ? (
-          <Button
-            onClick={() => setShowJobModal(true)}
-            className="mint-primary mint-button"
-          >
-            ➕ {labels.create}
-          </Button>
-        ) : (
-          <DailyBriefButton />
-        )}
-      </div>
+      <PageHeader
+        title={isParent ? labels.pageTitleParent : labels.pageTitle}
+        actions={
+          isParent ? (
+            <Button onClick={() => setShowJobModal(true)} className="mint-primary mint-button w-full sm:w-auto">
+              ➕ {labels.create}
+            </Button>
+          ) : (
+            <DailyBriefButton />
+          )
+        }
+      />
 
       {/* Stats Cards */}
       {user?.role === "parent" && (
@@ -594,9 +590,15 @@ export default function Jobs() {
 
       {/* Task Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className={`grid w-full ${
-          isYoungestChild ? "grid-cols-1" : isParent ? "grid-cols-3" : "grid-cols-2"
-        }`}>
+        <TabsList
+          className={
+            isYoungestChild
+              ? "grid w-full h-auto grid-cols-1 gap-1"
+              : isParent
+                ? "grid w-full h-auto grid-cols-1 min-[420px]:grid-cols-3 gap-1"
+                : "grid w-full h-auto grid-cols-2 gap-1"
+          }
+        >
           <TabsTrigger value="active">{labels.active} ({activeJobs.length})</TabsTrigger>
           {isParent && (
             <TabsTrigger value="awaiting">
@@ -694,9 +696,9 @@ export default function Jobs() {
           {completedJobs.length > 0 ? (
             <div className="space-y-4">
               {user?.role === "parent" && (
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg mb-4">
-                  <div className="flex items-center space-x-4">
-                    <div className="text-sm text-gray-600">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 bg-gray-50 rounded-lg mb-4">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:space-x-4 min-w-0">
+                    <div className="text-sm text-gray-600 break-words">
                       <strong>{completedJobs.length}</strong> completed {labels.plural} • Total paid: <strong>${completedJobs.reduce((sum: number, job: any) => sum + parseFloat(job.amount), 0).toFixed(2)}</strong>
                     </div>
                     {selectedJobs.length > 0 && (
@@ -705,7 +707,7 @@ export default function Jobs() {
                       </div>
                     )}
                   </div>
-                  <div className="flex space-x-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button 
                       size="sm" 
                       variant="outline"
@@ -714,6 +716,33 @@ export default function Jobs() {
                     >
                       {showBulkActions ? "Cancel Selection" : "Select Multiple"}
                     </Button>
+                    {selectedJobs.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const completedIds = selectedJobs.filter((jobId) => {
+                            const job = jobs?.find((j: any) => j.id === jobId);
+                            return job?.status === "completed";
+                          });
+                          if (completedIds.length === 0) {
+                            toast({
+                              title: "Nothing to approve",
+                              description: `Select ${labels.plural} awaiting approval (completed status).`,
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          completedIds.forEach((jobId) => handleJobAction(jobId, "approved"));
+                          setSelectedJobs([]);
+                          setShowBulkActions(false);
+                        }}
+                        className="text-xs"
+                        disabled={updateJobMutation.isPending}
+                      >
+                        Approve Selected
+                      </Button>
+                    )}
                     {selectedJobs.length > 0 && (
                       <Button 
                         size="sm" 

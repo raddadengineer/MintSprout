@@ -107,9 +107,9 @@ export function Navigation() {
 
   return (
     <SelectedChildContext.Provider value={{ selectedChildId, setSelectedChildId }}>
-      <nav className="bg-white shadow-sm border-b-2 border-primary/10 sticky top-0 z-40 w-full overflow-hidden">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4">
-          <div className="flex items-center justify-between h-14 gap-2">
+      <nav className="bg-white shadow-sm border-b-2 border-primary/10 sticky top-0 z-40 w-full overflow-hidden pt-[env(safe-area-inset-top)]">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
+          <div className="flex items-center justify-between h-14 gap-2 min-w-0">
             {/* Logo */}
             <Link href="/dashboard" className="flex items-center gap-2 shrink-0 min-w-0">
               <div className="w-9 h-9 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center shadow-md shrink-0">
@@ -128,7 +128,7 @@ export function Navigation() {
                   aria-label="Open navigation menu"
                 >
                   <MenuIcon className="h-4 w-4 shrink-0" />
-                  <span>Menu</span>
+                  <span className="hidden min-[400px]:inline">Menu</span>
                   <ChevronDown className="h-3.5 w-3.5 opacity-60 shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
@@ -198,6 +198,28 @@ export function Navigation() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+          </div>
+
+          {/* Tablet/desktop: quick links without opening the menu */}
+          <div className="hidden md:block border-t border-primary/5">
+            <div className="flex gap-1 overflow-x-auto py-2 mint-scroll-tabs">
+              <div className="inline-flex gap-1 min-w-0">
+                {navItems.map(({ href, icon, label }) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={`inline-flex items-center gap-1.5 shrink-0 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${
+                      isActive(href)
+                        ? "bg-primary/10 text-primary"
+                        : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                    }`}
+                  >
+                    <span aria-hidden>{icon}</span>
+                    <span>{label}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </nav>

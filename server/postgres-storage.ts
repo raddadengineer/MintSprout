@@ -100,10 +100,10 @@ export class PostgresStorage implements IStorage {
   }
 
   async deleteChild(id: number): Promise<boolean> {
-    const result = await db.delete(schema.children)
-      .where(eq(schema.children.id, id))
-      .returning();
-    return result.length > 0;
+    const child = await this.getChild(id);
+    if (!child) return false;
+    const { deleteChildWithUser } = await import("./child-delete");
+    return deleteChildWithUser(id, child.userId);
   }
 
   async createJobCategory(insert: InsertJobCategory): Promise<JobCategory> {

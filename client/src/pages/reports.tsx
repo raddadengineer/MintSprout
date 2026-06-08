@@ -34,6 +34,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSelectedChild } from "@/components/navigation";
 import type { ChildRow, JobRow, PaymentRow } from "@/lib/api-types";
+import { PageHeader } from "@/components/page-shell";
 
 const COLORS = {
   spending: "#3B82F6",
@@ -164,7 +165,7 @@ export default function Reports() {
         return {
           Date: new Date(payment.createdAt ?? Date.now()).toLocaleDateString(),
           Child: child?.name || "Unknown",
-          Task: job?.title || "Unknown",
+          Task: job?.title || (payment as PaymentRow & { label?: string; source?: string }).label || ((payment as PaymentRow & { source?: string }).source === "allowance" || payment.jobId === 0 ? "Allowance payout" : "Unknown"),
           "Total Amount": parseFloat(payment.amount).toFixed(2),
           "Spending Amount": parseFloat(payment.spendingAmount).toFixed(2),
           "Savings Amount": parseFloat(payment.savingsAmount).toFixed(2),
@@ -221,10 +222,10 @@ export default function Reports() {
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Reports & Analytics</h1>
-        <p className="text-gray-600 text-lg">Track earnings, spending patterns, and financial progress</p>
-      </div>
+      <PageHeader
+        title="Reports & Analytics"
+        description="Track earnings, spending patterns, and financial progress"
+      />
 
       {/* Filters */}
       <Card className="mint-card mb-8">

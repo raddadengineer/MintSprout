@@ -3,6 +3,7 @@ import { db, supportsInteractiveTransactions } from "./db";
 import * as schema from "@shared/schema";
 import type { IStorage } from "./storage";
 import type { Job } from "@shared/schema";
+import { checkJobAchievements } from "./achievements";
 
 type PaymentAmounts = {
   spendingAmount: string;
@@ -72,6 +73,8 @@ async function applyPaymentSideEffects(
     brokerageBalance: (parseFloat(child.brokerageBalance || "0") + parseFloat(paymentAmounts.brokerageAmount)).toFixed(2),
     completedJobs: (child.completedJobs || 0) + 1,
   });
+
+  await checkJobAchievements(storage, job.assignedToId);
 
   const note = `Payment for job: ${job.title}`;
   const spendingAmt = parseFloat(paymentAmounts.spendingAmount || "0");
@@ -270,6 +273,7 @@ export async function applyJobPatch(
         await storage.updateChild(job.assignedToId, {
           completedJobs: (child.completedJobs || 0) + 1,
         });
+        await checkJobAchievements(storage, job.assignedToId);
       }
     }
 
