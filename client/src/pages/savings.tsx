@@ -121,7 +121,7 @@ export default function Savings() {
     onError: () => toast({ title: "Error", description: "Could not delete goal.", variant: "destructive" }),
   });
 
-  const [fundAmounts, setFundAmounts] = useState<Record<number, string>>({});
+  const [fundAmounts, setFundAmounts] = useState<Record<string, string>>({});
   const fundMutation = useMutation({
     mutationFn: async (payload: { goalId: number; amount: number }) => {
       const res = await apiRequest("POST", `/api/savings-goals/${payload.goalId}/fund`, { amount: payload.amount });
@@ -132,6 +132,8 @@ export default function Savings() {
       await queryClient.invalidateQueries({ queryKey: ["/api/dashboard-stats"] });
       if (data?.pending) {
         toast({ title: "Sent for approval", description: "A parent needs to approve this goal funding." });
+      } else if (isParent) {
+        toast({ title: "Added", description: "Parent contribution applied to the goal." });
       } else {
         toast({ title: "Funded", description: "Money moved from Savings to your goal." });
       }
@@ -256,6 +258,41 @@ export default function Savings() {
                                   disabled={updateMutation.isPending}
                                 >
                                   +$1
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+
+                          {isParent && !g.completed && (
+                            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              <div>
+                                <Label htmlFor={`goal-parent-fund-${g.id}`}>Add funds (parent)</Label>
+                                <Input
+                                  id={`goal-parent-fund-${g.id}`}
+                                  className="mint-input mt-1"
+                                  type="number"
+                                  min="0.01"
+                                  step="0.01"
+                                  value={fundAmounts[`parent-${g.id}`] ?? ""}
+                                  onChange={(e) =>
+                                    setFundAmounts((prev) => ({ ...prev, [`parent-${g.id}`]: e.target.value }))
+                                  }
+                                  placeholder="0.00"
+                                />
+                              </div>
+                              <div className="sm:col-span-2 flex items-end">
+                                <Button
+                                  className="mint-primary mint-button flex-1"
+                                  onClick={() => {
+                                    const raw = fundAmounts[`parent-${g.id}`] ?? "";
+                                    const amt = Number.parseFloat(raw);
+                                    if (!Number.isFinite(amt) || amt <= 0) return;
+                                    fundMutation.mutate({ goalId: g.id, amount: amt });
+                                    setFundAmounts((prev) => ({ ...prev, [`parent-${g.id}`]: "" }));
+                                  }}
+                                  disabled={fundMutation.isPending}
+                                >
+                                  Add to goal
                                 </Button>
                               </div>
                             </div>

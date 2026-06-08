@@ -258,7 +258,7 @@ Lessons visible to kids come from your **lesson catalog**, managed in **Controls
 ### Goals (`/savings`)
 
 - Children set savings goals (name, target amount, optional deadline).
-- Parents view and manage goals for the selected child; can add funds toward a goal.
+- Parents view and manage goals for the selected child; use **Add funds (parent)** on Goals to contribute without deducting the child's savings balance.
 - If **Require goal funding approval** is on in Controls, child-initiated funding waits for your approval.
 
 ### Spending (`/spending`)

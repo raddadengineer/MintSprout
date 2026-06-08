@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useKidMode } from "@/hooks/use-kid-mode";
 import { Card, CardContent } from "@/components/ui/card";
@@ -38,10 +38,50 @@ import { PageHeader } from "@/components/page-shell";
 
 const COLORS = {
   spending: "#3B82F6",
-  savings: "#22C55E", 
+  savings: "#22C55E",
   rothIra: "#8B5CF6",
   brokerage: "#F59E0B",
+  outflow: "#EF4444",
+  donate: "#EC4899",
 };
+
+type SpendingEntry = {
+  id: number;
+  childId: number;
+  item: string;
+  amount: string;
+  category: string;
+  date: string;
+  createdAt?: string | null;
+};
+
+type DonationEntry = {
+  id: number;
+  childId: number;
+  organization: string;
+  cause: string;
+  amount: string;
+  date: string;
+  createdAt?: string | null;
+};
+
+async function fetchFamilyChildResource(path: string, childId?: number) {
+  const token = localStorage.getItem("auth_token");
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const url = childId != null ? `${path}?childId=${childId}` : path;
+  const res = await fetch(url, { headers, credentials: "include" });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+function entryInDateRange(dateValue: string, startDate: string, endDate: string): boolean {
+  const entryDate = new Date(dateValue.includes("T") ? dateValue : `${dateValue}T12:00:00`);
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999);
+  return entryDate >= start && entryDate <= end;
+}
 
 export default function Reports() {
   const { user } = useAuth();
@@ -67,6 +107,30 @@ export default function Reports() {
     queryKey: ["/api/jobs"],
   });
 
+  const reportChildIds = useMemo(() => {
+    if (user?.role === "child") return [null as number | null];
+    if (!children?.length) return [];
+    if (selectedChildId === "all") return children.map((c) => c.id);
+    const id = parseInt(selectedChildId, 10);
+    return Number.isFinite(id) ? [id] : [];
+  }, [user?.role, children, selectedChildId]);
+
+  const spendingQueries = useQueries({
+    queries: reportChildIds.map((childId) => ({
+      queryKey: ["/api/spending-log", childId ?? "self"],
+      queryFn: () => fetchFamilyChildResource("/api/spending-log", childId ?? undefined),
+      enabled: reportChildIds.length > 0,
+    })),
+  });
+
+  const donationQueries = useQueries({
+    queries: reportChildIds.map((childId) => ({
+      queryKey: ["/api/donations", childId ?? "self"],
+      queryFn: () => fetchFamilyChildResource("/api/donations", childId ?? undefined),
+      enabled: reportChildIds.length > 0,
+    })),
+  });
+
   const [, setLocation] = useLocation();
   const isYoungestChild = user?.role === "child" && kidMode === "youngest";
 
@@ -83,7 +147,17 @@ export default function Reports() {
 
   if (isYoungestChild) return null;
 
-  const isLoading = childrenLoading || paymentsLoading || jobsLoading;
+  const spendingLoading = spendingQueries.some((q) => q.isLoading);
+  const donationsLoading = donationQueries.some((q) => q.isLoading);
+  const isLoading =
+    childrenLoading || paymentsLoading || jobsLoading || spendingLoading || donationsLoading;
+
+  const allSpendingEntries: SpendingEntry[] = spendingQueries.flatMap(
+    (q) => (q.data as SpendingEntry[] | undefined) ?? [],
+  );
+  const allDonationEntries: DonationEntry[] = donationQueries.flatMap(
+    (q) => (q.data as DonationEntry[] | undefined) ?? [],
+  );
 
   // Filter data based on selected child and date range
   const filteredPayments = payments?.filter((payment: PaymentRow) => {
@@ -97,9 +171,31 @@ export default function Reports() {
     return isInDateRange && isSelectedChild;
   }) || [];
 
+  const filteredSpending = allSpendingEntries.filter((entry) => {
+    const inRange = entryInDateRange(entry.date, dateRange.startDate, dateRange.endDate);
+    const childOk =
+      selectedChildId === "all" || entry.childId.toString() === selectedChildId;
+    return inRange && childOk;
+  });
+
+  const filteredDonations = allDonationEntries.filter((entry) => {
+    const inRange = entryInDateRange(entry.date, dateRange.startDate, dateRange.endDate);
+    const childOk =
+      selectedChildId === "all" || entry.childId.toString() === selectedChildId;
+    return inRange && childOk;
+  });
+
   // Calculate totals
-  const totalEarned = filteredPayments.reduce((sum: number, payment: PaymentRow) => 
+  const totalEarned = filteredPayments.reduce((sum: number, payment: PaymentRow) =>
     sum + parseFloat(payment.amount), 0
+  );
+  const totalSpent = filteredSpending.reduce(
+    (sum, entry) => sum + parseFloat(entry.amount || "0"),
+    0,
+  );
+  const totalDonated = filteredDonations.reduce(
+    (sum, entry) => sum + parseFloat(entry.amount || "0"),
+    0,
   );
 
   const categoryTotals = filteredPayments.reduce((acc: any, payment: PaymentRow) => {
@@ -135,8 +231,25 @@ export default function Reports() {
     return acc;
   }, {});
 
-  const monthlyChartData = Object.values(monthlyData).sort((a: any, b: any) => 
+  const monthlyChartData = Object.values(monthlyData).sort((a: any, b: any) =>
     new Date(a.month).getTime() - new Date(b.month).getTime()
+  );
+
+  const outflowMonthlyData = [...filteredSpending, ...filteredDonations].reduce(
+    (acc: Record<string, { month: string; spent: number; donated: number }>, entry) => {
+      const month = new Date(
+        entry.date.includes("T") ? entry.date : `${entry.date}T12:00:00`,
+      ).toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+      if (!acc[month]) acc[month] = { month, spent: 0, donated: 0 };
+      const amount = parseFloat(entry.amount || "0");
+      if ("item" in entry) acc[month].spent += amount;
+      else acc[month].donated += amount;
+      return acc;
+    },
+    {},
+  );
+  const outflowChartData = Object.values(outflowMonthlyData).sort(
+    (a, b) => new Date(a.month).getTime() - new Date(b.month).getTime(),
   );
 
   const childComparisonData = user?.role === "parent"
@@ -280,7 +393,7 @@ export default function Reports() {
       </Card>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
         <Card className="mint-card">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -329,11 +442,25 @@ export default function Reports() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 mb-1">Payments Made</p>
-                <p className="text-3xl font-bold text-blue-600">{filteredPayments.length}</p>
+                <p className="text-sm font-medium text-gray-600 mb-1">Total Spent</p>
+                <p className="text-3xl font-bold text-red-600">${totalSpent.toFixed(2)}</p>
               </div>
-              <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center">
-                <span className="text-blue-500 text-xl">📋</span>
+              <div className="w-12 h-12 bg-red-500/10 rounded-xl flex items-center justify-center">
+                <span className="text-red-500 text-xl">🛒</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="mint-card">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">Total Donated</p>
+                <p className="text-3xl font-bold text-pink-600">${totalDonated.toFixed(2)}</p>
+              </div>
+              <div className="w-12 h-12 bg-pink-500/10 rounded-xl flex items-center justify-center">
+                <span className="text-pink-500 text-xl">❤️</span>
               </div>
             </div>
           </CardContent>
@@ -419,6 +546,29 @@ export default function Reports() {
 
         {/* Trends Over Time Tab */}
         <TabsContent value="trends" className="space-y-6">
+          <Card className="mint-card">
+            <CardContent className="p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">🛒 Spending & Donations</h3>
+              {outflowChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={outflowChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip formatter={(value: number) => [`$${value.toFixed(2)}`, ""]} />
+                    <Legend />
+                    <Bar dataKey="spent" fill={COLORS.outflow} name="Spending" />
+                    <Bar dataKey="donated" fill={COLORS.donate} name="Donations" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-48 text-gray-500">
+                  <p>No spending or donation data for the selected period</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card className="mint-card">
             <CardContent className="p-6">
               <h3 className="text-xl font-bold text-gray-900 mb-4">📈 Earnings Trends</h3>

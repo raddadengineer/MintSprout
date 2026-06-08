@@ -49,11 +49,11 @@ Access via: http://localhost:8080
      -subj "/CN=localhost"
    ```
 
-2. **Start with nginx**
+2. **Start with nginx** (requires `ssl/nginx-selfsigned.crt` and `ssl/nginx-selfsigned.key` from step 1)
    ```bash
-   docker-compose --profile production up -d
+   docker compose --profile production up -d
    ```
-   Access via: https://localhost
+   Access via: https://localhost (HTTP on port 80 redirects to HTTPS). The app remains available on http://localhost:8080 without the production profile.
 
 ### Custom Domain Setup
 1. Update `.env` file:

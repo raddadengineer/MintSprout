@@ -1886,16 +1886,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Only children can submit quiz progress" });
       }
 
-      const { lessonId, completed, quizScore } = req.body;
+      const { lessonId, completed, quizScore, markPrepared } = req.body;
 
       // Check if progress already exists
       const existingProgress = await storage.getLearningProgress(childId);
       const existing = existingProgress.find(p => p.lessonId === lessonId);
+      const preparedAt = markPrepared ? new Date() : undefined;
 
       if (existing) {
         const updated = await storage.updateLearningProgress(childId, lessonId, {
           completed: completed || existing.completed,
-          quizScore: quizScore !== undefined ? quizScore : existing.quizScore
+          quizScore: quizScore !== undefined ? quizScore : existing.quizScore,
+          preparedAt: preparedAt ?? existing.preparedAt ?? undefined,
         });
         if (updated?.completed) await checkLessonAchievements(storage, childId);
         res.json(updated);
@@ -1904,7 +1906,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           childId,
           lessonId,
           completed: completed || false,
-          quizScore: quizScore || null
+          quizScore: quizScore || null,
+          preparedAt: preparedAt ?? null,
         });
         if (progress.completed) await checkLessonAchievements(storage, childId);
         res.json(progress);
@@ -2094,13 +2097,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch { res.status(500).json({ message: "Internal server error" }); }
   });
 
-  // Fund a goal from the child's savings balance
+  // Fund a goal from the child's savings balance (child) or parent contribution (no savings deduction)
   app.post("/api/savings-goals/:id/fund", verifyToken, async (req: any, res) => {
     try {
-      if (req.user.role !== "child") {
-        return res.status(403).json({ message: "Only children can fund goals" });
-      }
-
       const id = parseInt(req.params.id);
       const { amount } = fundGoalSchema.parse(req.body);
 
@@ -2108,8 +2107,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!goal) return res.status(404).json({ message: "Goal not found" });
 
       const child = await storage.getChild(goal.childId);
-      if (!child || child.familyId !== req.user.familyId || child.userId !== req.user.id) {
+      if (!child || child.familyId !== req.user.familyId) {
         return res.status(404).json({ message: "Goal not found" });
+      }
+
+      if (req.user.role === "child" && child.userId !== req.user.id) {
+        return res.status(404).json({ message: "Goal not found" });
+      }
+
+      if (req.user.role === "parent") {
+        const currentAmount = parseFloat(goal.currentAmount || "0");
+        const targetAmount = Math.max(0.01, parseFloat(goal.targetAmount || "0.01"));
+        const nextCurrent = currentAmount + amount;
+        const nextCompleted = nextCurrent >= targetAmount;
+
+        const updated = await storage.updateSavingsGoal(goal.id, {
+          currentAmount: nextCurrent.toFixed(2),
+          completed: nextCompleted,
+        });
+
+        await storage.createTransaction({
+          childId: child.id,
+          type: "goal_fund",
+          amount: amount.toFixed(2),
+          fromAccount: "parent",
+          toAccount: "goal",
+          note: `Parent added to goal: ${goal.name}`,
+        });
+
+        if (nextCompleted) await checkSavingsGoalAchievement(storage, child.id);
+        return res.json(updated);
       }
 
       const settings = await storage.getFamilySettings(req.user.familyId);

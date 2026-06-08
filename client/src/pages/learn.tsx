@@ -165,8 +165,19 @@ export default function Learn() {
     enabled: !!selectedLesson?.id,
   });
 
+  useEffect(() => {
+    if (!Array.isArray(learningProgress)) return;
+    const preparedLessonIds = learningProgress
+      .filter((p: { preparedAt?: string | Date | null }) => p.preparedAt)
+      .map((p: { lessonId: number }) => p.lessonId);
+    setWatchedVideos(new Set(preparedLessonIds));
+  }, [learningProgress]);
+
   const handleVideoWatched = (lessonId: number) => {
-    setWatchedVideos(prev => new Set(Array.from(prev).concat([lessonId])));
+    setWatchedVideos((prev) => new Set(Array.from(prev).concat(lessonId)));
+    if (user?.role === "child") {
+      markProgressMutation.mutate({ lessonId, markPrepared: true });
+    }
   };
 
   const startQuiz = (lesson: any) => {
@@ -275,8 +286,8 @@ export default function Learn() {
     const hasText = lessonHasReadableText(lesson);
 
     if (preReader) {
-      // Pre-readers: video counts as preparation; text-only lessons need Sprout voice.
-      if (hasVideo) return watchedVideos.has(lesson.id);
+      // Pre-readers: video watch or Sprout voice sets preparedAt; text-only needs voice.
+      if (hasVideo) return isVoicePrepared(lesson.id);
       return false;
     }
 
@@ -473,7 +484,8 @@ export default function Learn() {
                   const canTakeQuiz = !isChild || prepared;
                   const needsVoiceFirst = isChild && !prepared && !hasView;
                   const needsWatchFirst =
-                    isChild && preReader && hasVideo && !watchedVideos.has(lesson.id) && !voicePrepared;
+                    isChild && preReader && hasVideo && !voicePrepared;
+                  const videoUnlocked = voicePrepared || watchedVideos.has(lesson.id);
                   const showOptionalVoiceLesson =
                     isChild && !needsVoiceFirst && (reader || (preReader && hasView));
 
@@ -666,7 +678,7 @@ export default function Learn() {
                         {lesson.videoUrl && (
                           <div className="space-y-2">
                             <div className="aspect-video rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center">
-                              {watchedVideos.has(lesson.id) ? (
+                              {videoUnlocked ? (
                                 <iframe
                                   src={lesson.videoUrl}
                                   title={lesson.title}
@@ -685,7 +697,7 @@ export default function Learn() {
                                 </Button>
                               )}
                             </div>
-                            {watchedVideos.has(lesson.id) && (
+                            {videoUnlocked && (
                               <div className="flex items-center text-green-600 text-sm">
                                 <CheckCircle className="h-4 w-4 mr-1" />
                                 Video watched!
