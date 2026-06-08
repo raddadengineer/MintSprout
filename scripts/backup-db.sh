@@ -1,13 +1,29 @@
 #!/usr/bin/env bash
-# MintSprout PostgreSQL backup script (Docker Compose).
-# Usage: ./scripts/backup-db.sh [output_dir]
-# Env: BACKUP_RETENTION_DAYS (default 14), DB_CONTAINER (default mintsprout-db),
-#      DB_USER (default mintsprout), DB_NAME (default mintsprout)
+# MintSprout PostgreSQL backup script (Docker Compose host).
+# Usage: ./scripts/backup-db.sh [tier] [output_dir]
+#   tier: manual (default), daily, or weekly — subfolder under MINTSPROUT_BACKUPS_DIR
+# Env: MINTSPROUT_BACKUPS_DIR, BACKUP_RETENTION_DAYS, BACKUP_DAILY_RETENTION_DAYS,
+#      BACKUP_WEEKLY_RETENTION_WEEKS, DB_CONTAINER, DB_USER, DB_NAME
 
 set -euo pipefail
 
-OUTPUT_DIR="${1:-./backups}"
-RETENTION="${BACKUP_RETENTION_DAYS:-14}"
+TIER="${1:-manual}"
+if [[ "$TIER" == /* ]] || [[ "$TIER" == ./* ]]; then
+  # Allow legacy: first arg was output_dir path
+  OUTPUT_DIR="$TIER"
+  TIER="manual"
+else
+  case "$TIER" in
+    manual|daily|weekly) ;;
+    *)
+      echo "Unknown tier '$TIER' (use manual, daily, or weekly)" >&2
+      exit 1
+      ;;
+  esac
+  OUTPUT_DIR="${2:-${MINTSPROUT_BACKUPS_DIR:-./data/backups}/${TIER}}"
+fi
+
+RETENTION="${BACKUP_RETENTION_DAYS:-${BACKUP_DAILY_RETENTION_DAYS:-14}}"
 CONTAINER="${DB_CONTAINER:-mintsprout-db}"
 DB_USER="${DB_USER:-mintsprout}"
 DB_NAME="${DB_NAME:-mintsprout}"
@@ -32,7 +48,13 @@ fi
 
 echo "Backup written: $OUTFILE"
 
-if [[ "$RETENTION" =~ ^[0-9]+$ ]] && [[ "$RETENTION" -gt 0 ]]; then
+if [[ "$TIER" == "weekly" ]]; then
+  WEEKS="${BACKUP_WEEKLY_RETENTION_WEEKS:-8}"
+  if [[ "$WEEKS" =~ ^[0-9]+$ ]] && [[ "$WEEKS" -gt 0 ]]; then
+    find "$OUTPUT_DIR" -maxdepth 1 -type f \( -name 'mintsprout-*.sql' -o -name 'mintsprout-*.sql.gz' \) -mtime +$((WEEKS * 7)) -delete
+    echo "Pruned weekly backups older than ${WEEKS} weeks in $OUTPUT_DIR"
+  fi
+elif [[ "$RETENTION" =~ ^[0-9]+$ ]] && [[ "$RETENTION" -gt 0 ]]; then
   find "$OUTPUT_DIR" -maxdepth 1 -type f \( -name 'mintsprout-*.sql' -o -name 'mintsprout-*.sql.gz' \) -mtime +"$RETENTION" -delete
   echo "Pruned backups older than ${RETENTION} days in $OUTPUT_DIR"
 fi

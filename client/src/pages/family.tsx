@@ -22,13 +22,17 @@ import { needsPaymentModal, taskPayKind } from "@/lib/task-pay-type";
 const childFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
   age: z.number().min(1, "Age must be at least 1").max(18, "Age must be 18 or less"),
+  username: z.string().optional(),
+  password: z.string().optional(),
 });
 
 type ChildFormData = z.infer<typeof childFormSchema>;
 
+type ChildWithLogin = ChildRow & { username?: string };
+
 export default function FamilyPage() {
   const [isChildModalOpen, setIsChildModalOpen] = useState(false);
-  const [editingChild, setEditingChild] = useState<ChildRow | null>(null);
+  const [editingChild, setEditingChild] = useState<ChildWithLogin | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobRow | null>(null);
   const { user } = useAuth();
@@ -36,7 +40,7 @@ export default function FamilyPage() {
   const queryClient = useQueryClient();
   const labels = taskLabels("parent");
 
-  const { data: children, isLoading: childrenLoading } = useQuery<ChildRow[]>({
+  const { data: children, isLoading: childrenLoading } = useQuery<ChildWithLogin[]>({
     queryKey: ["/api/children"],
   });
 
@@ -58,12 +62,29 @@ export default function FamilyPage() {
     defaultValues: {
       name: "",
       age: 10,
+      username: "",
+      password: "",
     },
   });
 
+  const buildChildPayload = (data: ChildFormData, isEdit: boolean) => {
+    const payload: Record<string, unknown> = {
+      name: data.name,
+      age: data.age,
+    };
+    if (data.username?.trim()) payload.username = data.username.trim();
+    if (data.password?.trim()) payload.password = data.password.trim();
+    if (!isEdit && !data.password?.trim()) {
+      throw new Error("Password is required for new child accounts");
+    }
+    return payload;
+  };
+
   const createChildMutation = useMutation({
-    mutationFn: (data: ChildFormData) =>
-      apiRequest("POST", "/api/children", data),
+    mutationFn: (data: ChildFormData) => {
+      const payload = buildChildPayload(data, false);
+      return apiRequest("POST", "/api/children", payload);
+    },
     onSuccess: () => {
       toast({
         title: "Success",
@@ -88,8 +109,10 @@ export default function FamilyPage() {
   });
 
   const updateChildMutation = useMutation({
-    mutationFn: ({ id, ...data }: { id: number } & ChildFormData) =>
-      apiRequest("PATCH", `/api/children/${id}`, data),
+    mutationFn: ({ id, ...data }: { id: number } & ChildFormData) => {
+      const payload = buildChildPayload(data, true);
+      return apiRequest("PATCH", `/api/children/${id}`, payload);
+    },
     onSuccess: () => {
       toast({
         title: "Success",
@@ -155,17 +178,27 @@ export default function FamilyPage() {
   };
 
   const onSubmit = (data: ChildFormData) => {
-    if (editingChild) {
-      updateChildMutation.mutate({ id: editingChild.id, ...data });
-    } else {
-      createChildMutation.mutate(data);
+    try {
+      if (editingChild) {
+        updateChildMutation.mutate({ id: editingChild.id, ...data });
+      } else {
+        createChildMutation.mutate(data);
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Invalid form data",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleEditChild = (child: ChildRow) => {
+  const handleEditChild = (child: ChildWithLogin) => {
     setEditingChild(child);
     form.setValue("name", child.name);
     form.setValue("age", child.age);
+    form.setValue("username", child.username ?? "");
+    form.setValue("password", "");
     setIsChildModalOpen(true);
   };
 
@@ -328,6 +361,39 @@ export default function FamilyPage() {
                         </FormItem>
                       )}
                     />
+                    <FormField
+                      control={form.control}
+                      name="username"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Username {editingChild && <span className="text-xs font-normal text-gray-500">(login)</span>}</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Optional — auto-generated from name" {...field} autoComplete="off" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Password {editingChild ? <span className="text-xs font-normal text-gray-500">(leave blank to keep)</span> : null}
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="password"
+                              placeholder={editingChild ? "New password" : "At least 6 characters"}
+                              {...field}
+                              autoComplete="new-password"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     <div className="flex gap-2 pt-4">
                       <Button
                         type="submit"
@@ -363,13 +429,16 @@ export default function FamilyPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {children?.map((child: ChildRow) => (
+              {children?.map((child: ChildWithLogin) => (
                 <Card key={child.id} className="border-l-4 border-l-blue-500">
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="font-semibold text-lg">{child.name}</h3>
                         <p className="text-sm text-gray-600">Age {child.age}</p>
+                        {child.username && (
+                          <p className="text-xs text-gray-500 mt-1">Login: {child.username}</p>
+                        )}
                       </div>
                       <div className="flex gap-1">
                         <Button

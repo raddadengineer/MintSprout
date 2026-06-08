@@ -11,7 +11,7 @@ services:
       POSTGRES_USER: mintsprout
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mintsprout_password}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ${MINTSPROUT_POSTGRES_DIR:-./data/postgres}:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     ports:
       - "5432:5432"
@@ -50,6 +50,7 @@ services:
       KIDS_VOICE_MODEL: ${KIDS_VOICE_MODEL:-kokoro}
       AI_VOICE_YOUNGEST: ${AI_VOICE_YOUNGEST:-af_bella}
       AI_VOICE_YOUNGER: ${AI_VOICE_YOUNGER:-af_sky}
+      BACKUP_DIR: /app/backups
     ports:
       - "8080:5000"
     depends_on:
@@ -58,7 +59,8 @@ services:
     networks:
       - mintsprout-network
     volumes:
-      - app_logs:/app/logs
+      - ${MINTSPROUT_LOGS_DIR:-./data/logs}:/app/logs
+      - ${MINTSPROUT_BACKUPS_DIR:-./data/backups}:/app/backups
     healthcheck:
       # Use 127.0.0.1 (not localhost) so the healthcheck doesn't fail on IPv6-only localhost resolution.
       # Use a public endpoint that returns 200 without auth.
@@ -67,12 +69,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-
-volumes:
-  postgres_data:
-    driver: local
-  app_logs:
-    driver: local
 
 networks:
   mintsprout-network:

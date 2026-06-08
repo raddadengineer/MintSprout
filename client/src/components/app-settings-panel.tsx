@@ -7,6 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { DayOfWeekSelect } from "@/components/day-of-week-select";
 
 type DeploymentSettings = {
   aiCoachEnabled?: boolean;
@@ -24,6 +32,21 @@ type DeploymentSettings = {
   parentPin?: string;
   kioskFamilyId?: number;
   jwtSecret?: string;
+  backupScheduleEnabled?: boolean;
+  backupDailyEnabled?: boolean;
+  backupWeeklyEnabled?: boolean;
+  backupDailyUtcHour?: number;
+  backupWeeklyUtcDay?: number;
+  backupWeeklyUtcHour?: number;
+  backupDailyRetentionDays?: number;
+  backupWeeklyRetentionWeeks?: number;
+};
+
+type BackupFileInfo = {
+  tier: string;
+  name: string;
+  size: number;
+  mtime: string;
 };
 
 type SettingsResponse = {
@@ -33,7 +56,28 @@ type SettingsResponse = {
   jwtRotated?: boolean;
   dbBackupAvailable?: boolean;
   dbBackupReason?: string;
+  backupStatus?: {
+    dir: string;
+    writable: boolean;
+    diskReason?: string;
+    files: BackupFileInfo[];
+    lastDailyAt?: string;
+    lastWeeklyAt?: string;
+    lastDailyError?: string;
+    lastWeeklyError?: string;
+  };
 };
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatWhen(iso?: string): string {
+  if (!iso) return "Never";
+  return new Date(iso).toLocaleString();
+}
 
 export function AppSettingsPanel() {
   const { toast } = useToast();
@@ -211,6 +255,30 @@ export function AppSettingsPanel() {
     },
   });
 
+  const backupRunMutation = useMutation({
+    mutationFn: async (tier: "daily" | "weekly") => {
+      const res = await apiRequest("POST", "/api/admin/settings/backup/run", { tier });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(err?.message ?? res.statusText);
+      }
+      return (await res.json()) as { ok: boolean; tier: string; lastRunAt?: string };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/settings"] });
+      toast({
+        title: `${result.tier === "daily" ? "Daily" : "Weekly"} backup saved`,
+        description: result.lastRunAt ? `Completed at ${formatWhen(result.lastRunAt)}` : "Backup written to disk.",
+      });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Scheduled backup failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const backupReady =
+    data?.dbBackupAvailable && data?.backupStatus?.writable !== false;
+
   if (isLoading) {
     return <div className="text-sm text-gray-500">Loading settings…</div>;
   }
@@ -231,6 +299,228 @@ export function AppSettingsPanel() {
           Test Voice
         </Button>
       </div>
+
+      <Card className="mint-card">
+        <CardHeader>
+          <CardTitle>Database backup &amp; restore</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Download a full PostgreSQL dump before upgrades or when moving to a new host. Scheduled backups run inside
+            the app and are saved to disk on the host (Docker: <code className="text-xs">MINTSPROUT_BACKUPS_DIR</code>).
+          </p>
+          {!data?.dbBackupAvailable && (
+            <p className="text-xs text-amber-700">
+              Backup unavailable: {data?.dbBackupReason ?? "PostgreSQL tools not configured."}
+            </p>
+          )}
+          {data?.dbBackupAvailable && data?.backupStatus && !data.backupStatus.writable && (
+            <p className="text-xs text-amber-700">
+              Backup directory not writable ({data.backupStatus.dir}):{" "}
+              {data.backupStatus.diskReason ?? "check volume mount permissions."}
+            </p>
+          )}
+
+          <div className="border border-gray-200 rounded-lg p-4 space-y-4 bg-gray-50/50">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="font-bold">Scheduled backups</Label>
+                <p className="text-xs text-gray-500">Times are UTC. Save settings after changing the schedule.</p>
+              </div>
+              <Switch
+                checked={form.backupScheduleEnabled !== false}
+                onCheckedChange={(v) => set("backupScheduleEnabled", v)}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="space-y-3 border border-gray-200 rounded-md p-3 bg-white">
+                <div className="flex items-center justify-between">
+                  <Label className="font-bold">Daily backup</Label>
+                  <Switch
+                    checked={form.backupDailyEnabled !== false}
+                    onCheckedChange={(v) => set("backupDailyEnabled", v)}
+                    disabled={form.backupScheduleEnabled === false}
+                  />
+                </div>
+                <div>
+                  <Label>UTC hour (0–23)</Label>
+                  <Select
+                    value={String(form.backupDailyUtcHour ?? 2)}
+                    onValueChange={(v) => set("backupDailyUtcHour", parseInt(v, 10))}
+                  >
+                    <SelectTrigger className="mint-input mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 24 }, (_, h) => (
+                        <SelectItem key={h} value={String(h)}>
+                          {String(h).padStart(2, "0")}:00 UTC
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Keep daily backups (days)</Label>
+                  <Input
+                    className="mint-input mt-1"
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={form.backupDailyRetentionDays ?? 14}
+                    onChange={(e) => set("backupDailyRetentionDays", parseInt(e.target.value, 10) || 14)}
+                  />
+                </div>
+                <p className="text-xs text-gray-500">
+                  Last run: {formatWhen(data?.backupStatus?.lastDailyAt)}
+                  {data?.backupStatus?.lastDailyError && (
+                    <span className="text-red-700"> — {data.backupStatus.lastDailyError}</span>
+                  )}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!backupReady || backupRunMutation.isPending}
+                  onClick={() => backupRunMutation.mutate("daily")}
+                >
+                  Run daily backup now
+                </Button>
+              </div>
+
+              <div className="space-y-3 border border-gray-200 rounded-md p-3 bg-white">
+                <div className="flex items-center justify-between">
+                  <Label className="font-bold">Weekly backup</Label>
+                  <Switch
+                    checked={form.backupWeeklyEnabled !== false}
+                    onCheckedChange={(v) => set("backupWeeklyEnabled", v)}
+                    disabled={form.backupScheduleEnabled === false}
+                  />
+                </div>
+                <DayOfWeekSelect
+                  label="UTC day of week"
+                  value={String(form.backupWeeklyUtcDay ?? 0)}
+                  onValueChange={(v) => set("backupWeeklyUtcDay", parseInt(v, 10))}
+                />
+                <div>
+                  <Label>UTC hour (0–23)</Label>
+                  <Select
+                    value={String(form.backupWeeklyUtcHour ?? 3)}
+                    onValueChange={(v) => set("backupWeeklyUtcHour", parseInt(v, 10))}
+                  >
+                    <SelectTrigger className="mint-input mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 24 }, (_, h) => (
+                        <SelectItem key={h} value={String(h)}>
+                          {String(h).padStart(2, "0")}:00 UTC
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Keep weekly backups (weeks)</Label>
+                  <Input
+                    className="mint-input mt-1"
+                    type="number"
+                    min={1}
+                    max={52}
+                    value={form.backupWeeklyRetentionWeeks ?? 8}
+                    onChange={(e) => set("backupWeeklyRetentionWeeks", parseInt(e.target.value, 10) || 8)}
+                  />
+                </div>
+                <p className="text-xs text-gray-500">
+                  Last run: {formatWhen(data?.backupStatus?.lastWeeklyAt)}
+                  {data?.backupStatus?.lastWeeklyError && (
+                    <span className="text-red-700"> — {data.backupStatus.lastWeeklyError}</span>
+                  )}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!backupReady || backupRunMutation.isPending}
+                  onClick={() => backupRunMutation.mutate("weekly")}
+                >
+                  Run weekly backup now
+                </Button>
+              </div>
+            </div>
+
+            {data?.backupStatus && (
+              <div className="text-xs text-gray-500 space-y-1">
+                <p>
+                  On-disk path: <code>{data.backupStatus.dir}</code>
+                </p>
+                {data.backupStatus.files.length > 0 && (
+                  <ul className="list-disc pl-4 space-y-0.5">
+                    {data.backupStatus.files.map((f) => (
+                      <li key={`${f.tier}-${f.name}`}>
+                        {f.tier}/{f.name} ({formatBytes(f.size)})
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!data?.dbBackupAvailable || backupMutation.isPending}
+              onClick={() => backupMutation.mutate()}
+            >
+              {backupMutation.isPending ? "Creating backup…" : "Download backup"}
+            </Button>
+          </div>
+          <div className="border-t border-gray-200 pt-4 space-y-3">
+            <div>
+              <Label className="font-bold text-red-700">Restore from backup</Label>
+              <p className="text-xs text-red-700 mt-1">
+                This overwrites the current database. Back up first if you might need to undo this.
+              </p>
+            </div>
+            <div>
+              <Label>Backup file (.sql or .sql.gz)</Label>
+              <Input
+                className="mint-input mt-1"
+                type="file"
+                accept=".sql,.gz,application/sql,text/plain,application/gzip,application/x-gzip"
+                onChange={(e) => setRestoreFile(e.target.files?.[0] ?? null)}
+              />
+              {restoreFile && <p className="text-xs text-gray-500 mt-1">{restoreFile.name}</p>}
+            </div>
+            <div>
+              <Label>Type RESTORE to confirm</Label>
+              <Input
+                className="mint-input mt-1"
+                value={restoreConfirm}
+                onChange={(e) => setRestoreConfirm(e.target.value)}
+                placeholder="RESTORE"
+                autoComplete="off"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={
+                !data?.dbBackupAvailable ||
+                !restoreFile ||
+                restoreConfirm !== "RESTORE" ||
+                restoreMutation.isPending
+              }
+              onClick={() => restoreMutation.mutate()}
+            >
+              {restoreMutation.isPending ? "Restoring…" : "Restore database"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="mint-card">
         <CardHeader>
@@ -359,74 +649,6 @@ export function AppSettingsPanel() {
             </div>
             <Button type="button" variant="outline" size="sm" onClick={generateJwtSecret}>
               Generate random secret
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="mint-card">
-        <CardHeader>
-          <CardTitle>Database backup &amp; restore</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-gray-600">
-            Download a full PostgreSQL dump before upgrades or when moving to a new host. Restore replaces all family
-            data, jobs, lessons, and app settings in the database.
-          </p>
-          {!data?.dbBackupAvailable && (
-            <p className="text-xs text-amber-700">
-              Backup unavailable: {data?.dbBackupReason ?? "PostgreSQL tools not configured."}
-            </p>
-          )}
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={!data?.dbBackupAvailable || backupMutation.isPending}
-              onClick={() => backupMutation.mutate()}
-            >
-              {backupMutation.isPending ? "Creating backup…" : "Download backup"}
-            </Button>
-          </div>
-          <div className="border-t border-gray-200 pt-4 space-y-3">
-            <div>
-              <Label className="font-bold text-red-700">Restore from backup</Label>
-              <p className="text-xs text-red-700 mt-1">
-                This overwrites the current database. Back up first if you might need to undo this.
-              </p>
-            </div>
-            <div>
-              <Label>Backup file (.sql or .sql.gz)</Label>
-              <Input
-                className="mint-input mt-1"
-                type="file"
-                accept=".sql,.gz,application/sql,text/plain,application/gzip,application/x-gzip"
-                onChange={(e) => setRestoreFile(e.target.files?.[0] ?? null)}
-              />
-              {restoreFile && <p className="text-xs text-gray-500 mt-1">{restoreFile.name}</p>}
-            </div>
-            <div>
-              <Label>Type RESTORE to confirm</Label>
-              <Input
-                className="mint-input mt-1"
-                value={restoreConfirm}
-                onChange={(e) => setRestoreConfirm(e.target.value)}
-                placeholder="RESTORE"
-                autoComplete="off"
-              />
-            </div>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={
-                !data?.dbBackupAvailable ||
-                !restoreFile ||
-                restoreConfirm !== "RESTORE" ||
-                restoreMutation.isPending
-              }
-              onClick={() => restoreMutation.mutate()}
-            >
-              {restoreMutation.isPending ? "Restoring…" : "Restore database"}
             </Button>
           </div>
         </CardContent>

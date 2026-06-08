@@ -58,7 +58,10 @@ import {
   backupFilename,
   normalizeRestoreSql,
   restoreDatabase,
+  getBackupDiskStatus,
+  listBackupFiles,
 } from "./db-backup";
+import { runBackupNow } from "./backup-scheduler";
 import { db } from "./db";
 import * as schema from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -85,6 +88,51 @@ function occurrenceKeyForRecurrence(recurrence: string, now: Date): string {
   if (recurrence === "weekly") return isoWeekKeyUTC(now);
   if (recurrence === "monthly") return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
   return isoDayKeyUTC(now);
+}
+
+const childUsernameSchema = z
+  .string()
+  .trim()
+  .min(2, "Username must be at least 2 characters")
+  .max(32, "Username is too long")
+  .regex(/^[a-zA-Z0-9_]+$/, "Username may only contain letters, numbers, and underscores");
+
+const childPasswordSchema = z
+  .string()
+  .min(6, "Password must be at least 6 characters")
+  .max(128, "Password is too long");
+
+async function enrichChildrenWithLogin<T extends { userId: number }>(
+  children: T[],
+  includeLogin: boolean,
+): Promise<(T & { username?: string })[]> {
+  return Promise.all(
+    children.map(async (child) => {
+      if (!includeLogin) return child;
+      const user = await storage.getUserById(child.userId);
+      return { ...child, username: user?.username ?? "" };
+    }),
+  );
+}
+
+async function resolveChildUsername(
+  requested: string | undefined,
+  fallbackName: string,
+): Promise<string> {
+  if (requested?.trim()) {
+    const username = requested.trim().toLowerCase();
+    const exists = await storage.getUserByUsername(username);
+    if (exists) throw new Error("Username is already taken");
+    return username;
+  }
+  const base = fallbackName.toLowerCase().replace(/[^a-z0-9]+/g, "") || "child";
+  let username = base;
+  for (let i = 0; i < 25; i++) {
+    const exists = await storage.getUserByUsername(username);
+    if (!exists) return username;
+    username = `${base}${Math.floor(100 + Math.random() * 900)}`;
+  }
+  throw new Error("Could not generate a unique username");
 }
 
 /** Profile picker (kiosk) is on by default; set KIOSK_MODE=false to require username/password login. */
@@ -264,7 +312,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const self = children.find((c) => c.userId === req.user.id);
         return res.json(self ? [self] : []);
       }
-      res.json(children);
+      res.json(await enrichChildrenWithLogin(children, true));
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
     }
@@ -279,7 +327,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (req.user.role === "child" && child.userId !== req.user.id) {
         return res.status(403).json({ message: "Forbidden" });
       }
-      res.json(child);
+      const includeLogin = req.user.role === "parent";
+      const [enriched] = await enrichChildrenWithLogin([child], includeLogin);
+      res.json(enriched);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
     }
@@ -294,27 +344,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const bodySchema = z.object({
         name: z.string().trim().min(1, "Name is required").max(80, "Name is too long"),
         age: z.coerce.number().int().min(1, "Age must be at least 1").max(18, "Age must be 18 or less"),
+        username: childUsernameSchema.optional(),
+        password: childPasswordSchema,
       });
 
       const body = bodySchema.parse(req.body);
+      const username = await resolveChildUsername(body.username, body.name);
 
-      // Create the child's user first so we can satisfy children.userId (NOT NULL)
-      const base = body.name.toLowerCase().replace(/[^a-z0-9]+/g, "");
-      const baseUsername = base || "child";
-      let username = baseUsername;
-      for (let i = 0; i < 25; i++) {
-        const exists = await storage.getUserByUsername(username);
-        if (!exists) break;
-        username = `${baseUsername}${Math.floor(100 + Math.random() * 900)}`; // 3-digit suffix
-      }
-
-      const defaultPassword = "password123";
       const childUser = await storage.createUser({
         username,
-        password: defaultPassword,
+        password: body.password,
         role: "child",
         familyId: req.user.familyId,
         name: body.name,
+        age: body.age,
       });
 
       const child = await storage.createChild({
@@ -324,7 +367,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         age: body.age,
       });
 
-      // Create default allocation settings
       await storage.createAllocationSettings({
         childId: child.id,
         spendingPercentage: 25,
@@ -333,7 +375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         brokeragePercentage: 20,
       });
 
-      res.status(201).json(child);
+      res.status(201).json({ ...child, username: childUser.username });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.issues[0]?.message ?? "Invalid child data" });
@@ -355,14 +397,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Child not found" });
       }
 
-      const updateData = {
-        name: req.body.name,
-        age: req.body.age,
-      };
+      const patchSchema = z
+        .object({
+          name: z.string().trim().min(1).max(80).optional(),
+          age: z.coerce.number().int().min(1).max(18).optional(),
+          username: childUsernameSchema.optional(),
+          password: childPasswordSchema.optional(),
+        })
+        .refine((data) => Object.values(data).some((v) => v !== undefined), {
+          message: "No updates provided",
+        });
 
-      const updatedChild = await storage.updateChild(childId, updateData);
-      res.json(updatedChild);
+      const body = patchSchema.parse(req.body);
+      const user = await storage.getUserById(child.userId);
+      if (!user) {
+        return res.status(404).json({ message: "Child login not found" });
+      }
+
+      if (body.username && body.username.toLowerCase() !== user.username) {
+        const taken = await storage.getUserByUsername(body.username.toLowerCase());
+        if (taken && taken.id !== user.id) {
+          return res.status(400).json({ message: "Username is already taken" });
+        }
+      }
+
+      const nextName = body.name ?? child.name;
+      const nextAge = body.age ?? child.age;
+      const updatedChild = await storage.updateChild(childId, {
+        name: nextName,
+        age: nextAge,
+      });
+
+      const userPatch: Partial<{ username: string; name: string; age: number; password: string }> = {};
+      if (body.username) userPatch.username = body.username.toLowerCase();
+      if (body.name) userPatch.name = body.name;
+      if (body.age !== undefined) userPatch.age = body.age;
+      if (body.password) userPatch.password = body.password;
+      const updatedUser = Object.keys(userPatch).length
+        ? await storage.updateUser(child.userId, userPatch)
+        : user;
+
+      res.json({
+        ...updatedChild,
+        username: updatedUser?.username ?? user.username,
+      });
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.issues[0]?.message ?? "Invalid child data" });
+      }
       res.status(400).json({ message: "Invalid child data" });
     }
   });
@@ -380,11 +462,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Child not found" });
       }
 
-      // Note: In a real app, you might want to archive instead of delete
-      // This is a simplified implementation
       const success = await storage.deleteChild(childId);
 
       if (success) {
+        await storage.deleteUser(child.userId);
         res.json({ message: "Child removed successfully" });
       } else {
         res.status(500).json({ message: "Failed to remove child" });
@@ -2298,12 +2379,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const services = await checkAiServices();
       const dbBackup = await getDbBackupStatus();
+      const disk = await getBackupDiskStatus();
+      const config = getAppConfig();
+      const files = dbBackup.available && disk.writable ? await listBackupFiles(10) : [];
       res.json({
-        settings: maskSettings(getAppConfig()),
+        settings: maskSettings(config),
         llmAvailable: services.ollama,
         voiceAvailable: services.voice,
         dbBackupAvailable: dbBackup.available,
         dbBackupReason: dbBackup.reason,
+        backupStatus: {
+          dir: disk.path,
+          writable: disk.writable,
+          diskReason: disk.reason,
+          files,
+          lastDailyAt: config.backupLastDailyAt,
+          lastWeeklyAt: config.backupLastWeeklyAt,
+          lastDailyError: config.backupLastDailyError,
+          lastWeeklyError: config.backupLastWeeklyError,
+        },
       });
     } catch (err) {
       console.error("Admin settings GET error:", err);
@@ -2378,6 +2472,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) {
       console.error("Database backup error:", err);
       res.status(503).json({ message: err.message ?? "Database backup failed" });
+    }
+  });
+
+  const backupRunSchema = z.object({
+    tier: z.enum(["daily", "weekly"]),
+  });
+
+  app.post("/api/admin/settings/backup/run", verifyToken, async (req: any, res) => {
+    try {
+      if (req.user.role !== "parent") {
+        return res.status(403).json({ message: "Only parents can run scheduled backups" });
+      }
+      const { tier } = backupRunSchema.parse(req.body ?? {});
+      await runBackupNow(storage, tier);
+      const config = getAppConfig();
+      const error = tier === "daily" ? config.backupLastDailyError : config.backupLastWeeklyError;
+      if (error) {
+        return res.status(503).json({ message: error });
+      }
+      res.json({
+        ok: true,
+        tier,
+        lastRunAt: tier === "daily" ? config.backupLastDailyAt : config.backupLastWeeklyAt,
+      });
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid backup tier" });
+      }
+      console.error("Scheduled backup run error:", err);
+      res.status(503).json({ message: err.message ?? "Scheduled backup failed" });
     }
   });
 

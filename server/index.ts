@@ -6,6 +6,7 @@ import { initializeDatabase } from "./db-init";
 import { runMigrations, listFamilyIds } from "./migrations";
 import { storage } from "./storage";
 import { startAllowanceScheduler } from "./allowance-scheduler";
+import { startBackupScheduler } from "./backup-scheduler";
 import { loadAppConfig } from "./app-config";
 
 const app = express();
@@ -60,6 +61,7 @@ app.use((req, res, next) => {
 
   const server = await registerRoutes(app);
   startAllowanceScheduler(storage);
+  startBackupScheduler(storage);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

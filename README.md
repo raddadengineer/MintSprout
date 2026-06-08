@@ -106,6 +106,47 @@ Sprout powers chat, daily briefs, and voice-led lessons. If you disable AI or le
 | **`AI_VOICE_YOUNGER`** | `af_sky` | Voice profile id for children **ages 7–10**. |
 | **`AI_VOICE_OLDER`** | *(empty)* | Voice profile id for children **11+**. Optional; falls back to younger voice if unset. |
 
+#### Data paths and volumes
+
+Compose bind-mounts host directories so data survives `docker compose down` and is easy to back up. Set paths in `.env` (relative to the project root, or use absolute paths like `/srv/mintsprout/...` on a NAS).
+
+| Variable | Default | What it stores |
+|----------|---------|----------------|
+| **`MINTSPROUT_DATA_DIR`** | `./data` | Conventional base folder (documented default; other paths can live under it). |
+| **`MINTSPROUT_POSTGRES_DIR`** | `./data/postgres` | PostgreSQL database files (family accounts, jobs, payments, lessons, settings). |
+| **`MINTSPROUT_LOGS_DIR`** | `./data/logs` | Application log files from the MintSprout container. |
+| **`MINTSPROUT_BACKUPS_DIR`** | `./data/backups` | Database dump files written by the app scheduler and manual scripts. |
+
+Layout after backups run:
+
+```text
+data/
+├── postgres/          # live database (do not edit by hand)
+├── logs/              # app logs
+└── backups/
+    ├── daily/         # automatic daily dumps (02:00 UTC)
+    ├── weekly/        # automatic weekly dumps (Sunday 03:00 UTC)
+    └── manual/        # optional: ./scripts/backup-db.sh manual
+```
+
+> **Migrating from named Docker volumes:** If you previously used `postgres_data` / `app_logs` volumes, copy data into these host paths once, then recreate the stack. See [DEPLOYMENT.md](DEPLOYMENT.md).
+
+#### Scheduled backups
+
+The MintSprout app runs **daily** and **weekly** `pg_dump` jobs internally and writes compressed dumps to `MINTSPROUT_BACKUPS_DIR` (mounted at `/app/backups` in Docker). Configure schedule, retention, and “run now” from **Controls → Sprout & App → Database backup & restore**. Defaults (UTC): daily at 02:00, weekly on Sunday at 03:00.
+
+| Schedule | Default time (UTC) | Setting in Sprout & App |
+|----------|------------------|-------------------------|
+| Daily | 02:00 every day | Daily backup + retention days |
+| Weekly | 03:00 every Sunday | Weekly backup + day/hour + retention weeks |
+
+First-boot defaults can also come from env vars (`BACKUP_SCHEDULE_ENABLED`, `BACKUP_DAILY_UTC_HOUR`, etc.) until you save settings in the UI.
+
+```bash
+# One-off manual backup on the Docker host
+./scripts/backup-db.sh manual
+```
+
 #### Variables set in Compose (not in `.env.example`)
 
 These are fixed in [`docker-compose.yml`](docker-compose.yml) for the standard stack — listed here so you know what they mean if you read the compose file:
@@ -125,6 +166,11 @@ These are fixed in [`docker-compose.yml`](docker-compose.yml) for the standard s
 JWT_SECRET=your-long-random-secret-from-openssl-rand-base64-48
 POSTGRES_PASSWORD=your-strong-db-password
 ALLOWED_ORIGINS=http://localhost:8080,http://127.0.0.1:8080
+
+MINTSPROUT_POSTGRES_DIR=./data/postgres
+MINTSPROUT_LOGS_DIR=./data/logs
+MINTSPROUT_BACKUPS_DIR=./data/backups
+
 KIOSK_MODE=true
 PARENT_PIN=5678
 ```
@@ -158,15 +204,17 @@ AI_VOICE_YOUNGER=af_sky
 | Parent/child **login passwords** | Default users are seeded in the DB; reset with `npm run passwords:reset` in the app container, or manage via your workflow. |
 | **JWT secret** (after first run) | Optional: **Controls → Sprout & App** (overrides `.env` in the database). |
 | Kiosk PIN, Sprout URLs, models | **Controls → Sprout & App** (overrides `.env` at runtime). |
-| **Database backup/restore** | **Controls → Sprout & App**, or `./scripts/backup-db.sh` on the Docker host. |
+| **Database backup/restore** | **Controls → Sprout & App** (scheduled + download/restore), or `./scripts/backup-db.sh`. |
 
 ### 3. Start the stack
 
-Build the app image and start Postgres + MintSprout:
+Build the app image and start Postgres and MintSprout:
 
 ```bash
 docker compose up -d --build
 ```
+
+This creates host directories for `MINTSPROUT_POSTGRES_DIR`, `MINTSPROUT_LOGS_DIR`, and `MINTSPROUT_BACKUPS_DIR` on first run.
 
 Check status:
 
@@ -186,30 +234,29 @@ The app waits for Postgres to become healthy before starting. First boot runs da
 
 ### 5. First login
 
-Default accounts are created on first run — **change passwords immediately**:
+Default parent account on first run — **change the password immediately**, then add children from the app:
 
 | Role | Username | Password |
 |------|----------|----------|
 | Parent | `parent` | `password123` |
-| Child | `bryson` | `password123` |
-| Child | `edison` | `password123` |
 
 After login as parent:
 
-1. Change passwords (`npm run passwords:reset` inside the app container, or add users from the UI).
-2. Open **Controls → Sprout & App** to tune kiosk PIN, JWT secret, Sprout/LLM/voice, and **database backup/restore**.
+1. **Family → Add Child** — create each child's profile with username and password.
+2. Change the parent password (`npm run passwords:reset` inside the app container).
+3. Open **Controls → Sprout & App** to tune kiosk PIN, JWT secret, Sprout/LLM/voice, and **database backup/restore**.
 
 ### Common commands
 
 ```bash
-# Stop (keeps data)
+# Stop (keeps data in MINTSPROUT_*_DIR folders)
 docker compose down
-
-# Stop and DELETE all database data (back up first!)
-docker compose down -v
 
 # Rebuild after pulling code changes
 docker compose up -d --build
+
+# App logs
+docker compose logs -f mintsprout
 
 # Shell into the app container
 docker exec -it mintsprout-app sh
@@ -218,9 +265,11 @@ docker exec -it mintsprout-app sh
 docker exec -it mintsprout-app npm run passwords:reset
 ```
 
+> **Warning:** Deleting `MINTSPROUT_POSTGRES_DIR` (e.g. `rm -rf ./data/postgres`) destroys all family data. Back up first.
+
 ### Portainer
 
-To deploy from Portainer without building locally, use [`docker-compose.portainer.yml`](docker-compose.portainer.yml) — it pulls `raddadengineer/mintsprout:latest` instead of building. Set the same environment variables in the stack editor (`JWT_SECRET`, `POSTGRES_PASSWORD`, `DATABASE_URL`, `ALLOWED_ORIGINS`, plus optional Sprout/kiosk vars).
+To deploy from Portainer without building locally, use [`docker-compose.portainer.yml`](docker-compose.portainer.yml) — it pulls `raddadengineer/mintsprout:latest` instead of building. Set the same environment variables in the stack editor (`JWT_SECRET`, `POSTGRES_PASSWORD`, `ALLOWED_ORIGINS`, `MINTSPROUT_*_DIR` paths, plus optional Sprout/kiosk vars). Mount `MINTSPROUT_BACKUPS_DIR` on the app container for on-disk scheduled backups.
 
 Rebuild and push the image after code changes:
 
@@ -302,15 +351,16 @@ All inserts use `ON CONFLICT DO NOTHING` and `CREATE TABLE IF NOT EXISTS` — sa
 
 ### Backups
 
-Back up before upgrades or any command that removes volumes:
+Automatic **daily** and **weekly** dumps run inside the MintSprout app into `MINTSPROUT_BACKUPS_DIR` (default `./data/backups/daily` and `.../weekly`). Configure in **Controls → Sprout & App**.
 
 ```bash
-./scripts/backup-db.sh ./backups
+# Manual backup on the Docker host
+./scripts/backup-db.sh manual
 ```
 
-**Parent UI:** **Controls → Sprout & App → Database backup & restore** — download a `.sql` dump or upload one to restore on a new host.
+Also available in **Controls → Sprout & App → Database backup & restore** (scheduled backups, download, and upload restore).
 
-> **Warning:** `docker compose down -v` permanently deletes all data in `postgres_data`. See [DEPLOYMENT.md](DEPLOYMENT.md) for restore steps.
+> **Warning:** Deleting `MINTSPROUT_POSTGRES_DIR` permanently removes all database data. See [DEPLOYMENT.md](DEPLOYMENT.md) for restore steps.
 
 ---
 

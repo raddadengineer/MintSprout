@@ -18,11 +18,30 @@ export const deploymentSettingsSchema = z.object({
   parentPin: z.string().optional(),
   kioskFamilyId: z.number().int().positive().optional(),
   jwtSecret: z.string().min(16).optional(),
+  backupScheduleEnabled: z.boolean().optional(),
+  backupDailyEnabled: z.boolean().optional(),
+  backupWeeklyEnabled: z.boolean().optional(),
+  backupDailyUtcHour: z.number().int().min(0).max(23).optional(),
+  backupWeeklyUtcDay: z.number().int().min(0).max(6).optional(),
+  backupWeeklyUtcHour: z.number().int().min(0).max(23).optional(),
+  backupDailyRetentionDays: z.number().int().min(1).max(365).optional(),
+  backupWeeklyRetentionWeeks: z.number().int().min(1).max(52).optional(),
+  backupLastDailyAt: z.string().optional(),
+  backupLastWeeklyAt: z.string().optional(),
+  backupLastDailyError: z.string().optional(),
+  backupLastWeeklyError: z.string().optional(),
 });
 
 export type DeploymentSettings = z.infer<typeof deploymentSettingsSchema>;
 
-export const deploymentSettingsPatchSchema = deploymentSettingsSchema.partial();
+export const deploymentSettingsPatchSchema = deploymentSettingsSchema
+  .partial()
+  .omit({
+    backupLastDailyAt: true,
+    backupLastWeeklyAt: true,
+    backupLastDailyError: true,
+    backupLastWeeklyError: true,
+  });
 
 export type DeploymentSettingsPatch = z.infer<typeof deploymentSettingsPatchSchema>;
 

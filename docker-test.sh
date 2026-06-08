@@ -3,7 +3,7 @@
 # MintSprout Docker PostgreSQL Integration Test
 echo "🧪 Testing MintSprout Docker deployment with PostgreSQL..."
 
-# Clean up any existing containers (WARNING: -v deletes postgres_data — back up first with ./scripts/backup-db.sh)
+# Clean up any existing containers (WARNING: deleting ./data/postgres removes all DB data — back up first with ./scripts/backup-db.sh manual)
 echo "🧹 Cleaning up existing containers..."
 docker-compose down -v 2>/dev/null || true
 

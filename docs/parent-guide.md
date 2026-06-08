@@ -70,8 +70,8 @@ Kiosk mode is enabled by default in Docker. You can change the PIN in **Controls
 
 After your first login as parent, work through this list:
 
-1. **Change default passwords** — Do not leave `password123` in place. Reset from the server (`npm run passwords:reset` in the app container) or manage users as your deployment supports.
-2. **Add or edit children** — **Family** → add each child with name and age (age drives their UI and lesson track).
+1. **Change the parent password** — Do not leave `password123` in place (`npm run passwords:reset` in the app container).
+2. **Add children** — **Family → Add Child** with name, age, username, and password. Edit profiles or change passwords from **Family → Edit** on any child card.
 3. **Choose money buckets** — **Home** → open account type settings and enable which buckets your family uses (Spending, Savings, Future Fund, Grow Fund).
 4. **Set allocation percentages** — **Home** → select a child (avatar menu → View as child) → set how each payment is split across buckets (must total 100%).
 5. **Set up allowances** (if you use them) — **Controls → Allowances** → create a weekly or monthly allowance per child.
@@ -286,10 +286,11 @@ Youngest children are redirected away from Reports (too complex for their UI mod
 
 ### Family (`/family`)
 
-- **Add child** — Name and age (required). Age controls kid UI mode and lesson difficulty.
-- **Edit / remove** children.
+- **Add child** — Name, age, username (optional — auto-generated from name if blank), and password (required for new accounts).
+- **Edit child** — Update name, age, username, or set a new password (leave password blank to keep the current one).
+- **Remove** children (also deletes their login).
 - Summary cards: total children, family earnings, active vs completed tasks.
-- Per-child cards with earnings and quick links to their activity.
+- Per-child cards show login username, earnings, and progress.
 
 Removing a child is permanent — confirm carefully.
 
@@ -326,7 +327,7 @@ Parent-only settings hub with five tabs.
 - **LLM** — Open WebUI URL, API key, model; Ollama fallback.
 - **Voice** — Kokoro TTS URL and voice IDs by age band.
 - **Login** — Kiosk mode, parent PIN, kiosk family ID, JWT secret (rotation logs everyone out).
-- **Database backup & restore** — Download `.sql` backup; upload to restore on a new host (type `RESTORE` to confirm).
+- **Database backup & restore** — Scheduled daily/weekly backups to disk, download `.sql`, upload to restore (type `RESTORE` to confirm).
 - **Test LLM** / **Test Voice** — connectivity checks.
 
 Settings saved here override `.env` / Docker defaults immediately without restarting containers.
@@ -398,7 +399,7 @@ As parent, ensure Sprout is enabled and LLM/voice URLs work (**Controls → Spro
 4. **Restore from backup** — upload the same file, type `RESTORE`, confirm.
 5. Refresh the browser and log in. All family data, settings, and progress should match the backup.
 
-Alternatively, use the shell script `./scripts/backup-db.sh` on the Docker host for scheduled backups.
+Alternatively, use automatic dumps in `MINTSPROUT_BACKUPS_DIR` (default `./data/backups/daily` and `.../weekly`) from the in-app scheduler (**Sprout & App**), or `./scripts/backup-db.sh manual` on the Docker host.
 
 ---
 

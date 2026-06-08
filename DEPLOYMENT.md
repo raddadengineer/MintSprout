@@ -79,40 +79,66 @@ MintSprout automatically uses PostgreSQL in production Docker deployments for pe
 
 ## Initial family accounts
 
-After deployment, these accounts are created automatically in PostgreSQL:
+After deployment, only the **parent** account is created automatically in PostgreSQL:
 
 **Parent account:**
 - Username: `parent`
 - Password: `password123`
 
-**Child accounts:**
-- Username: `bryson`
-- Password: `password123`
-- Username: `edison`
-- Password: `password123`
+**Child accounts:** Add from **Family → Add Child** in the app (name, age, username, password). Edit profiles or reset passwords anytime from the same screen.
 
-**Recommended:** Change passwords after setup (`npm run passwords:reset` in the app container).
+**Recommended:** Change the parent password after setup (`npm run passwords:reset` in the app container).
 
 ## Database Management
 
+### Data directories
+
+Compose stores persistent data on the **host** (see `.env`):
+
+| Path variable | Default | Contents |
+|---------------|---------|----------|
+| `MINTSPROUT_POSTGRES_DIR` | `./data/postgres` | Live PostgreSQL data |
+| `MINTSPROUT_LOGS_DIR` | `./data/logs` | App logs |
+| `MINTSPROUT_BACKUPS_DIR` | `./data/backups` | `daily/`, `weekly/`, and manual dumps |
+
 ### Automated backup (recommended)
 
-Use the included script before upgrades or destructive operations:
+The MintSprout app schedules backups internally (no separate container). Mount `MINTSPROUT_BACKUPS_DIR` on the app service (see `docker-compose.yml`).
+
+- **Daily** — default 02:00 UTC → `backups/daily/` (retention configurable in Sprout & App, default 14 days)
+- **Weekly** — default Sunday 03:00 UTC → `backups/weekly/` (default 8 weeks)
+
+Configure or run immediately from **Controls → Sprout & App → Database backup & restore**.
+
+Manual backup from the Docker host (writes to `./data/backups/manual` by default):
 
 ```bash
 chmod +x scripts/backup-db.sh
-./scripts/backup-db.sh ./backups
+./scripts/backup-db.sh manual
 ```
 
 Optional environment variables:
 
-- `BACKUP_RETENTION_DAYS` — delete backups older than N days (default `14`)
+- `MINTSPROUT_BACKUPS_DIR` — root backup folder (must be mounted on the app container)
+- `BACKUP_DAILY_RETENTION_DAYS` / `BACKUP_WEEKLY_RETENTION_WEEKS` — first-boot defaults until saved in Sprout & App
+- `BACKUP_RETENTION_DAYS` — alias for daily retention in `backup-db.sh`
 - `DB_CONTAINER` — Postgres container name (default `mintsprout-db`)
 
 **Restore from a plain SQL dump:**
 
 ```bash
-gunzip -c backups/mintsprout-YYYYMMDD-HHMMSS.sql.gz | docker exec -i mintsprout-db psql -U mintsprout -d mintsprout
+gunzip -c data/backups/daily/mintsprout-YYYYMMDD-HHMMSS.sql.gz | docker exec -i mintsprout-db psql -U mintsprout -d mintsprout
+```
+
+### Migrating from Docker named volumes
+
+If you previously used `postgres_data` / `app_logs` named volumes:
+
+```bash
+docker compose down
+docker run --rm -v mintsprout_postgres_data:/from -v "$(pwd)/data/postgres":/to alpine sh -c "cp -a /from/. /to/"
+# repeat for app_logs -> ./data/logs if needed
+docker compose up -d
 ```
 
 ### Manual backup
@@ -200,7 +226,7 @@ Never commit `.env` files to version control. Use Docker secrets or external sec
 
 ### Reset Everything
 
-> **Warning:** `docker compose down -v` **permanently deletes** all database data in the `postgres_data` volume. Run `./scripts/backup-db.sh` first if you need to keep family data.
+> **Warning:** `docker compose down` no longer removes data by default — data lives in `MINTSPROUT_POSTGRES_DIR`. To wipe the database, stop Compose and delete that folder after backing up. Run `./scripts/backup-db.sh manual` first if you need to keep family data.
 
 ```bash
 docker-compose down -v

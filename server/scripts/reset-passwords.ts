@@ -6,7 +6,7 @@ import * as schema from "../../shared/schema";
 function parseArgs(argv: string[]) {
   const args = argv.slice(2);
   const out: { password?: string; users: string[] } = {
-    users: ["parent", "bryson", "edison"],
+    users: ["parent"],
   };
 
   for (let i = 0; i < args.length; i++) {

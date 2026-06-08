@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemStorage } from "./storage";
+import { seedTestChild } from "./test-helpers";
 import { getAllowancePeriodStatus, executeAllowancePayout, nextAllowanceDueDate } from "./allowance-payout";
 
 vi.mock("./db", () => ({
@@ -15,6 +16,7 @@ describe("allowance payout", () => {
   beforeEach(async () => {
     storage = new MemStorage();
     await storage.ready;
+    await seedTestChild(storage);
   });
 
   it("preview math applies floor, variable cap, and missed penalties", async () => {

@@ -55,7 +55,7 @@ Parents can manage AI, voice, and kiosk options at **Controls → Sprout & App**
 - Sprout on/off, Open WebUI URL/key/model, Ollama fallback, Kokoro voice URL, voice profile IDs
 - Profile picker (kiosk mode), parent PIN, kiosk family ID, **JWT secret** (rotation logs everyone out)
 - **Test LLM** / **Test Voice** buttons for connectivity checks
-- **Database backup & restore** — download a `.sql` dump or restore when moving hosts (parent-only)
+- **Database backup & restore** — scheduled daily/weekly dumps to disk, download a `.sql` dump, or restore when moving hosts (parent-only)
 
 Settings are stored in the `app_settings` database table and override `.env` defaults immediately (no container restart). API keys, PINs, and JWT secrets are masked in GET responses. `DATABASE_URL` remains environment-only.
 
@@ -66,6 +66,7 @@ Admin API (parent JWT required):
 - `POST /api/admin/settings/test-llm`
 - `POST /api/admin/settings/test-voice`
 - `POST /api/admin/settings/backup` — download PostgreSQL dump
+- `POST /api/admin/settings/backup/run` — run daily or weekly backup to disk now
 - `POST /api/admin/settings/restore` — `{ confirm: "RESTORE", sql: "..." }`
 
 ### Default accounts
@@ -110,7 +111,7 @@ npm run db:push
   - Ensure you’re on a version where `PostgresStorage.createUser` hashes plaintext passwords and doesn’t double-hash bcrypt strings.
 - **Docker Postgres errors like `column "... " does not exist` after pulling new code**:
   - Your `postgres_data` volume likely contains an older schema (Compose only runs `init-db.sql` on first init).
-  - **Back up first:** `./scripts/backup-db.sh ./backups`
+  - **Back up first:** `./scripts/backup-db.sh manual` or check `data/backups/daily/` from the in-app scheduler (Sprout & App)
   - For a clean local reset: `docker compose down -v` (**deletes all local DB data**), then `docker compose up -d --build`.
 
 ### Security model notes (practical)

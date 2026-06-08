@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemStorage } from "./storage";
+import { seedTestChild } from "./test-helpers";
 import { runAllowanceSchedulerTick } from "./allowance-scheduler";
 import * as allowancePayout from "./allowance-payout";
 
@@ -17,6 +18,7 @@ describe("allowance scheduler payout mode", () => {
   beforeEach(async () => {
     storage = new MemStorage();
     await storage.ready;
+    await seedTestChild(storage);
     paySpy = vi.spyOn(allowancePayout, "executeAllowancePayout").mockResolvedValue({
       ok: true,
       payout: 10,

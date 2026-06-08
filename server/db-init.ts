@@ -39,74 +39,16 @@ export async function initializeDatabase() {
     // Hash password for default users
     const hashedPassword = await bcrypt.hash("password123", 10);
 
-    // Create default users
-    const [parentUser] = await db.insert(schema.users).values({
+    // Create parent account only — children are added by parents in the app
+    await db.insert(schema.users).values({
       username: "parent",
       password: hashedPassword,
       role: "parent",
       familyId: family.id,
       name: "Parent",
       age: null
-    }).returning();
+    });
 
-    const [brysonUser] = await db.insert(schema.users).values({
-      username: "bryson",
-      password: hashedPassword,
-      role: "child",
-      familyId: family.id,
-      name: "Bryson",
-      age: 10
-    }).returning();
-
-    const [edisonUser] = await db.insert(schema.users).values({
-      username: "edison",
-      password: hashedPassword,
-      role: "child",
-      familyId: family.id,
-      name: "Edison",
-      age: 5
-    }).returning();
-
-    // Create child records
-    const [bryson] = await db.insert(schema.children).values({
-      userId: brysonUser.id,
-      familyId: family.id,
-      name: "Bryson",
-      age: 10,
-      totalEarned: "0.00",
-      completedJobs: 0,
-      learningStreak: 0
-    }).returning();
-
-    const [edison] = await db.insert(schema.children).values({
-      userId: edisonUser.id,
-      familyId: family.id,
-      name: "Edison",
-      age: 5,
-      totalEarned: "0.00",
-      completedJobs: 0,
-      learningStreak: 0
-    }).returning();
-
-    // Create allocation settings
-    await db.insert(schema.allocationSettings).values([
-      {
-        childId: bryson.id,
-        spendingPercentage: 20,
-        savingsPercentage: 30,
-        rothIraPercentage: 25,
-        brokeragePercentage: 25
-      },
-      {
-        childId: edison.id,
-        spendingPercentage: 20,
-        savingsPercentage: 30,
-        rothIraPercentage: 25,
-        brokeragePercentage: 25
-      }
-    ]);
-
-    // Create default lessons with kid-friendly quizzes
     const defaultLessons = [
       {
         category: "earning" as const,
@@ -175,38 +117,9 @@ export async function initializeDatabase() {
       }).returning();
       seededCategories.push(cat);
     }
-    const selfCareCat = seededCategories.find((c) => c.label === "Take Care of Yourself");
-    const allowanceCat = seededCategories.find((c) => c.label === "Earn Your Allowance");
-
-    // Create initial jobs
-    await db.insert(schema.jobs).values([
-      {
-        title: "Clean Your Room",
-        description: "Organize toys, make bed, and vacuum floor",
-        amount: "5.00",
-        status: "assigned",
-        recurrence: "weekly",
-        assignedToId: bryson.id,
-        familyId: family.id,
-        categoryId: selfCareCat?.id,
-        isFamilyDuty: true,
-        createdAt: new Date()
-      },
-      {
-        title: "Take Out Trash",
-        description: "Collect trash from all rooms and take to curb",
-        amount: "3.00",
-        status: "assigned",
-        recurrence: "weekly",
-        assignedToId: edison.id,
-        familyId: family.id,
-        categoryId: allowanceCat?.id,
-        createdAt: new Date()
-      }
-    ]);
 
     console.log("✅ Database initialized successfully!");
-    console.log("Initial accounts created (see README for usernames).");
+    console.log("Parent account: username `parent`, password `password123` — add children from Family in the app.");
 
   } catch (error) {
     console.error("❌ Database initialization failed:", error);

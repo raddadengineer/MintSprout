@@ -30,6 +30,14 @@ export function settingsFromEnv(): DeploymentSettings {
     parentPin: process.env.PARENT_PIN || "",
     kioskFamilyId: Number.isFinite(kioskFamilyId) ? kioskFamilyId : 1,
     jwtSecret: process.env.JWT_SECRET || "",
+    backupScheduleEnabled: envFlag(process.env.BACKUP_SCHEDULE_ENABLED, true),
+    backupDailyEnabled: envFlag(process.env.BACKUP_DAILY_ENABLED, true),
+    backupWeeklyEnabled: envFlag(process.env.BACKUP_WEEKLY_ENABLED, true),
+    backupDailyUtcHour: parseInt(process.env.BACKUP_DAILY_UTC_HOUR || "2", 10),
+    backupWeeklyUtcDay: parseInt(process.env.BACKUP_WEEKLY_UTC_DAY || "0", 10),
+    backupWeeklyUtcHour: parseInt(process.env.BACKUP_WEEKLY_UTC_HOUR || "3", 10),
+    backupDailyRetentionDays: parseInt(process.env.BACKUP_DAILY_RETENTION_DAYS || "14", 10),
+    backupWeeklyRetentionWeeks: parseInt(process.env.BACKUP_WEEKLY_RETENTION_WEEKS || "8", 10),
   };
 }
 
@@ -125,4 +133,24 @@ export async function saveSettingsPatch(
   await storage.upsertAppSettings(DEPLOYMENT_SETTINGS_KEY, JSON.stringify(next));
   cached = next;
   return next;
+}
+
+export async function recordBackupRun(
+  storage: IStorage,
+  tier: "daily" | "weekly",
+  ok: boolean,
+  error?: string,
+): Promise<void> {
+  const current = getAppConfig();
+  const now = new Date().toISOString();
+  const next: DeploymentSettings = { ...current };
+  if (tier === "daily") {
+    next.backupLastDailyAt = now;
+    next.backupLastDailyError = ok ? undefined : (error ?? "failed");
+  } else {
+    next.backupLastWeeklyAt = now;
+    next.backupLastWeeklyError = ok ? undefined : (error ?? "failed");
+  }
+  await storage.upsertAppSettings(DEPLOYMENT_SETTINGS_KEY, JSON.stringify(next));
+  cached = next;
 }

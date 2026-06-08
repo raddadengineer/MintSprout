@@ -37,6 +37,31 @@ export class PostgresStorage implements IStorage {
     return result[0];
   }
 
+  async updateUser(
+    id: number,
+    updates: Partial<Pick<User, "username" | "name" | "age">> & { password?: string },
+  ): Promise<User | undefined> {
+    const patch: Partial<User> = {};
+    if (updates.username !== undefined) patch.username = updates.username;
+    if (updates.name !== undefined) patch.name = updates.name;
+    if (updates.age !== undefined) patch.age = updates.age;
+    if (updates.password !== undefined) {
+      patch.password = /^\$2[aby]\$/.test(updates.password)
+        ? updates.password
+        : await bcrypt.hash(updates.password, 10);
+    }
+    if (Object.keys(patch).length === 0) {
+      return this.getUserById(id);
+    }
+    const result = await db.update(schema.users).set(patch).where(eq(schema.users.id, id)).returning();
+    return result[0] || undefined;
+  }
+
+  async deleteUser(id: number): Promise<boolean> {
+    const result = await db.delete(schema.users).where(eq(schema.users.id, id)).returning();
+    return result.length > 0;
+  }
+
   async createFamily(insertFamily: InsertFamily): Promise<Family> {
     const result = await db.insert(schema.families).values(insertFamily).returning();
     return result[0];

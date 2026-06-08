@@ -320,24 +320,10 @@ CREATE TABLE IF NOT EXISTS achievements (
 -- Insert initial family
 INSERT INTO families (name) VALUES ('Our Family') ON CONFLICT DO NOTHING;
 
--- Insert default users (passwords are hashed for 'password123')
+-- Insert parent account only (password is hashed for 'password123')
 INSERT INTO users (username, password, role, family_id, name, age) VALUES 
-    ('parent', '$2b$10$rOW8w/H1Ld8/LJ2l3K9kGO8vZ1nKJo5sXKl3Hms5wRtFQgR1m0pzS', 'parent', 1, 'Parent', NULL),
-    ('bryson', '$2b$10$rOW8w/H1Ld8/LJ2l3K9kGO8vZ1nKJo5sXKl3Hms5wRtFQgR1m0pzS', 'child', 1, 'Bryson', 10),
-    ('edison', '$2b$10$rOW8w/H1Ld8/LJ2l3K9kGO8vZ1nKJo5sXKl3Hms5wRtFQgR1m0pzS', 'child', 1, 'Edison', 5)
+    ('parent', '$2b$10$rOW8w/H1Ld8/LJ2l3K9kGO8vZ1nKJo5sXKl3Hms5wRtFQgR1m0pzS', 'parent', 1, 'Parent', NULL)
 ON CONFLICT (username) DO NOTHING;
-
--- Insert default children
-INSERT INTO children (user_id, family_id, name, age) VALUES 
-    (2, 1, 'Bryson', 10),
-    (3, 1, 'Edison', 5)
-ON CONFLICT DO NOTHING;
-
--- Insert default allocation settings
-INSERT INTO allocation_settings (child_id, spending_percentage, savings_percentage, roth_ira_percentage, brokerage_percentage) VALUES 
-    (1, 20, 30, 25, 25),
-    (2, 20, 30, 25, 25)
-ON CONFLICT DO NOTHING;
 
 -- Insert default lessons
 INSERT INTO lessons (category, title, content, video_url, is_custom, family_id) VALUES 
@@ -543,16 +529,4 @@ INSERT INTO quizzes (lesson_id, question, options, correct_answer) VALUES
     (17, 'What is the BIG advantage of a Roth IRA compared to a regular savings account?', ARRAY['It has no limits on withdrawals', 'The money and all its growth is tax-free when you retire', 'The bank pays you every month for free', 'You can spend it on anything right away'], 1),
     (17, 'To contribute to a Roth IRA as a kid, you need to have…', ARRAY['Your parents'' credit card', 'Earned income (money from a job or chores)', 'A college degree', 'At least $10,000 saved already'], 1);
 
--- Default family responsibilities (no pay — part of being in the family)
-INSERT INTO jobs (title, description, amount, status, recurrence, assigned_to_id, family_id, icon, is_family_duty, category_id)
-SELECT v.title, v.description, '0.00', 'assigned', v.recurrence, v.child_id, 1, v.icon, TRUE,
-  (SELECT id FROM job_categories WHERE family_id = 1 AND label = 'Take Care of Yourself' LIMIT 1)
-FROM (VALUES
-    ('Make my bed', 'Straighten sheets and pillows every morning.', 'daily', 1, 'bed'),
-    ('Clean my room', 'Pick up toys, books, and clothes so the floor is clear.', 'weekly', 1, 'sparkles'),
-    ('Pick up after myself', 'Put things back where they belong after I use them.', 'daily', 1, 'home'),
-    ('Make my bed', 'Straighten sheets and pillows every morning.', 'daily', 2, 'bed'),
-    ('Clean my room', 'Pick up clothes, gear, and clutter so the room stays tidy.', 'weekly', 2, 'sparkles'),
-    ('Pick up after myself', 'Clear my dishes, towels, and stuff when I am done with them.', 'daily', 2, 'home')
-) AS v(title, description, recurrence, child_id, icon)
-WHERE NOT EXISTS (SELECT 1 FROM jobs WHERE is_family_duty = TRUE AND family_id = 1 LIMIT 1);
+-- Family duty jobs are created when parents add children (Controls → Family → Add Child)

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemStorage } from "./storage";
+import { seedTestChild } from "./test-helpers";
 import { applyJobPatch } from "./job-approval-payment";
 
 vi.mock("./db", () => ({
@@ -15,6 +16,7 @@ describe("applyJobPatch payment allocation", () => {
   beforeEach(async () => {
     storage = new MemStorage();
     await storage.ready;
+    await seedTestChild(storage);
   });
 
   it("creates payment and updates balances when parent approves a paid job", async () => {

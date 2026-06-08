@@ -10,6 +10,11 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserById(id: number): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(
+    id: number,
+    updates: Partial<Pick<User, "username" | "name" | "age">> & { password?: string },
+  ): Promise<User | undefined>;
+  deleteUser(id: number): Promise<boolean>;
 
   // Families
   createFamily(family: InsertFamily): Promise<Family>;
@@ -202,56 +207,6 @@ export class MemStorage implements IStorage {
       age: undefined
     });
 
-    // Create child users and profiles
-    const childUser1 = await this.createUser({
-      username: "bryson",
-      password: hashedPassword,
-      role: "child",
-      familyId: family.id,
-      name: "Bryson",
-      age: 10
-    });
-
-    const childUser2 = await this.createUser({
-      username: "edison",
-      password: hashedPassword,
-      role: "child",
-      familyId: family.id,
-      name: "Edison",
-      age: 5
-    });
-
-    const child1 = await this.createChild({
-      userId: childUser1.id,
-      familyId: family.id,
-      name: "Bryson",
-      age: 10
-    });
-
-    const child2 = await this.createChild({
-      userId: childUser2.id,
-      familyId: family.id,
-      name: "Edison",
-      age: 5
-    });
-
-    // Create default allocation settings
-    await this.createAllocationSettings({
-      childId: child1.id,
-      spendingPercentage: 20,
-      savingsPercentage: 30,
-      rothIraPercentage: 25,
-      brokeragePercentage: 25
-    });
-
-    await this.createAllocationSettings({
-      childId: child2.id,
-      spendingPercentage: 20,
-      savingsPercentage: 30,
-      rothIraPercentage: 25,
-      brokeragePercentage: 25
-    });
-
     // Create default account types (basic setup - only spending and savings enabled)
     await this.createAccountTypes({
       familyId: family.id,
@@ -335,9 +290,36 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.currentUserId++;
-    const user: User = { ...insertUser, id, age: insertUser.age ?? null };
+    const passwordLooksHashed = /^\$2[aby]\$/.test(insertUser.password);
+    const password = passwordLooksHashed
+      ? insertUser.password
+      : await bcrypt.hash(insertUser.password, 10);
+    const user: User = { ...insertUser, id, password, age: insertUser.age ?? null };
     this.users.set(id, user);
     return user;
+  }
+
+  async updateUser(
+    id: number,
+    updates: Partial<Pick<User, "username" | "name" | "age">> & { password?: string },
+  ): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+    const next: User = { ...user };
+    if (updates.username !== undefined) next.username = updates.username;
+    if (updates.name !== undefined) next.name = updates.name;
+    if (updates.age !== undefined) next.age = updates.age;
+    if (updates.password !== undefined) {
+      next.password = /^\$2[aby]\$/.test(updates.password)
+        ? updates.password
+        : await bcrypt.hash(updates.password, 10);
+    }
+    this.users.set(id, next);
+    return next;
+  }
+
+  async deleteUser(id: number): Promise<boolean> {
+    return this.users.delete(id);
   }
 
   // Family methods
