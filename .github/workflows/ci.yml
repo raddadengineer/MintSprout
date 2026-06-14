@@ -18,6 +18,12 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run build
+      - name: Ensure production bundle does not import vite
+        run: |
+          if grep -E 'from ["'\'']vite["'\'']|import\(["'\'']vite["'\'']\)' dist/index.js; then
+            echo "dist/index.js must not import vite in production"
+            exit 1
+          fi
 
   postgres:
     runs-on: ubuntu-latest
