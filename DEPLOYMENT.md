@@ -224,6 +224,10 @@ Never commit `.env` files to version control. Use Docker secrets or external sec
 2. Check DATABASE_URL format
 3. Verify network connectivity between containers
 
+**`relation "families" does not exist` on startup (Portainer / pre-built image):**
+1. Pull the latest `raddadengineer/mintsprout:latest` image and redeploy — the app bootstraps an empty database on first start.
+2. If the database was partially initialized, stop the stack, wipe `MINTSPROUT_POSTGRES_DIR`, and redeploy fresh.
+
 ### Reset Everything
 
 > **Warning:** `docker compose down` no longer removes data by default — data lives in `MINTSPROUT_POSTGRES_DIR`. To wipe the database, stop Compose and delete that folder after backing up. Run `./scripts/backup-db.sh manual` first if you need to keep family data.

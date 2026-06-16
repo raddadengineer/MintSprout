@@ -34,6 +34,7 @@ RUN adduser --system --uid 1001 mintsprout
 
 # Copy built application
 COPY --from=builder --chown=mintsprout:nodejs /app/dist ./dist
+COPY --chown=mintsprout:nodejs init-db.sql ./init-db.sql
 COPY --from=builder --chown=mintsprout:nodejs /app/package*.json ./
 COPY --from=deps --chown=mintsprout:nodejs /app/node_modules ./node_modules
 
