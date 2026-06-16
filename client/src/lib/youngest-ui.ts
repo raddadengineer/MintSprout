@@ -1,7 +1,7 @@
 /** Icons and simple labels for kids ages 5–6 who are learning to read. */
 
 export const YOUNGEST_PROMPTS: Record<string, { icon: string; shortLabel: string }> = {
-  "What jobs can I do?": { icon: "📋", shortLabel: "Things to do" },
+  "What can I do?": { icon: "📋", shortLabel: "Things to do" },
   "I finished making my bed": { icon: "🛏️", shortLabel: "Bed Done" },
   "What did I finish?": { icon: "✅", shortLabel: "I Did" },
   "What is saving?": { icon: "🐷", shortLabel: "Saving?" },

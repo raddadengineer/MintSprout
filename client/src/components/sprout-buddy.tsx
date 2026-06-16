@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { apiRequest } from "@/lib/queryClient";
+import { sproutVoicePlaceholder, sproutVoiceSubtitle } from "@shared/kid-task-copy";
 import { useKidMode, type KidMode } from "@/hooks/use-kid-mode";
 import { useAuth } from "@/hooks/use-auth";
 import { useSpeechInput } from "@/hooks/use-speech-input";
@@ -455,7 +456,7 @@ export function SproutBuddy({
                     : voiceMode
                       ? page === "learn"
                         ? "Or type a learning question…"
-                        : "Or type a job command…"
+                        : sproutVoicePlaceholder()
                       : kidMode === "youngest"
                         ? "Or type here…"
                         : "Ask Sprout anything…"
@@ -487,9 +488,9 @@ export function SproutBuddyCTA({ mode, page = "dashboard" }: { mode: KidMode; pa
         unknown: { title: "Ask Sprout", subtitle: "Your learning coach", emoji: "🌱" },
       }
     : {
-        youngest: { title: "Voice Mode!", subtitle: "Ask about jobs & mark them done", emoji: "🎤" },
-        younger: { title: "Voice Mode", subtitle: "List jobs & mark complete by voice", emoji: "🎙️" },
-        older: { title: "Chat with Sprout", subtitle: "Voice commands for jobs", emoji: "🧠" },
+        youngest: { title: "Voice Mode!", subtitle: sproutVoiceSubtitle("youngest"), emoji: "🎤" },
+        younger: { title: "Voice Mode", subtitle: sproutVoiceSubtitle("younger"), emoji: "🎙️" },
+        older: { title: "Chat with Sprout", subtitle: sproutVoiceSubtitle("older"), emoji: "🧠" },
         unknown: { title: "Ask Sprout", subtitle: "Your money coach", emoji: "🌱" },
       };
   const l = labels[mode] ?? labels.unknown;

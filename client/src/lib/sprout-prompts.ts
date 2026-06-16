@@ -1,16 +1,24 @@
 import type { KidMode } from "@/hooks/use-kid-mode";
+import {
+  greetingVoiceOff,
+  greetingVoiceOn,
+  quickPromptListAvailable,
+  quickPromptListAvailableYoungest,
+  quickPromptWaitingApproval,
+  voiceHintExample,
+} from "@shared/kid-task-copy";
 
 const JOB_PROMPTS: Record<KidMode, string[]> = {
   youngest: [
-    "What jobs can I do?",
+    quickPromptListAvailableYoungest(),
     "I finished making my bed",
     "What did I finish?",
     "What is saving?",
   ],
   younger: [
-    "What jobs are available?",
+    quickPromptListAvailable("younger"),
     "I'm done with clean my room",
-    "What jobs are waiting for approval?",
+    quickPromptWaitingApproval("younger"),
     "Give me a saving tip!",
   ],
   older: [
@@ -61,13 +69,7 @@ export function voiceHintForPage(mode: KidMode, page: string): string {
     }
     return "Try: “What lessons should I complete?” or ask about any money topic";
   }
-  if (mode === "youngest") {
-    return "Try: “What jobs can I do?” or “I finished my bed”";
-  }
-  if (mode === "younger") {
-    return "Try: “What jobs are available?” or “I'm done with clean my room”";
-  }
-  return "Try: “What jobs are available?” or “I'm done with…” plus a job name";
+  return voiceHintExample(mode);
 }
 
 export function greetingForPage(
@@ -93,17 +95,5 @@ export function greetingForPage(
       : `Hi ${name}. Enable Voice Mode to ask what to learn or get quick explanations.`;
   }
 
-  if (mode === "youngest") {
-    return voiceMode
-      ? `Hi ${name}! Voice mode is on. Ask "what jobs can I do?" or say "I finished" plus a chore name! 🌱`
-      : `Hi ${name}! I'm Sprout! Tap Voice Mode or the mic to talk about your jobs! 🌱`;
-  }
-  if (mode === "younger") {
-    return voiceMode
-      ? `Hey ${name}! Voice mode on — ask about your jobs or say "I'm done with" a chore name.`
-      : `Hey ${name}! I'm Sprout — turn on Voice Mode to ask about jobs hands-free!`;
-  }
-  return voiceMode
-    ? `Hi ${name}. Voice mode on — list jobs or mark them complete by voice.`
-    : `Hi ${name}. I'm Sprout — enable Voice Mode to list jobs or mark them complete by voice.`;
+  return voiceMode ? greetingVoiceOn(mode, name) : greetingVoiceOff(mode, name);
 }

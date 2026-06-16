@@ -1,6 +1,7 @@
 import type { JobCategory } from "@shared/schema";
 import type { JobCategoryPaymentMode } from "@shared/job-categories";
 import { DEFAULT_JOB_CATEGORIES } from "@shared/job-categories";
+import { voiceListEmpty, voiceNameHint, type KidMode } from "@shared/kid-task-copy";
 import type { IStorage } from "./storage";
 
 export type JobCategoryInput = {
@@ -159,7 +160,7 @@ export function groupJobsByCategoryLabel<T extends { categoryId?: number | null;
 
 export function kidFriendlyJobList(
   groups: { label: string; jobs: { title: string; status: string }[] }[],
-  mode: "youngest" | "younger" | "older" | "unknown",
+  mode: KidMode,
 ): string {
   const active = groups
     .map((g) => {
@@ -172,13 +173,9 @@ export function kidFriendlyJobList(
     .filter(Boolean);
 
   if (!active.length) {
-    return mode === "youngest"
-      ? "No jobs right now! You're all caught up!"
-      : "You don't have any jobs to do right now — nice work!";
+    return voiceListEmpty(mode);
   }
 
   const body = active.join(". ");
-  return mode === "youngest"
-    ? `${body}. Say "I finished" plus the job name when you're done!`
-    : `${body}. Say "I'm done with" plus the job name to mark it complete.`;
+  return `${body}. ${voiceNameHint(mode)}`;
 }

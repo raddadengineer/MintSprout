@@ -1,0 +1,24 @@
+---
+description: User-facing terminology for assigned work items in MintSprout
+globs:
+  - "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# Task terminology
+
+User-facing copy uses **tasks** (or **things to do** for youngest kids ages 5–6), never **jobs**.
+
+- Internal code may keep `Job` types, `earnJobs` fields, and `/api/jobs` routes.
+- **Chores** remain fine for family-duty context (e.g. "family responsibilities").
+- Shared copy helpers live in `shared/kid-task-copy.ts` — use them for daily brief scripts, voice replies, and Sprout prompts.
+- UI labels follow `client/src/lib/task-labels.ts`.
+
+Age-aware nouns:
+
+| Kid mode | Singular | Plural |
+|----------|----------|--------|
+| youngest | thing to do | things to do |
+| younger / older | task | tasks |
+
+Voice intent parsing may still accept "jobs" as user input for backwards compatibility.

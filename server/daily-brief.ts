@@ -1,5 +1,12 @@
 import type { IStorage } from "./storage";
 import type { Job } from "@shared/schema";
+import {
+  briefEarnFactsLabel,
+  briefEarnSection,
+  briefFamilySection,
+  briefKindLabel,
+  llmTaskTerminologyRule,
+} from "@shared/kid-task-copy";
 import { kidModeFromAge, synthesizeSpeech, voiceForKidMode, type KidMode } from "./ai-coach";
 import { chatCompletion } from "./llm-client";
 import { ensureFamilyJobCategories, groupJobsByCategoryLabel } from "./job-categories";
@@ -62,9 +69,7 @@ function jobKind(job: Job): "family" | "paid" | "allowance" {
 }
 
 function kindLabel(kind: BriefTask["kind"]): string {
-  if (kind === "family") return "family chore";
-  if (kind === "allowance") return "allowance chore";
-  return "paid job";
+  return briefKindLabel(kind);
 }
 
 function toBriefTask(job: Job): BriefTask {
@@ -124,7 +129,7 @@ function buildFactsBlock(brief: Omit<DailyBrief, "script" | "generatedAt">): str
     }
     if (brief.earnJobs.length) {
       lines.push(
-        "Jobs to earn money: " +
+        `${briefEarnFactsLabel()} ` +
           brief.earnJobs.map((t) => `${t.title}${t.amount ? ` $${t.amount}` : ""} (${t.statusLabel})`).join("; "),
       );
     }
@@ -178,11 +183,7 @@ function templateScript(brief: Omit<DailyBrief, "script" | "generatedAt">): stri
     const chores = brief.familyDuties.filter((t) => t.status !== "completed");
     if (chores.length) {
       const list = chores.map((t) => t.title).join(", ");
-      parts.push(
-        brief.mode === "youngest"
-          ? `First, family jobs: ${list}.`
-          : `Family responsibilities: ${list}.`,
-      );
+      parts.push(briefFamilySection(brief.mode, list));
     }
 
     const earn = brief.earnJobs.filter((t) => t.status !== "completed");
@@ -190,7 +191,7 @@ function templateScript(brief: Omit<DailyBrief, "script" | "generatedAt">): stri
       const list = earn
         .map((t) => (t.amount ? `${t.title} for $${parseFloat(t.amount).toFixed(2)}` : t.title))
         .join(", ");
-      parts.push(`Jobs you can earn from: ${list}.`);
+      parts.push(briefEarnSection(brief.mode, list));
     }
   }
 
@@ -225,8 +226,9 @@ async function scriptWithOllama(brief: Omit<DailyBrief, "script" | "generatedAt"
   const system = `You are Sprout, the MintSprout voice assistant. Write a single spoken daily briefing for a child.
 Use ONLY the facts below — never invent tasks or amounts.
 ${ageStyle(brief.mode)}
+${llmTaskTerminologyRule(brief.mode)}
 Maximum ${limit} words. Plain text only — no markdown, no bullet characters, no emojis.
-Cover: greeting, what to do today (family chores first, then earning jobs), any reminders, brief encouragement.`;
+Cover: greeting, what to do today (family chores first, then earning tasks), any reminders, brief encouragement.`;
 
   const user = `Facts:\n${facts}\n\nWrite the spoken briefing now:`;
 

@@ -1,6 +1,13 @@
 import type { Job } from "@shared/schema";
 import type { JobCategory } from "@shared/schema";
 import type { IStorage } from "./storage";
+import {
+  voiceCompleteNotFound,
+  voiceInProgressEmpty,
+  voiceListEmpty,
+  voiceListIntro,
+  voiceListNotFound,
+} from "@shared/kid-task-copy";
 import { applyJobPatch } from "./job-approval-payment";
 import { db } from "./db";
 import * as schema from "@shared/schema";
@@ -239,7 +246,7 @@ export async function trySproutVoiceAction(
         };
       }
       return {
-        reply: mode === "youngest" ? "No jobs right now! You're all caught up!" : "You don't have any jobs to do right now — nice work!",
+        reply: voiceListEmpty(mode),
         jobsChanged: false,
         voiceAction: "list",
       };
@@ -260,10 +267,7 @@ export async function trySproutVoiceAction(
 
     const lines = todo.map((j) => formatJobLine(j, mode)).join(", ");
     return {
-      reply:
-        mode === "youngest"
-          ? `You can do: ${lines}. Say "I finished" plus the job name when you're done!`
-          : `Here are your available jobs: ${lines}. Say "I'm done with" plus the job name to update one.`,
+      reply: voiceListIntro(mode, lines),
       jobsChanged: false,
       voiceAction: "list",
     };
@@ -293,7 +297,7 @@ export async function trySproutVoiceAction(
     const doing = active.filter((j) => j.status === "in_progress");
     if (doing.length === 0) {
       return {
-        reply: mode === "youngest" ? "You're not doing a job right now." : "You don't have any jobs in progress.",
+        reply: voiceInProgressEmpty(mode),
         jobsChanged: false,
         voiceAction: "list",
       };
@@ -309,9 +313,7 @@ export async function trySproutVoiceAction(
     const job = matchJob(active, intent.phrase);
     if (!job) {
       return {
-        reply: mode === "youngest"
-          ? `I couldn't find "${intent.phrase}". Ask "what jobs can I do?" to hear your list.`
-          : `I couldn't find a job matching "${intent.phrase}". Try asking what jobs are available.`,
+        reply: voiceListNotFound(mode, intent.phrase),
         jobsChanged: false,
         voiceAction: "start",
       };
@@ -337,9 +339,7 @@ export async function trySproutVoiceAction(
     const job = matchJob(active, intent.phrase);
     if (!job) {
       return {
-        reply: mode === "youngest"
-          ? `Hmm, I couldn't find "${intent.phrase}". What job did you finish?`
-          : `I couldn't find a job matching "${intent.phrase}".`,
+        reply: voiceCompleteNotFound(mode, intent.phrase),
         jobsChanged: false,
         voiceAction: "complete",
       };

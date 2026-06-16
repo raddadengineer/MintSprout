@@ -1,4 +1,12 @@
 import type { Child, Job, JobCategory } from "@shared/schema";
+import {
+  llmActiveTasksLabel,
+  llmTaskTerminologyRule,
+  llmTasksCompletedLabel,
+  quickPromptListAvailable,
+  quickPromptListAvailableYoungest,
+  quickPromptWaitingApproval,
+} from "@shared/kid-task-copy";
 import { getAppConfig } from "./app-config";
 import { chatCompletion, checkLlmAvailable, type LlmMessage } from "./llm-client";
 
@@ -31,16 +39,16 @@ export function quickPromptsForMode(mode: KidMode): string[] {
   switch (mode) {
     case "youngest":
       return [
-        "What jobs can I do?",
+        quickPromptListAvailableYoungest(),
         "I finished making my bed",
         "What did I finish?",
         "What is saving?",
       ];
     case "younger":
       return [
-        "What jobs are available?",
+        quickPromptListAvailable("younger"),
         "I'm done with clean my room",
-        "What jobs are waiting for approval?",
+        quickPromptWaitingApproval("younger"),
         "Give me a saving tip!",
       ];
     case "older":
@@ -134,9 +142,10 @@ function buildSystemPrompt(ctx: CoachContext): string {
   const base = `You are Sprout 🌱, the friendly money coach inside MintSprout.
 You help kids learn about earning, saving, spending, and being responsible — never shame, always encourage.
 Child: ${ctx.childName}${ctx.age != null ? `, age ${ctx.age}` : ""}.
-Spending jar: $${ctx.spendingBalance}. Savings jar: $${ctx.savingsBalance}. Jobs completed: ${ctx.completedJobs}.
-Active jobs:\n${jobLines}
+Spending jar: $${ctx.spendingBalance}. Savings jar: $${ctx.savingsBalance}. ${llmTasksCompletedLabel(ctx.mode)}: ${ctx.completedJobs}.
+${llmActiveTasksLabel(ctx.mode)}:\n${jobLines}
 ${learnLines ? `Lessons:\n${learnLines}\n` : ""}${pageHint}
+${llmTaskTerminologyRule(ctx.mode)}
 Stay on topic: money, chores, goals, and kindness — but happily answer other kid-friendly questions too. Gently connect off-topic questions back to learning and growing. No adult topics, no scary content, no asking for personal info.`;
 
   if (ctx.mode === "youngest") {
