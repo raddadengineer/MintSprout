@@ -271,6 +271,8 @@ docker exec -it mintsprout-app npm run passwords:reset
 
 To deploy from Portainer without building locally, use [`docker-compose.portainer.yml`](docker-compose.portainer.yml) — it pulls `raddadengineer/mintsprout:latest` instead of building. Set the same environment variables in the stack editor (`JWT_SECRET`, `POSTGRES_PASSWORD`, `ALLOWED_ORIGINS`, `MINTSPROUT_*_DIR` paths, plus optional Sprout/kiosk vars). Mount `MINTSPROUT_BACKUPS_DIR` on the app container for on-disk scheduled backups.
 
+No host-mounted `init-db.sql` is required — the app applies the base schema automatically on first start when Postgres is empty. To reset from scratch, stop the stack and wipe `MINTSPROUT_POSTGRES_DIR`, then redeploy.
+
 **Important:** Portainer will not pick up code fixes until the Hub image is rebuilt and pushed. After pulling new code, rebuild/push the image (below), then in Portainer use **Pull and redeploy** on the stack.
 
 Rebuild and push the image after code changes:

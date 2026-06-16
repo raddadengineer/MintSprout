@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { log } from "./log";
 import { serveStatic } from "./serve-static";
+import { ensureBaseSchema } from "./base-schema";
 import { initializeDatabase } from "./db-init";
 import { runMigrations, listFamilyIds } from "./migrations";
 import { storage } from "./storage";
@@ -37,6 +38,7 @@ app.use((req, res, next) => {
   // Initialize database if using PostgreSQL (production or when DATABASE_URL is set)
   if (process.env.NODE_ENV === 'production' || process.env.DATABASE_URL) {
     try {
+      await ensureBaseSchema();
       await runMigrations();
       await initializeDatabase();
       const { ensureCatalogLibrary } = await import("./catalog-seed");
