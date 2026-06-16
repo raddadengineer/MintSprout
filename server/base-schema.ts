@@ -5,26 +5,38 @@ import { db, pool, runSql } from "./db";
 
 const INIT_DB_SQL_PATH = path.join(process.cwd(), "init-db.sql");
 
-async function familiesTableExists(): Promise<boolean> {
+async function baseSchemaReady(): Promise<boolean> {
   if (pool) {
-    const result = await pool.query(
+    const table = await pool.query(
       "SELECT to_regclass('public.families') AS rel",
     );
-    return result.rows[0]?.rel != null;
+    if (!table.rows[0]?.rel) {
+      return false;
+    }
+    const result = await pool.query("SELECT 1 FROM families LIMIT 1");
+    return (result.rowCount ?? 0) > 0;
   }
 
-  const result = await db.execute(
+  const table = await db.execute(
     sql`SELECT to_regclass('public.families') AS rel`,
   );
+  const tableRows = Array.isArray(table)
+    ? table
+    : ((table as { rows?: { rel: string | null }[] }).rows ?? []);
+  if (!tableRows[0]?.rel) {
+    return false;
+  }
+
+  const result = await db.execute(sql`SELECT 1 FROM families LIMIT 1`);
   const rows = Array.isArray(result)
     ? result
-    : ((result as { rows?: { rel: string | null }[] }).rows ?? []);
-  return rows[0]?.rel != null;
+    : ((result as { rows?: unknown[] }).rows ?? []);
+  return rows.length > 0;
 }
 
 /** Apply init-db.sql when Postgres has no base tables (e.g. Portainer without init mount). */
 export async function ensureBaseSchema(): Promise<void> {
-  if (await familiesTableExists()) {
+  if (await baseSchemaReady()) {
     return;
   }
 

@@ -170,17 +170,6 @@ CREATE INDEX IF NOT EXISTS idx_job_categories_family_id ON job_categories(family
 
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS category_id INTEGER REFERENCES job_categories(id) ON DELETE SET NULL;
 
--- Seed default categories for family 1
-INSERT INTO job_categories (family_id, slug, label, description, icon, sort_order, payment_mode)
-SELECT 1, v.slug, v.label, v.description, v.icon, v.sort_order, v.payment_mode
-FROM (VALUES
-    ('self_care', 'Take Care of Yourself', 'Everyday habits for yourself and your space.', 'bed', 0, 'none'),
-    ('allowance', 'Earn Your Allowance', 'Extra chores that count toward allowance.', 'dollarSign', 1, 'allowance'),
-    ('mind_body', 'Grow Your Mind and Body', 'Learning, reading, and skills — each task can be paid or unpaid (your choice).', 'bookOpen', 2, 'none'),
-    ('help_others', 'Help Others', 'Kind acts for family, friends, or neighbors.', 'gift', 3, 'none')
-) AS v(slug, label, description, icon, sort_order, payment_mode)
-WHERE NOT EXISTS (SELECT 1 FROM job_categories WHERE family_id = 1 LIMIT 1);
-
 -- Backfill category_id on existing jobs
 UPDATE jobs j SET category_id = c.id
 FROM job_categories c
@@ -324,6 +313,17 @@ INSERT INTO families (name) VALUES ('Our Family') ON CONFLICT DO NOTHING;
 INSERT INTO users (username, password, role, family_id, name, age) VALUES 
     ('parent', '$2b$10$rOW8w/H1Ld8/LJ2l3K9kGO8vZ1nKJo5sXKl3Hms5wRtFQgR1m0pzS', 'parent', 1, 'Parent', NULL)
 ON CONFLICT (username) DO NOTHING;
+
+-- Seed default categories for family 1 (after families row exists)
+INSERT INTO job_categories (family_id, slug, label, description, icon, sort_order, payment_mode)
+SELECT 1, v.slug, v.label, v.description, v.icon, v.sort_order, v.payment_mode
+FROM (VALUES
+    ('self_care', 'Take Care of Yourself', 'Everyday habits for yourself and your space.', 'bed', 0, 'none'),
+    ('allowance', 'Earn Your Allowance', 'Extra chores that count toward allowance.', 'dollarSign', 1, 'allowance'),
+    ('mind_body', 'Grow Your Mind and Body', 'Learning, reading, and skills — each task can be paid or unpaid (your choice).', 'bookOpen', 2, 'none'),
+    ('help_others', 'Help Others', 'Kind acts for family, friends, or neighbors.', 'gift', 3, 'none')
+) AS v(slug, label, description, icon, sort_order, payment_mode)
+WHERE NOT EXISTS (SELECT 1 FROM job_categories WHERE family_id = 1 LIMIT 1);
 
 -- Insert default lessons
 INSERT INTO lessons (category, title, content, video_url, is_custom, family_id) VALUES 
