@@ -339,4 +339,100 @@ describe("HTTP routes", () => {
     expect(res.body.assignedToId).toBe(child.id);
     expect(res.body.created).toBeUndefined();
   });
+
+  it("rejects single create when assignedToId is not in family", async () => {
+    const { storage } = await import("./storage");
+    const { ensureFamilyJobCategories } = await import("./job-categories");
+    const parent = await storage.getUserByUsername("parent");
+    const familyId = parent!.familyId;
+
+    await ensureFamilyJobCategories(storage, familyId);
+    const categories = await storage.getJobCategoriesByFamily(familyId);
+    const dutyCategory = categories.find((c) => c.slug === "self_care");
+
+    const otherFamily = await storage.createFamily({ name: "Other Family" });
+    const otherChild = await storage.createChild({
+      familyId: otherFamily.id,
+      name: "Other Kid",
+      age: 8,
+      username: "otherkid",
+      password: "kidpass1",
+    });
+
+    const res = await request(app)
+      .post("/api/jobs")
+      .set("Authorization", `Bearer ${parentToken}`)
+      .send({
+        title: "Test",
+        amount: "0.00",
+        recurrence: "once",
+        icon: "bed",
+        categoryId: dutyCategory!.id,
+        payType: "none",
+        assignedToId: otherChild.id,
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain("family");
+  });
+
+  it("skips child with multiple enabled allowances on bulk create", async () => {
+    const { storage } = await import("./storage");
+    const { ensureFamilyJobCategories } = await import("./job-categories");
+    const parent = await storage.getUserByUsername("parent");
+    const familyId = parent!.familyId;
+
+    await ensureFamilyJobCategories(storage, familyId);
+    const categories = await storage.getJobCategoriesByFamily(familyId);
+    const allowanceCategory = categories.find((c) => c.slug === "allowance");
+
+    const multiAllowanceChild = await storage.createChild({
+      familyId,
+      name: "Multi Allow Kid",
+      age: 9,
+      username: "multiallowkid",
+      password: "kidpass1",
+    });
+
+    await storage.createAllowance({
+      familyId,
+      childId: multiAllowanceChild.id,
+      amount: "10.00",
+      cadence: "weekly",
+      dayOfWeek: 0,
+      enabled: true,
+    });
+    await storage.createAllowance({
+      familyId,
+      childId: multiAllowanceChild.id,
+      amount: "12.00",
+      cadence: "monthly",
+      dayOfMonth: 1,
+      enabled: true,
+    });
+
+    const res = await request(app)
+      .post("/api/jobs")
+      .set("Authorization", `Bearer ${parentToken}`)
+      .send({
+        title: "Take out trash",
+        amount: "0.00",
+        recurrence: "weekly",
+        icon: "trash2",
+        categoryId: allowanceCategory!.id,
+        payType: "allowance",
+        assignToAllChildren: true,
+      });
+
+    expect(res.status).toBe(200);
+    expect(
+      res.body.skipped?.some(
+        (s: { childId: number; reason: string }) =>
+          s.childId === multiAllowanceChild.id && s.reason.includes("Multiple"),
+      ),
+    ).toBe(true);
+    expect(
+      res.body.jobs?.some((j: { assignedToId: number }) => j.assignedToId === multiAllowanceChild.id),
+    ).toBe(false);
+  });
 });

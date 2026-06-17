@@ -16,6 +16,7 @@ import {
   insertFamilySettingsSchema,
   insertApprovalRequestSchema,
 } from "@shared/schema";
+import type { InsertJob } from "@shared/schema";
 import { z } from "zod";
 import { applyJobPatch } from "./job-approval-payment";
 import {
@@ -46,8 +47,8 @@ import {
 } from "./job-categories";
 import {
   buildJobInsertPayload,
-  findEnabledAllowanceForChild,
   resolveEffectivePayType,
+  resolveEnabledAllowanceForChild,
   type JobPayType,
 } from "./job-create";
 import { generateCatalogItems } from "./catalog-generator";
@@ -70,7 +71,7 @@ import {
 import { runBackupNow } from "./backup-scheduler";
 import { checkLessonAchievements, checkSavingsGoalAchievement } from "./achievements";
 import { getPaymentHistory } from "./payment-history";
-import { db } from "./db";
+import { db, supportsInteractiveTransactions } from "./db";
 import * as schema from "@shared/schema";
 import { eq } from "drizzle-orm";
 
@@ -894,22 +895,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         const effectiveMode = resolveEffectivePayType(payType, category);
-        const jobs: Awaited<ReturnType<typeof storage.createJob>>[] = [];
+        const payloads: InsertJob[] = [];
         const skipped: { childId: number; childName: string; reason: string }[] = [];
 
         for (const child of children) {
           const childBody = { ...body };
           if (effectiveMode === "allowance") {
-            const allowance = findEnabledAllowanceForChild(allowances, child.id);
-            if (!allowance) {
+            const resolved = resolveEnabledAllowanceForChild(allowances, child.id);
+            if (!resolved.ok) {
               skipped.push({
                 childId: child.id,
                 childName: child.name,
-                reason: "No enabled allowance",
+                reason: resolved.reason,
               });
               continue;
             }
-            childBody.allowanceId = allowance.id;
+            childBody.allowanceId = resolved.allowance.id;
           }
 
           const built = buildJobInsertPayload(childBody, {
@@ -927,10 +928,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
             continue;
           }
-          jobs.push(await storage.createJob(built.data));
+          payloads.push(built.data);
         }
 
-        if (jobs.length === 0) {
+        if (payloads.length === 0) {
           return res.status(400).json({
             message:
               effectiveMode === "allowance"
@@ -938,6 +939,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 : "No tasks could be created for your children",
             skipped,
           });
+        }
+
+        let jobs: Awaited<ReturnType<typeof storage.createJob>>[];
+        if (supportsInteractiveTransactions) {
+          jobs = await db.transaction(async (tx) => {
+            const created: Awaited<ReturnType<typeof storage.createJob>>[] = [];
+            for (const data of payloads) {
+              const result = await tx
+                .insert(schema.jobs)
+                .values({ ...data, createdAt: new Date() })
+                .returning();
+              created.push(result[0]);
+            }
+            return created;
+          });
+        } else {
+          jobs = [];
+          for (const data of payloads) {
+            jobs.push(await storage.createJob(data));
+          }
         }
 
         return res.json({
@@ -950,6 +971,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const assignedToId = Number(body.assignedToId);
       if (!Number.isFinite(assignedToId)) {
         return res.status(400).json({ message: "Select a child to assign this task" });
+      }
+
+      const assignedChild = await storage.getChild(assignedToId);
+      if (!assignedChild || assignedChild.familyId !== familyId) {
+        return res.status(400).json({ message: "Select a child in your family" });
       }
 
       const built = buildJobInsertPayload(body, {

@@ -45,9 +45,8 @@ export function buildJobInsertPayload(
     } else {
       body.isFamilyDuty = false;
       delete body.allowanceId;
-      if (body.amount == null || body.amount === "") {
-        return { ok: false, message: "One-time payment tasks require an amount" };
-      }
+      const amountError = validateStandaloneAmount(body.amount);
+      if (amountError) return { ok: false, message: amountError };
     }
     if (!payType) {
       body = applyCategoryPaymentFields(category, body);
@@ -98,9 +97,40 @@ export function resolveEffectivePayType(
   return payType ?? category?.paymentMode;
 }
 
+export type ResolveAllowanceResult =
+  | { ok: true; allowance: Allowance }
+  | { ok: false; reason: string };
+
+export function validateStandaloneAmount(amount: unknown): string | null {
+  if (amount == null || amount === "") {
+    return "One-time payment tasks require an amount";
+  }
+  const parsed = parseFloat(String(amount));
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return "One-time payment tasks require a valid amount";
+  }
+  return null;
+}
+
+export function resolveEnabledAllowanceForChild(
+  allowances: Allowance[],
+  childId: number,
+): ResolveAllowanceResult {
+  const enabled = allowances.filter((a) => a.childId === childId && (a.enabled ?? true));
+  if (enabled.length === 0) {
+    return { ok: false, reason: "No enabled allowance" };
+  }
+  if (enabled.length > 1) {
+    return { ok: false, reason: "Multiple enabled allowances — pick one in Controls" };
+  }
+  return { ok: true, allowance: enabled[0] };
+}
+
+/** @deprecated Use resolveEnabledAllowanceForChild */
 export function findEnabledAllowanceForChild(
   allowances: Allowance[],
   childId: number,
 ): Allowance | undefined {
-  return allowances.find((a) => a.childId === childId && (a.enabled ?? true));
+  const resolved = resolveEnabledAllowanceForChild(allowances, childId);
+  return resolved.ok ? resolved.allowance : undefined;
 }

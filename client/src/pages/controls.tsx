@@ -30,6 +30,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { Link } from "wouter";
 import { PageHeader, PageShell } from "@/components/page-shell";
 import { ChildAllocationForm } from "@/components/child-allocation-form";
+import { CurrencyInput } from "@/components/currency-input";
 
 const CONTROLS_TABS = ["approvals", "allowances", "allocation", "jobs", "lessons", "sprout"] as const;
 type ControlsTab = (typeof CONTROLS_TABS)[number];
@@ -368,11 +369,11 @@ function AllowancePenaltyEditor({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
         <div>
           <Label>Guaranteed minimum ($)</Label>
-          <Input className="mint-input mt-1" value={g} onChange={(e) => setG(e.target.value)} />
+          <CurrencyInput className="mt-1" value={g} onChange={setG} placeholder="0.00" />
         </div>
         <div>
           <Label>Penalty / incomplete job ($)</Label>
-          <Input className="mint-input mt-1" value={p} onChange={(e) => setP(e.target.value)} />
+          <CurrencyInput className="mt-1" value={p} onChange={setP} placeholder="0.00" />
         </div>
         <Button className="mint-primary" type="button" onClick={() => onSave({ guaranteedMinimum: g, penaltyPerIncompleteJob: p })}>
           Save rules
@@ -749,15 +750,15 @@ export default function Controls() {
                 </div>
                 <div>
                   <Label>Total allowance ($)</Label>
-                  <Input className="mint-input mt-1" value={newAmount} onChange={(e) => setNewAmount(e.target.value)} />
+                  <CurrencyInput className="mt-1" value={newAmount} onChange={setNewAmount} placeholder="5.00" />
                 </div>
                 <div>
                   <Label>Guaranteed min ($)</Label>
-                  <Input className="mint-input mt-1" value={newGuaranteedMin} onChange={(e) => setNewGuaranteedMin(e.target.value)} />
+                  <CurrencyInput className="mt-1" value={newGuaranteedMin} onChange={setNewGuaranteedMin} placeholder="0.00" />
                 </div>
                 <div>
                   <Label>Penalty / missed job ($)</Label>
-                  <Input className="mint-input mt-1" value={newPenaltyPerJob} onChange={(e) => setNewPenaltyPerJob(e.target.value)} />
+                  <CurrencyInput className="mt-1" value={newPenaltyPerJob} onChange={setNewPenaltyPerJob} placeholder="0.00" />
                 </div>
                 <div>
                   <Label>Cadence</Label>

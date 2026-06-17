@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { IconSelector } from "@/components/icon-selector";
-import { CurrencyInput } from "@/components/currency-input";
+import { CurrencyInput, isValidCurrencyAmount } from "@/components/currency-input";
 import { PAYMENT_MODE_LABELS, categoryPaymentLabel, isFlexiblePayCategory } from "@shared/job-categories";
 import type { JobCategoryPaymentMode } from "@shared/job-categories";
 import { JobIcon } from "@/components/job-icon";
@@ -81,6 +81,16 @@ function errorMessage(err: unknown): string {
     // ignore
   }
   return maybeBody || "Something went wrong.";
+}
+
+function allowanceResolveStatus(
+  allowances: Allowance[],
+  childId: number,
+): "ok" | "none" | "multiple" {
+  const enabled = allowances.filter((a) => a.childId === childId && (a.enabled ?? true));
+  if (enabled.length === 0) return "none";
+  if (enabled.length > 1) return "multiple";
+  return "ok";
 }
 
 export function JobCreationModal({ isOpen, onClose }: JobCreationModalProps) {
@@ -158,6 +168,25 @@ export function JobCreationModal({ isOpen, onClose }: JobCreationModalProps) {
     (a) => selectedChildId != null && a.childId === selectedChildId && (a.enabled ?? true),
   );
 
+  useEffect(() => {
+    if (children.length <= 1 && formData.assignedToId === "all") {
+      setFormData((prev) => ({ ...prev, assignedToId: "", allowanceId: "" }));
+    }
+  }, [children.length, formData.assignedToId]);
+
+  const allowanceBulkPreview = useMemo(() => {
+    if (!assignToAll || effectivePayType !== "allowance" || children.length === 0) return null;
+    const skippedChildren = children.filter(
+      (c) => allowanceResolveStatus(allowances, c.id) !== "ok",
+    );
+    const creatableCount = children.length - skippedChildren.length;
+    return {
+      skippedChildren,
+      creatableCount,
+      allSkipped: creatableCount === 0,
+    };
+  }, [assignToAll, effectivePayType, children, allowances]);
+
   const createJobMutation = useMutation({
     mutationFn: async (jobData: Record<string, unknown>) => {
       const res = await apiRequest("POST", "/api/jobs", jobData);
@@ -176,8 +205,10 @@ export function JobCreationModal({ isOpen, onClose }: JobCreationModalProps) {
         };
         let description = `Created ${bulk.created} task${bulk.created === 1 ? "" : "s"}`;
         if (bulk.skipped?.length) {
-          const names = bulk.skipped.map((s) => s.childName).join(", ");
-          description += `. Skipped: ${names}`;
+          const details = bulk.skipped
+            .map((s) => `${s.childName} (${s.reason})`)
+            .join("; ");
+          description += `. Skipped: ${details}`;
         }
         toast({
           title: "Success!",
@@ -225,10 +256,19 @@ export function JobCreationModal({ isOpen, onClose }: JobCreationModalProps) {
       return;
     }
 
-    if (effectivePayType === "standalone" && !formData.amount) {
+    if (effectivePayType === "standalone" && !isValidCurrencyAmount(formData.amount)) {
       toast({
         title: "Error",
-        description: "Enter a payment amount for one-time paid tasks",
+        description: "Enter a valid payment amount for one-time paid tasks",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (effectivePayType === "allowance" && assignToAll && allowanceBulkPreview?.allSkipped) {
+      toast({
+        title: "Error",
+        description: "No children have a single enabled allowance to link this task to",
         variant: "destructive",
       });
       return;
@@ -267,6 +307,10 @@ export function JobCreationModal({ isOpen, onClose }: JobCreationModalProps) {
       ...(effectivePayType === "allowance" ? { allowanceId: parseInt(formData.allowanceId) } : {}),
     });
   };
+
+  const submitDisabled =
+    createJobMutation.isPending ||
+    (assignToAll && effectivePayType === "allowance" && !!allowanceBulkPreview?.allSkipped);
 
   const submitButtonLabel = createJobMutation.isPending
     ? assignToAll
@@ -426,9 +470,27 @@ export function JobCreationModal({ isOpen, onClose }: JobCreationModalProps) {
           )}
 
           {effectivePayType === "allowance" && assignToAll && (
-            <p className="text-xs text-gray-500 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-              Each child will be linked to their own allowance. Children without an allowance will be skipped.
-            </p>
+            <div className="space-y-2">
+              <p className="text-xs text-gray-500 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                Each child will be linked to their own allowance. Children without exactly one enabled
+                allowance will be skipped.
+              </p>
+              {allowanceBulkPreview && allowanceBulkPreview.skippedChildren.length > 0 && (
+                <p
+                  className={`text-xs rounded-lg px-3 py-2 border ${
+                    allowanceBulkPreview.allSkipped
+                      ? "text-red-700 bg-red-50 border-red-100"
+                      : "text-amber-800 bg-amber-50 border-amber-100"
+                  }`}
+                >
+                  {allowanceBulkPreview.allSkipped
+                    ? "No children can receive this task — set up one allowance per child in Controls."
+                    : `${allowanceBulkPreview.skippedChildren.length} child${
+                        allowanceBulkPreview.skippedChildren.length === 1 ? "" : "ren"
+                      } will be skipped (no allowance or multiple allowances).`}
+                </p>
+              )}
+            </div>
           )}
 
           {effectivePayType === "allowance" && !assignToAll && (
@@ -522,7 +584,7 @@ export function JobCreationModal({ isOpen, onClose }: JobCreationModalProps) {
             <Button
               type="submit"
               className="flex-1 mint-primary mint-button"
-              disabled={createJobMutation.isPending}
+              disabled={submitDisabled}
             >
               {submitButtonLabel}
             </Button>

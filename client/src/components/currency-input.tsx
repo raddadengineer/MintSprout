@@ -20,6 +20,13 @@ export function sanitizeCurrencyInput(raw: string): string {
   return `${parts[0]}.${parts.slice(1).join("")}`;
 }
 
+/** True when value is a finite positive decimal suitable for currency fields. */
+export function isValidCurrencyAmount(value: string): boolean {
+  if (!value || value === ".") return false;
+  const n = parseFloat(value);
+  return Number.isFinite(n) && n > 0;
+}
+
 export function CurrencyInput({
   id,
   value,

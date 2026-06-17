@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CurrencyInput } from "@/components/currency-input";
 
 type SavingsGoal = {
   id: number;
@@ -374,14 +375,11 @@ export default function Savings() {
                   </div>
                   <div>
                     <Label htmlFor="sg-target">Target amount</Label>
-                    <Input
+                    <CurrencyInput
                       id="sg-target"
-                      className="mint-input mt-1"
-                      type="number"
-                      min="0.01"
-                      step="0.01"
+                      className="mt-1"
                       value={targetAmount}
-                      onChange={(e) => setTargetAmount(e.target.value)}
+                      onChange={setTargetAmount}
                       placeholder="0.00"
                     />
                   </div>
