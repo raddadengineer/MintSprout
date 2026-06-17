@@ -355,6 +355,10 @@ export class PostgresStorage implements IStorage {
     return await db.select().from(schema.quizzes).where(eq(schema.quizzes.lessonId, lessonId));
   }
 
+  async deleteQuizzesByLesson(lessonId: number): Promise<void> {
+    await db.delete(schema.quizzes).where(eq(schema.quizzes.lessonId, lessonId));
+  }
+
   async createLearningProgress(insertProgress: InsertLearningProgress): Promise<LearningProgress> {
     const result = await db.insert(schema.learningProgress).values(insertProgress).returning();
     return result[0];

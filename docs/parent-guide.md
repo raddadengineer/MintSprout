@@ -152,9 +152,9 @@ Configured in **Controls → Allowances** for each child:
 - **Period** — Weekly (with configurable start/end/pay days) or monthly.
 - **Payout mode**:
   - **Automatic** — Pays on schedule when the period ends.
-  - **Manual** — You pay from **Tasks → Payments** when you are ready.
+  - **Manual** — You pay from the **Allowance payouts** panel at the top of **Tasks** when you are ready.
 
-Use **Tasks → Payments** tab to see each child's current period, missed chores, and pay early if you want.
+Use **Tasks → Allowance payouts** panel (at the top of the Tasks page) to see each child's current period, missed chores, and pay early if you want.
 
 ### Approval requests (spending, donations, goals)
 
@@ -233,23 +233,27 @@ Keep **one enabled allowance per child** if you use bulk allowance tasks. Fix du
 
 **Approving tasks**
 
-- Filter by status **Completed** to see work waiting on you.
+- Filter by status **Awaiting approval** (or open the **Awaiting approval** tab) to see work waiting on you.
 - Click **Approve**. For one-time paid tasks, a **payment modal** shows the split across buckets; confirm or adjust, then approve.
 - Unpaid tasks approve with one click.
 
 **Tabs**
 
 - **Active** — Assigned and in-progress work.
-- **Completed** — Awaiting approval or recently finished.
-- **Payments** — Allowance payout panel: period summary, missed chores, manual pay button.
+- **Awaiting approval** — Child marked complete; waiting for your approval.
+- **History** — Approved tasks and payment history (hidden for youngest kids).
+
+**Allowance payouts**
+
+At the top of the Tasks page, the **Allowance payouts** panel shows period summary, missed chores, and a manual pay button when payout mode is manual.
 
 **Other tools**
 
 - Search and filter by child or status.
-- Bulk select tasks for batch approve or delete (parent only).
+- Bulk select on **Awaiting approval** to batch-approve, or on **History** to batch-delete (parent only).
 - Edit or delete tasks you created.
 
-Direct link: **Tasks → Payments** (`/jobs?view=payments`) for allowance payout.
+Direct link: **Tasks → Allowance payouts** (`/jobs?view=payments`) scrolls to the allowance panel.
 
 ### Learn (`/learn`)
 
@@ -333,8 +337,8 @@ Parent-only settings hub with six tabs.
 
 #### Allocation
 
-- Set per-child **Spending / Savings / Future Fund / Grow Fund** percentages.
-- Select a child, adjust sliders or fields, then save. Enabled buckets must total **100%**.
+- Each child has their own card with **Spending / Savings / Future Fund / Grow Fund** percentages.
+- Adjust sliders or fields for each child, then save. Enabled buckets must total **100%**.
 - Linked from **Home** via **Set Allocations** (`/controls?tab=allocation`).
 
 #### Tasks (categories and catalog)
@@ -345,8 +349,9 @@ Parent-only settings hub with six tabs.
 
 #### Lessons
 
-- Per category (Earning, Saving, etc.): import lesson templates, edit content and video, **Publish** to make lessons live on the Learn page.
-- Published lessons include quiz questions for kids.
+- Per category (Earning, Saving, etc.): import lesson templates, edit content, video, and quiz questions, then **Publish** to make lessons live on the Learn page.
+- After publishing, use **Update on Learn** (or save edits in the lesson editor) to sync changes to the Learn page.
+- Quiz questions can be added in the lesson editor; if left empty, Sprout generates them at publish time.
 
 #### Sprout & App
 
@@ -367,7 +372,7 @@ Settings saved here override `.env` / Docker defaults immediately without restar
 
 1. **Controls → Allowances** — Confirm each child has an allowance with the right amount, period days, and payout mode.
 2. During the week, children complete **allowance category** tasks; you **approve** them on Home or Tasks as they finish.
-3. Before pay day, open **Tasks → Payments** tab.
+3. Before pay day, open **Tasks** and review the **Allowance payouts** panel at the top.
 4. Review **missed chores** and the calculated payout (guaranteed floor minus penalties).
 5. If payout mode is **manual**, click pay when satisfied. If **automatic**, payout runs on the scheduled pay day.
 6. Check **Payment History** or **History** to confirm deposit.
@@ -378,14 +383,14 @@ Settings saved here override `.env` / Docker defaults immediately without restar
 2. Choose a **one-time pay** category (or flexible category with pay enabled).
 3. Set **amount**, assign **child**, save.
 4. Child marks complete when done.
-5. **Tasks** → filter Completed → **Approve**.
+5. **Tasks** → **Awaiting approval** tab → **Approve**.
 6. In the payment modal, review bucket split → confirm.
 7. Child sees updated balances on **My Money** / Payment History; confetti may play on approval.
 
 ### 3. Set per-child allocation percentages
 
 1. Open **Controls → Allocation** (`/controls?tab=allocation`), or tap **Set Allocations** on Home.
-2. Select a child from the dropdown.
+2. Find the card for the child you want to adjust.
 3. Adjust Spending / Savings / Future Fund / Grow Fund percentages.
 4. Ensure enabled buckets total **100%** → Save.
 5. Repeat for each child if splits differ.
@@ -405,8 +410,8 @@ Same pattern for donations and goal funding with their respective toggles.
 1. **Controls → Lessons**.
 2. Pick a category section (e.g. Saving).
 3. **Browse library** → import a template (or edit an existing catalog item).
-4. Customize title, body content, video URL, quiz questions in the editor.
-5. Click **Publish** — lesson appears on **Learn** for children.
+4. Customize title, body content, video URL, and quiz questions in the editor.
+5. Click **Publish** — lesson appears on **Learn** for children. After edits, save changes to sync to Learn (or click **Update on Learn**).
 6. Optionally **View as child** → **Learn** to verify progress tracking.
 
 ### 6. Sprout voice lesson flow (what kids experience)

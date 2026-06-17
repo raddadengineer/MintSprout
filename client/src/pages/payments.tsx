@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useKidMode } from "@/hooks/use-kid-mode";
+import { useSelectedChild } from "@/components/navigation";
+import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { IconText } from "@/components/icon-text";
@@ -10,6 +12,7 @@ import { taskLabels } from "@/lib/task-labels";
 export default function Payments() {
   const { user } = useAuth();
   const { mode: kidMode } = useKidMode();
+  const { selectedChildId } = useSelectedChild();
   const labels = taskLabels(user?.role === "parent" ? "parent" : "child", kidMode);
 
   const { data: payments, isLoading: paymentsLoading } = useQuery<PaymentRow[]>({
@@ -17,7 +20,15 @@ export default function Payments() {
   });
 
   const { data: dashboardData, isLoading: dashboardLoading } = useQuery<DashboardStats>({
-    queryKey: ["/api/dashboard-stats"],
+    queryKey: ["/api/dashboard-stats", selectedChildId],
+    queryFn: async () => {
+      const url =
+        user?.role === "parent" && selectedChildId
+          ? `/api/dashboard-stats?childId=${encodeURIComponent(selectedChildId)}`
+          : "/api/dashboard-stats";
+      const res = await apiRequest("GET", url);
+      return await res.json();
+    },
   });
 
   const { data: accountTypes } = useQuery<AccountTypesRow>({

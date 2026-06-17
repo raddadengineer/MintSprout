@@ -23,8 +23,10 @@ import {
 import { IconSelector } from "@/components/icon-selector";
 import { JobIcon } from "@/components/job-icon";
 import { ChevronDown, ChevronUp, Pencil, Sparkles } from "lucide-react";
-import type { CatalogType } from "@shared/catalog/types";
+import type { CatalogType, LessonCatalogPayload } from "@shared/catalog/types";
 import { defaultVideoUrlForCategory } from "@shared/catalog/category-default-video";
+
+type LessonQuizStub = NonNullable<LessonCatalogPayload["quizStubs"]>[number];
 
 export type CatalogItem = {
   id: number;
@@ -131,6 +133,12 @@ export function CatalogEditor({
   const [editItem, setEditItem] = useState<CatalogItem | null>(null);
   const [editContent, setEditContent] = useState("");
   const [editVideoUrl, setEditVideoUrl] = useState("");
+  const [editQuizStubs, setEditQuizStubs] = useState<LessonQuizStub[]>([]);
+  const [editJobItem, setEditJobItem] = useState<CatalogItem | null>(null);
+  const [editJobTitle, setEditJobTitle] = useState("");
+  const [editJobDescription, setEditJobDescription] = useState("");
+  const [editJobIcon, setEditJobIcon] = useState("briefcase");
+  const [editJobRecurrence, setEditJobRecurrence] = useState("weekly");
   const [expandedProposals, setExpandedProposals] = useState<Set<number>>(new Set());
 
   const categoryDefaultVideo = defaultVideoUrlForCategory(categoryKey);
@@ -151,7 +159,7 @@ export function CatalogEditor({
     },
   });
 
-  const { data: libraryItems = [] } = useQuery<LibraryItem[]>({
+  const { data: libraryItems = [], isLoading: libraryLoading, isError: libraryError } = useQuery<LibraryItem[]>({
     queryKey: ["/api/catalog/library", catalogType, categoryKey],
     queryFn: async () => {
       const res = await apiRequest(
@@ -248,10 +256,16 @@ export function CatalogEditor({
 
   const publishMutation = useMutation({
     mutationFn: (id: number) => apiRequest("POST", `/api/catalog/items/${id}/publish-lesson`),
-    onSuccess: async () => {
+    onSuccess: async (_data, id) => {
       await invalidate();
       await queryClient.invalidateQueries({ queryKey: ["/api/lessons"] });
-      toast({ title: "Published", description: "Lesson is now on the Learn page." });
+      const item = items.find((i) => i.id === id);
+      toast({
+        title: item?.publishedLessonId ? "Updated on Learn" : "Published",
+        description: item?.publishedLessonId
+          ? "Published lesson synced with your latest catalog edits."
+          : "Lesson is now on the Learn page.",
+      });
     },
     onError: (err) => toast({ title: "Error", description: errorMessage(err), variant: "destructive" }),
   });
@@ -261,12 +275,31 @@ export function CatalogEditor({
     setEditItem(item);
     setEditContent(lessonContentFromPayload(payload, item.description));
     setEditVideoUrl(typeof payload.videoUrl === "string" ? payload.videoUrl : "");
+    const stubs = Array.isArray(payload.quizStubs) ? (payload.quizStubs as LessonQuizStub[]) : [];
+    setEditQuizStubs(stubs);
+  };
+
+  const openEditJob = (item: CatalogItem) => {
+    const payload = parsePayload(item.payload);
+    setEditJobItem(item);
+    setEditJobTitle(item.title);
+    setEditJobDescription(item.description ?? "");
+    setEditJobIcon(String(payload.icon ?? "briefcase"));
+    setEditJobRecurrence(String(payload.recurrence ?? "weekly"));
   };
 
   const saveEditLesson = () => {
     if (!editItem) return;
     const existing = parsePayload(editItem.payload);
     const videoUrl = editVideoUrl.trim() || null;
+    const quizStubs = editQuizStubs
+      .filter((stub) => stub.question.trim() && stub.options.some((o) => o.trim()))
+      .map((stub) => ({
+        question: stub.question.trim(),
+        options: stub.options.map((o) => o.trim()).filter(Boolean),
+        correctAnswer: stub.correctAnswer,
+      }))
+      .filter((stub) => stub.options.length >= 2);
     updateMutation.mutate(
       {
         id: editItem.id,
@@ -275,26 +308,63 @@ export function CatalogEditor({
             ...existing,
             content: editContent.trim() || editItem.description || "",
             videoUrl,
+            quizStubs,
           },
         },
       },
       {
-        onSuccess: () => {
+        onSuccess: async () => {
+          if (editItem.publishedLessonId) {
+            try {
+              await publishMutation.mutateAsync(editItem.id);
+            } catch {
+              toast({
+                title: "Saved locally",
+                description: "Catalog updated but Learn page sync failed. Try Update on Learn.",
+                variant: "destructive",
+              });
+              return;
+            }
+          } else {
+            toast({ title: "Saved", description: "Lesson content updated." });
+          }
           setEditItem(null);
-          toast({ title: "Saved", description: "Lesson content updated." });
         },
       },
     );
   };
 
-  const moveItem = (index: number, direction: -1 | 1) => {
+  const saveEditJob = () => {
+    if (!editJobItem) return;
+    updateMutation.mutate(
+      {
+        id: editJobItem.id,
+        updates: {
+          title: editJobTitle.trim(),
+          description: editJobDescription.trim() || null,
+          payload: {
+            icon: editJobIcon,
+            recurrence: editJobRecurrence,
+          },
+        },
+      },
+      {
+        onSuccess: () => {
+          setEditJobItem(null);
+          toast({ title: "Saved", description: "Task template updated." });
+        },
+      },
+    );
+  };
+
+  const moveItem = async (index: number, direction: -1 | 1) => {
     const sorted = [...items].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
     const target = index + direction;
     if (target < 0 || target >= sorted.length) return;
     const a = sorted[index];
     const b = sorted[target];
-    updateMutation.mutate({ id: a.id, updates: { sortOrder: b.sortOrder ?? target } });
-    updateMutation.mutate({ id: b.id, updates: { sortOrder: a.sortOrder ?? index } });
+    await updateMutation.mutateAsync({ id: a.id, updates: { sortOrder: b.sortOrder ?? target } });
+    await updateMutation.mutateAsync({ id: b.id, updates: { sortOrder: a.sortOrder ?? index } });
   };
 
   const sortedItems = [...items].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
@@ -364,6 +434,17 @@ export function CatalogEditor({
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
                       )}
+                      {catalogType === "job" && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => openEditJob(item)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                       <Switch
                         checked={item.enabled !== false}
                         onCheckedChange={(v) => updateMutation.mutate({ id: item.id, updates: { enabled: v } })}
@@ -391,6 +472,18 @@ export function CatalogEditor({
                           onClick={() => publishMutation.mutate(item.id)}
                         >
                           Publish
+                        </Button>
+                      )}
+                      {showPublish && item.publishedLessonId && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="text-xs"
+                          disabled={publishMutation.isPending}
+                          onClick={() => publishMutation.mutate(item.id)}
+                        >
+                          Update on Learn
                         </Button>
                       )}
                       <Button
@@ -516,7 +609,11 @@ export function CatalogEditor({
             <DialogTitle>Browse library — {categoryLabel}</DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
-            {libraryItems.length === 0 ? (
+            {libraryLoading ? (
+              <div className="text-sm text-gray-500">Loading library…</div>
+            ) : libraryError ? (
+              <div className="text-sm text-red-600">Could not load library items. Try again.</div>
+            ) : libraryItems.length === 0 ? (
               <div className="text-sm text-gray-500">No library items for this category.</div>
             ) : (
               libraryItems.map((lib) => {
@@ -576,14 +673,18 @@ export function CatalogEditor({
                   ) : (
                     <span className="text-xs bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">Has lesson text</span>
                   )}
-                  <span className="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">
-                    {quizCount > 0 ? `${quizCount} quiz questions` : "Quiz on publish"}
-                  </span>
+                  {catalogType === "lesson" && (
+                    <>
+                      <span className="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">
+                        {quizCount > 0 ? `${quizCount} quiz questions` : "Quiz on publish"}
+                      </span>
+                      <span className="text-xs bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded">
+                        {voiceStepCount > 0 ? `${voiceStepCount} voice steps` : "Voice lesson on publish"}
+                      </span>
+                    </>
+                  )}
                   <span className="text-xs bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded">
                     {videoLabel(proposal.payload, categoryKey)}
-                  </span>
-                  <span className="text-xs bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded">
-                    {voiceStepCount > 0 ? `${voiceStepCount} voice steps` : "Voice lesson on publish"}
                   </span>
                 </div>
                 {content && (
@@ -652,7 +753,144 @@ export function CatalogEditor({
                 <p className="text-xs text-gray-500 mt-1">Leave blank to use the default {categoryLabel} video on publish.</p>
               )}
             </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label>Quiz questions</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() =>
+                    setEditQuizStubs((prev) => [
+                      ...prev,
+                      { question: "", options: ["", "", "", ""], correctAnswer: 0 },
+                    ])
+                  }
+                >
+                  Add question
+                </Button>
+              </div>
+              {editQuizStubs.length === 0 ? (
+                <p className="text-xs text-gray-500">
+                  No quiz questions yet. Add your own or leave empty to generate at publish.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {editQuizStubs.map((stub, qIndex) => (
+                    <div key={qIndex} className="border border-gray-200 rounded-lg p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium text-gray-600">Question {qIndex + 1}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs text-red-600 h-7"
+                          onClick={() => setEditQuizStubs((prev) => prev.filter((_, i) => i !== qIndex))}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                      <Input
+                        className="mint-input"
+                        value={stub.question}
+                        onChange={(e) =>
+                          setEditQuizStubs((prev) =>
+                            prev.map((s, i) => (i === qIndex ? { ...s, question: e.target.value } : s)),
+                          )
+                        }
+                        placeholder="Question text"
+                      />
+                      {stub.options.map((option, oIndex) => (
+                        <label key={oIndex} className="flex items-center gap-2 text-sm">
+                          <input
+                            type="radio"
+                            name={`quiz-correct-${qIndex}`}
+                            checked={stub.correctAnswer === oIndex}
+                            onChange={() =>
+                              setEditQuizStubs((prev) =>
+                                prev.map((s, i) => (i === qIndex ? { ...s, correctAnswer: oIndex } : s)),
+                              )
+                            }
+                          />
+                          <Input
+                            className="mint-input flex-1"
+                            value={option}
+                            onChange={(e) =>
+                              setEditQuizStubs((prev) =>
+                                prev.map((s, i) =>
+                                  i === qIndex
+                                    ? {
+                                        ...s,
+                                        options: s.options.map((o, j) => (j === oIndex ? e.target.value : o)),
+                                      }
+                                    : s,
+                                ),
+                              )
+                            }
+                            placeholder={`Option ${oIndex + 1}`}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {editItem?.publishedLessonId && (
+              <p className="text-xs text-emerald-700">
+                Saving will sync changes to the published lesson on the Learn page.
+              </p>
+            )}
             <Button className="mint-primary w-full" disabled={updateMutation.isPending} onClick={saveEditLesson}>
+              Save changes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editJobItem} onOpenChange={(open) => !open && setEditJobItem(null)}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit task template — {editJobItem?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Title</Label>
+              <Input className="mint-input mt-1" value={editJobTitle} onChange={(e) => setEditJobTitle(e.target.value)} />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea
+                className="mint-input mt-1"
+                value={editJobDescription}
+                onChange={(e) => setEditJobDescription(e.target.value)}
+                rows={2}
+              />
+            </div>
+            <div>
+              <Label>Icon</Label>
+              <IconSelector selectedIcon={editJobIcon} onIconSelect={setEditJobIcon} />
+            </div>
+            <div>
+              <Label>Recurrence</Label>
+              <Select value={editJobRecurrence} onValueChange={setEditJobRecurrence}>
+                <SelectTrigger className="mint-input mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="once">Once</SelectItem>
+                  <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              className="mint-primary w-full"
+              disabled={!editJobTitle.trim() || updateMutation.isPending}
+              onClick={saveEditJob}
+            >
               Save changes
             </Button>
           </div>

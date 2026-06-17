@@ -162,13 +162,14 @@ export default function Reports() {
   // Filter data based on selected child and date range
   const filteredPayments = payments?.filter((payment: PaymentRow) => {
     const paymentDate = new Date(payment.createdAt ?? Date.now());
-    const startDate = new Date(dateRange.startDate);
-    const endDate = new Date(dateRange.endDate);
-    
-    const isInDateRange = paymentDate >= startDate && paymentDate <= endDate;
+    const inRange = entryInDateRange(
+      paymentDate.toISOString(),
+      dateRange.startDate,
+      dateRange.endDate,
+    );
     const isSelectedChild = selectedChildId === "all" || payment.childId.toString() === selectedChildId;
     
-    return isInDateRange && isSelectedChild;
+    return inRange && isSelectedChild;
   }) || [];
 
   const filteredSpending = allSpendingEntries.filter((entry) => {
@@ -215,11 +216,13 @@ export default function Reports() {
   ].filter(item => item.value > 0);
 
   // Monthly earnings data
-  const monthlyData = filteredPayments.reduce((acc: any, payment: PaymentRow) => {
-    const month = new Date(payment.createdAt ?? Date.now()).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+  const monthlyData = filteredPayments.reduce((acc: Record<string, { month: string; monthSort: number; spending: number; savings: number; rothIra: number; brokerage: number; total: number }>, payment: PaymentRow) => {
+    const paymentDate = new Date(payment.createdAt ?? Date.now());
+    const month = paymentDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    const monthSort = paymentDate.getFullYear() * 100 + (paymentDate.getMonth() + 1);
     
     if (!acc[month]) {
-      acc[month] = { month, spending: 0, savings: 0, rothIra: 0, brokerage: 0, total: 0 };
+      acc[month] = { month, monthSort, spending: 0, savings: 0, rothIra: 0, brokerage: 0, total: 0 };
     }
     
     acc[month].spending += parseFloat(payment.spendingAmount);
@@ -231,16 +234,16 @@ export default function Reports() {
     return acc;
   }, {});
 
-  const monthlyChartData = Object.values(monthlyData).sort((a: any, b: any) =>
-    new Date(a.month).getTime() - new Date(b.month).getTime()
-  );
+  const monthlyChartData = Object.values(monthlyData).sort((a, b) => a.monthSort - b.monthSort);
 
   const outflowMonthlyData = [...filteredSpending, ...filteredDonations].reduce(
-    (acc: Record<string, { month: string; spent: number; donated: number }>, entry) => {
-      const month = new Date(
+    (acc: Record<string, { month: string; monthSort: number; spent: number; donated: number }>, entry) => {
+      const entryDate = new Date(
         entry.date.includes("T") ? entry.date : `${entry.date}T12:00:00`,
-      ).toLocaleDateString("en-US", { month: "short", year: "2-digit" });
-      if (!acc[month]) acc[month] = { month, spent: 0, donated: 0 };
+      );
+      const month = entryDate.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+      const monthSort = entryDate.getFullYear() * 100 + (entryDate.getMonth() + 1);
+      if (!acc[month]) acc[month] = { month, monthSort, spent: 0, donated: 0 };
       const amount = parseFloat(entry.amount || "0");
       if ("item" in entry) acc[month].spent += amount;
       else acc[month].donated += amount;
@@ -249,7 +252,7 @@ export default function Reports() {
     {},
   );
   const outflowChartData = Object.values(outflowMonthlyData).sort(
-    (a, b) => new Date(a.month).getTime() - new Date(b.month).getTime(),
+    (a, b) => a.monthSort - b.monthSort,
   );
 
   const childComparisonData = user?.role === "parent"

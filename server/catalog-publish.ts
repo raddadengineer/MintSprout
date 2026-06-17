@@ -3,9 +3,10 @@ import { fallbackLessonContent, normalizeLessonPayload } from "@shared/catalog/n
 import type { IStorage } from "./storage";
 import { parsePayload } from "./catalog-seed";
 import { generateCatalogItems } from "./catalog-generator";
-import { quizStubsForLessonTitle } from "@shared/catalog/lesson-quizzes";
+import { quizStubsForLessonTitle, type LessonQuizStub } from "@shared/catalog/lesson-quizzes";
 import { serializeVoiceSteps } from "@shared/catalog/build-voice-steps";
 import { generateVoiceStepsForLesson } from "./voice-steps-generator";
+import type { VoiceLessonStep } from "@shared/catalog/types";
 
 async function enrichLessonFromAi(
   categoryKey: string,
@@ -32,21 +33,18 @@ async function enrichLessonFromAi(
   }
 }
 
-export async function publishLessonCatalogItem(
-  storage: IStorage,
-  familyId: number,
-  itemId: number,
-): Promise<{ lessonId: number; itemId: number }> {
-  const item = await storage.getFamilyCatalogItem(itemId);
-  if (!item || item.familyId !== familyId || item.catalogType !== "lesson") {
-    throw Object.assign(new Error("Catalog item not found"), { status: 404 });
-  }
-  if (item.publishedLessonId) {
-    return { lessonId: item.publishedLessonId, itemId: item.id };
-  }
+type PreparedLesson = {
+  content: string;
+  videoUrl: string | null;
+  quizStubs: LessonQuizStub[];
+  voiceSteps: VoiceLessonStep[];
+};
 
+async function prepareLessonFromCatalogItem(
+  item: NonNullable<Awaited<ReturnType<IStorage["getFamilyCatalogItem"]>>>,
+): Promise<PreparedLesson> {
   const rawPayload = parsePayload(item.payload) as Record<string, unknown>;
-  let normalized = normalizeLessonPayload(rawPayload, item.description, item.categoryKey);
+  const normalized = normalizeLessonPayload(rawPayload, item.description, item.categoryKey);
 
   let content = normalized.content?.trim() ?? "";
   let videoUrl = normalized.videoUrl ?? null;
@@ -89,24 +87,65 @@ export async function publishLessonCatalogItem(
     );
   }
 
-  const lesson = await storage.createLesson({
-    category: item.categoryKey,
-    title: item.title,
-    content,
-    videoUrl,
-    voiceSteps: serializeVoiceSteps(voiceSteps),
-    isCustom: true,
-    familyId,
-  });
+  return { content, videoUrl, quizStubs, voiceSteps };
+}
 
+async function syncQuizzesForLesson(
+  storage: IStorage,
+  lessonId: number,
+  quizStubs: LessonQuizStub[],
+): Promise<void> {
+  await storage.deleteQuizzesByLesson(lessonId);
   for (const stub of quizStubs.slice(0, 5)) {
     await storage.createQuiz({
-      lessonId: lesson.id,
+      lessonId,
       question: stub.question,
       options: stub.options,
       correctAnswer: stub.correctAnswer,
     });
   }
+}
+
+export async function publishLessonCatalogItem(
+  storage: IStorage,
+  familyId: number,
+  itemId: number,
+): Promise<{ lessonId: number; itemId: number; republished?: boolean }> {
+  const item = await storage.getFamilyCatalogItem(itemId);
+  if (!item || item.familyId !== familyId || item.catalogType !== "lesson") {
+    throw Object.assign(new Error("Catalog item not found"), { status: 404 });
+  }
+
+  const prepared = await prepareLessonFromCatalogItem(item);
+
+  if (item.publishedLessonId) {
+    const lessonId = item.publishedLessonId;
+    const existing = await storage.getLessonById(lessonId);
+    if (!existing) {
+      throw Object.assign(new Error("Published lesson not found"), { status: 404 });
+    }
+    await storage.updateLesson(lessonId, {
+      category: item.categoryKey,
+      title: item.title,
+      content: prepared.content,
+      videoUrl: prepared.videoUrl,
+      voiceSteps: serializeVoiceSteps(prepared.voiceSteps),
+    });
+    await syncQuizzesForLesson(storage, lessonId, prepared.quizStubs);
+    return { lessonId, itemId: item.id, republished: true };
+  }
+
+  const lesson = await storage.createLesson({
+    category: item.categoryKey,
+    title: item.title,
+    content: prepared.content,
+    videoUrl: prepared.videoUrl,
+    voiceSteps: serializeVoiceSteps(prepared.voiceSteps),
+    isCustom: true,
+    familyId,
+  });
+
+  await syncQuizzesForLesson(storage, lesson.id, prepared.quizStubs);
 
   await storage.updateFamilyCatalogItem(item.id, { publishedLessonId: lesson.id });
   return { lessonId: lesson.id, itemId: item.id };

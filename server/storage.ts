@@ -87,6 +87,7 @@ export interface IStorage {
   // Quizzes
   createQuiz(quiz: InsertQuiz): Promise<Quiz>;
   getQuizzesByLesson(lessonId: number): Promise<Quiz[]>;
+  deleteQuizzesByLesson(lessonId: number): Promise<void>;
 
   // Learning Progress
   createLearningProgress(progress: InsertLearningProgress): Promise<LearningProgress>;
@@ -735,6 +736,13 @@ export class MemStorage implements IStorage {
 
   async getQuizzesByLesson(lessonId: number): Promise<Quiz[]> {
     return Array.from(this.quizzes.values()).filter(quiz => quiz.lessonId === lessonId);
+  }
+
+  async deleteQuizzesByLesson(lessonId: number): Promise<void> {
+    const ids = Array.from(this.quizzes.values())
+      .filter((quiz) => quiz.lessonId === lessonId)
+      .map((quiz) => quiz.id);
+    for (const id of ids) this.quizzes.delete(id);
   }
 
   // Learning progress methods

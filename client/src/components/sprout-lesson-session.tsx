@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
 import { apiRequest } from "@/lib/queryClient";
 import { useSpeechInput } from "@/hooks/use-speech-input";
 import { useQuizSpeech } from "@/hooks/use-quiz-speech";
@@ -60,6 +61,7 @@ export function SproutLessonSession({ lesson, open, onClose, onComplete, kidMode
   const [feedback, setFeedback] = useState<string | undefined>();
   const [phase, setPhase] = useState<"loading" | "narrating" | "prompt" | "complete">("loading");
   const [error, setError] = useState<string | null>(null);
+  const [typedAnswer, setTypedAnswer] = useState("");
   const { speak, stop: stopSpeech, isSpeaking, supported: browserSpeechSupported } = useQuizSpeech(kidMode);
 
   const sessionMutation = useMutation({
@@ -137,6 +139,7 @@ export function SproutLessonSession({ lesson, open, onClose, onComplete, kidMode
     setPhase("loading");
     setStepIndex(0);
     setFeedback(undefined);
+    setTypedAnswer("");
     sessionMutation.mutate(
       { action: "start" },
       {
@@ -153,6 +156,22 @@ export function SproutLessonSession({ lesson, open, onClose, onComplete, kidMode
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, lesson.id]);
+
+  const submitAnswer = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed || phase !== "prompt" || sessionMutation.isPending) return;
+      setTypedAnswer("");
+      sessionMutation.mutate(
+        { action: "respond", stepIndex, userMessage: trimmed },
+        {
+          onSuccess: (data) => applyStep(data),
+          onError: (err) => setError(err instanceof Error ? err.message : "Something went wrong"),
+        },
+      );
+    },
+    [applyStep, phase, sessionMutation, stepIndex],
+  );
 
   const { isSupported: micSupported, isListening, interimTranscript, toggleListening } = useSpeechInput({
     onFinalTranscript: (text) => {
@@ -258,7 +277,26 @@ export function SproutLessonSession({ lesson, open, onClose, onComplete, kidMode
                       )}
                     </Button>
                   ) : (
-                    <p className="text-xs text-gray-500">Mic not available — type isn't supported in v1; try a browser with voice input.</p>
+                    <div className="space-y-2">
+                      <Input
+                        value={typedAnswer}
+                        onChange={(e) => setTypedAnswer(e.target.value)}
+                        placeholder={kidMode === "youngest" ? "Type your answer here" : "Type your answer"}
+                        disabled={sessionMutation.isPending}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") submitAnswer(typedAnswer);
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        className="w-full"
+                        disabled={sessionMutation.isPending || !typedAnswer.trim()}
+                        onClick={() => submitAnswer(typedAnswer)}
+                      >
+                        Send answer
+                      </Button>
+                      <p className="text-xs text-gray-500">Mic not available — type your answer instead.</p>
+                    </div>
                   )}
                 </div>
               )}

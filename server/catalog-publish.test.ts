@@ -182,6 +182,37 @@ describe("catalog import and publish", () => {
     expect(quizzes[0]!.correctAnswer).toBe(1);
   });
 
+  it("republishes an already-published lesson with updated catalog content", async () => {
+    const lib = (await storage.getCatalogLibrary("lesson"))[0]!;
+    const item = await importFromLibrary(storage, 1, lib.id);
+    const first = await publishLessonCatalogItem(storage, 1, item.id);
+
+    await storage.updateFamilyCatalogItem(item.id, {
+      payload: JSON.stringify({
+        content: "Updated lesson body for kids.",
+        videoUrl: null,
+        quizStubs: [
+          {
+            question: "Updated quiz question?",
+            options: ["Yes", "No", "Maybe", "Never"],
+            correctAnswer: 0,
+          },
+        ],
+      }),
+    });
+
+    const result = await publishLessonCatalogItem(storage, 1, item.id);
+    expect(result.republished).toBe(true);
+    expect(result.lessonId).toBe(first.lessonId);
+
+    const lesson = await storage.getLessonById(first.lessonId);
+    expect(lesson?.content).toBe("Updated lesson body for kids.");
+
+    const quizzes = await storage.getQuizzesByLesson(first.lessonId);
+    expect(quizzes).toHaveLength(1);
+    expect(quizzes[0]!.question).toBe("Updated quiz question?");
+  });
+
   it("stores voice steps when publishing a lesson", async () => {
     const familyItem = await storage.createFamilyCatalogItem({
       familyId: 1,

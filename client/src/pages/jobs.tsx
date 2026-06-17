@@ -24,7 +24,21 @@ import type { AccountTypesRow, ChildRow, JobRow, PaymentRow } from "@/lib/api-ty
 import { taskLabels } from "@/lib/task-labels";
 import { PageHeader } from "@/components/page-shell";
 import { needsPaymentModal, taskPayKind, taskPayLabel } from "@/lib/task-pay-type";
-import { Search, Filter, Edit, Trash2, Calendar, DollarSign, User, MoreHorizontal, Eye } from "lucide-react";
+import { Search, Edit, Trash2, Calendar, DollarSign, User, Eye } from "lucide-react";
+
+function parseMutationError(err: unknown, fallback: string): string {
+  if (!err || typeof err !== "object") return fallback;
+  const msg = typeof (err as { message?: unknown }).message === "string" ? (err as { message: string }).message : "";
+  const parts = msg.split(": ");
+  const maybeBody = parts.length > 1 ? parts.slice(1).join(": ") : msg;
+  try {
+    const parsed = JSON.parse(maybeBody) as { message?: unknown };
+    if (parsed && typeof parsed.message === "string") return parsed.message;
+  } catch {
+    // ignore
+  }
+  return maybeBody || fallback;
+}
 
 function isFamilyDuty(job: { isFamilyDuty?: boolean | null }): boolean {
   return !!job.isFamilyDuty;
@@ -73,7 +87,7 @@ export default function Jobs() {
     queryClient.invalidateQueries({ queryKey: ["/api/children"] });
   }, [queryClient]);
 
-  const { data: jobs, isLoading, refetch: refetchJobs } = useQuery<JobRow[]>({
+  const { data: jobs, isLoading } = useQuery<JobRow[]>({
     queryKey: ["/api/jobs"],
   });
 
@@ -95,6 +109,16 @@ export default function Jobs() {
     queryKey: [`/api/payments/job/${selectedJob?.id}`],
     enabled: !!selectedJob?.id && selectedJob?.status === "approved" && editingPayment,
   });
+
+  useEffect(() => {
+    if (!editingPayment || !existingPayment) return;
+    setPaymentAllocation({
+      spendingAmount: parseFloat(existingPayment.spendingAmount || "0"),
+      savingsAmount: parseFloat(existingPayment.savingsAmount || "0"),
+      rothIraAmount: parseFloat(existingPayment.rothIraAmount || "0"),
+      brokerageAmount: parseFloat(existingPayment.brokerageAmount || "0"),
+    });
+  }, [editingPayment, existingPayment]);
 
   const { data: payments } = useQuery<PaymentRow[]>({
     queryKey: ["/api/payments"],
@@ -121,6 +145,13 @@ export default function Jobs() {
         description: "Task updated successfully",
       });
     },
+    onError: (err) => {
+      toast({
+        title: "Error",
+        description: parseMutationError(err, "Failed to update task"),
+        variant: "destructive",
+      });
+    },
   });
 
   const deleteJobMutation = useMutation({
@@ -132,6 +163,13 @@ export default function Jobs() {
       toast({
         title: "Success!",
         description: "Task deleted successfully",
+      });
+    },
+    onError: (err) => {
+      toast({
+        title: "Error",
+        description: parseMutationError(err, "Failed to delete task"),
+        variant: "destructive",
       });
     },
   });
@@ -193,6 +231,13 @@ export default function Jobs() {
         description: "Payment allocation updated successfully",
       });
     },
+    onError: (err) => {
+      toast({
+        title: "Error",
+        description: parseMutationError(err, "Failed to update payment allocation"),
+        variant: "destructive",
+      });
+    },
   });
 
   const handleJobAction = (jobId: number, status: string) => {
@@ -200,7 +245,7 @@ export default function Jobs() {
   };
 
   const handleDeleteJob = (jobId: number) => {
-    if (confirm("Are you sure you want to delete this job?")) {
+    if (confirm(`Are you sure you want to delete this ${labels.singular}?`)) {
       deleteJobMutation.mutate(jobId);
     }
   };
@@ -246,7 +291,7 @@ export default function Jobs() {
         "Pay type": taskPayLabel(job),
         Amount: isFamilyDuty(job) || job.allowanceId ? "" : parseFloat(job.amount || "0").toFixed(2),
         Recurrence: job.recurrence,
-        Date: new Date(job.updatedAt || job.createdAt).toLocaleDateString(),
+        Date: new Date(job.createdAt ?? Date.now()).toLocaleDateString(),
       }));
 
       const headers = Object.keys(csvData[0] || {});
@@ -287,7 +332,7 @@ export default function Jobs() {
     
     return jobsList.filter(job => {
       const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           job.description.toLowerCase().includes(searchTerm.toLowerCase());
+                           (job.description ?? "").toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilter === "all" || job.status === statusFilter;
       const matchesChild = childFilter === "all" || job.assignedToId.toString() === childFilter;
       
@@ -366,11 +411,25 @@ export default function Jobs() {
 
   const stats = getJobStats();
 
-  const renderJobCard = (job: any) => (
+  const renderJobCard = (job: any, bulkSelect?: boolean) => (
     <Card key={job.id} className="hover:shadow-md transition-shadow">
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center space-x-3">
+            {bulkSelect && user?.role === "parent" && (
+              <input
+                type="checkbox"
+                checked={selectedJobs.includes(job.id)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedJobs((prev) => [...prev, job.id]);
+                  } else {
+                    setSelectedJobs((prev) => prev.filter((id) => id !== job.id));
+                  }
+                }}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mt-1"
+              />
+            )}
             <JobIcon iconName={job.icon} className="h-6 w-6 text-gray-600" />
             <div className="flex-1">
               <div className="flex items-start justify-between mb-2">
@@ -659,8 +718,64 @@ export default function Jobs() {
 
         <TabsContent value="awaiting" className="mt-6">
           {awaitingApprovalJobs.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {awaitingApprovalJobs.map(renderJobCard)}
+            <div className="space-y-4">
+              {user?.role === "parent" && (
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:space-x-4 min-w-0">
+                    <div className="text-sm text-gray-600 break-words">
+                      <strong>{awaitingApprovalJobs.length}</strong> {labels.plural} awaiting approval
+                    </div>
+                    {selectedJobs.length > 0 && (
+                      <div className="text-sm text-blue-600 font-medium">
+                        {selectedJobs.length} selected
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setShowBulkActions(!showBulkActions);
+                        if (showBulkActions) setSelectedJobs([]);
+                      }}
+                      className="text-xs"
+                    >
+                      {showBulkActions ? "Cancel Selection" : "Select Multiple"}
+                    </Button>
+                    {selectedJobs.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const awaitingIds = selectedJobs.filter((jobId) => {
+                            const job = jobs?.find((j: JobRow) => j.id === jobId);
+                            return job?.status === "completed";
+                          });
+                          if (awaitingIds.length === 0) {
+                            toast({
+                              title: "Nothing to approve",
+                              description: `Select ${labels.plural} awaiting approval.`,
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          awaitingIds.forEach((jobId) => handleJobAction(jobId, "approved"));
+                          setSelectedJobs([]);
+                          setShowBulkActions(false);
+                        }}
+                        className="text-xs"
+                        disabled={updateJobMutation.isPending}
+                      >
+                        Approve Selected
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {awaitingApprovalJobs.map((job: JobRow) => renderJobCard(job, showBulkActions))}
+              </div>
             </div>
           ) : (
             <Card>
@@ -684,7 +799,7 @@ export default function Jobs() {
                           {group.label}
                         </h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {group.jobs.map(renderJobCard)}
+                          {group.jobs.map((job: JobRow) => renderJobCard(job))}
                         </div>
                       </div>
                     ))
@@ -695,7 +810,7 @@ export default function Jobs() {
                     <h2 className="text-lg font-bold text-gray-900 mb-1">🏠 Part of the family</h2>
                     <p className="text-sm text-gray-500 mb-4">Things you do because you live here — no pay, just pride!</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {activeFamilyDuties.map(renderJobCard)}
+                      {activeFamilyDuties.map((job: JobRow) => renderJobCard(job))}
                     </div>
                   </div>
                 )}
@@ -704,7 +819,7 @@ export default function Jobs() {
                     <h2 className="text-lg font-bold text-gray-900 mb-1">💰 Earn money</h2>
                     <p className="text-sm text-gray-500 mb-4">Tasks that pay when you finish them.</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {activePaidJobs.map(renderJobCard)}
+                      {activePaidJobs.map((job: JobRow) => renderJobCard(job))}
                     </div>
                   </div>
                 )}
@@ -713,7 +828,7 @@ export default function Jobs() {
               </div>
             ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {activeJobs.map(renderJobCard)}
+              {activeJobs.map((job: JobRow) => renderJobCard(job))}
             </div>
             )
           ) : (
@@ -763,33 +878,6 @@ export default function Jobs() {
                     >
                       {showBulkActions ? "Cancel Selection" : "Select Multiple"}
                     </Button>
-                    {selectedJobs.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          const completedIds = selectedJobs.filter((jobId) => {
-                            const job = jobs?.find((j: any) => j.id === jobId);
-                            return job?.status === "completed";
-                          });
-                          if (completedIds.length === 0) {
-                            toast({
-                              title: "Nothing to approve",
-                              description: `Select ${labels.plural} awaiting approval (completed status).`,
-                              variant: "destructive",
-                            });
-                            return;
-                          }
-                          completedIds.forEach((jobId) => handleJobAction(jobId, "approved"));
-                          setSelectedJobs([]);
-                          setShowBulkActions(false);
-                        }}
-                        className="text-xs"
-                        disabled={updateJobMutation.isPending}
-                      >
-                        Approve Selected
-                      </Button>
-                    )}
                     {selectedJobs.length > 0 && (
                       <Button 
                         size="sm" 
@@ -853,7 +941,7 @@ export default function Jobs() {
                           <div className="flex items-center space-x-4">
                             <span className="text-xs text-gray-500 flex items-center">
                               <Calendar className="h-3 w-3 mr-1" />
-                              Completed {new Date(job.updatedAt || job.createdAt).toLocaleDateString()}
+                              Completed {new Date(job.createdAt ?? Date.now()).toLocaleDateString()}
                             </span>
                           </div>
                         </div>
@@ -999,17 +1087,7 @@ export default function Jobs() {
                   <Button 
                     size="sm" 
                     variant={editingPayment ? "default" : "outline"}
-                    onClick={() => {
-                      setEditingPayment(true);
-                      if (existingPayment) {
-                        setPaymentAllocation({
-                          spendingAmount: parseFloat(existingPayment.spendingAmount || "0"),
-                          savingsAmount: parseFloat(existingPayment.savingsAmount || "0"),
-                          rothIraAmount: parseFloat(existingPayment.rothIraAmount || "0"),
-                          brokerageAmount: parseFloat(existingPayment.brokerageAmount || "0"),
-                        });
-                      }
-                    }}
+                    onClick={() => setEditingPayment(true)}
                     className="text-xs"
                   >
                     Payment Allocation
@@ -1096,7 +1174,6 @@ export default function Jobs() {
               <Button 
                 onClick={() => {
                   if (editingPayment) {
-                    // Validate allocation totals
                     const total = paymentAllocation.spendingAmount + paymentAllocation.savingsAmount + 
                                  paymentAllocation.rothIraAmount + paymentAllocation.brokerageAmount;
                     const jobAmount = parseFloat(selectedJob.amount);
@@ -1104,26 +1181,40 @@ export default function Jobs() {
                     if (Math.abs(total - jobAmount) > 0.01) {
                       toast({
                         title: "Invalid Allocation",
-                        description: `Total allocation ($${total.toFixed(2)}) must equal job amount ($${jobAmount.toFixed(2)})`,
+                        description: `Total allocation ($${total.toFixed(2)}) must equal task amount ($${jobAmount.toFixed(2)})`,
                         variant: "destructive",
                       });
                       return;
                     }
                     
-                    updatePaymentMutation.mutate({
-                      jobId: selectedJob.id,
-                      allocation: paymentAllocation
-                    });
+                    updatePaymentMutation.mutate(
+                      {
+                        jobId: selectedJob.id,
+                        allocation: paymentAllocation,
+                      },
+                      {
+                        onSuccess: () => {
+                          setShowEditModal(false);
+                          setEditingPayment(false);
+                        },
+                      },
+                    );
                   } else {
-                    updateJobMutation.mutate({
-                      id: selectedJob.id,
-                      title: selectedJob.title,
-                      description: selectedJob.description,
-                      amount: selectedJob.amount
-                    });
+                    updateJobMutation.mutate(
+                      {
+                        id: selectedJob.id,
+                        title: selectedJob.title,
+                        description: selectedJob.description,
+                        amount: selectedJob.amount,
+                      },
+                      {
+                        onSuccess: () => {
+                          setShowEditModal(false);
+                          setEditingPayment(false);
+                        },
+                      },
+                    );
                   }
-                  setShowEditModal(false);
-                  setEditingPayment(false);
                 }}
                 disabled={updateJobMutation.isPending || updatePaymentMutation.isPending}
               >
