@@ -73,7 +73,7 @@ After your first login as parent, work through this list:
 1. **Change the parent password** — Do not leave `password123` in place (`npm run passwords:reset` in the app container).
 2. **Add children** — **Family → Add Child** with name, age, username, and password. Edit profiles or change passwords from **Family → Edit** on any child card.
 3. **Choose money buckets** — **Home** → open account type settings and enable which buckets your family uses (Spending, Savings, Future Fund, Grow Fund).
-4. **Set allocation percentages** — **Home** → select a child (avatar menu → View as child) → set how each payment is split across buckets (must total 100%).
+4. **Set allocation percentages** — **Controls → Allocation** → pick each child and set how each payment is split across buckets (must total 100% across enabled account types).
 5. **Set up allowances** (if you use them) — **Controls → Allowances** → create a weekly or monthly allowance per child.
 6. **Review approval rules** — **Controls → Approvals** → turn on/off parent approval for spending, donations, and goal funding.
 7. **Optional: Sprout AI** — **Controls → Sprout & App** → configure LLM and voice, or disable Sprout if you do not use AI features.
@@ -113,7 +113,7 @@ You choose which buckets are active for your family (**Home** → account type s
 
 ### Per-child allocation
 
-Each child has their own split percentages (default is often 20% Spending, 30% Savings, 25% Future Fund, 25% Grow Fund). Edit from **Home** after selecting that child in the avatar menu.
+Each child has their own split percentages (default is often 20% Spending, 30% Savings, 25% Future Fund, 25% Grow Fund). Edit in **Controls → Allocation** (`/controls?tab=allocation`). **Home** shows a summary for the selected child and links there via **Set Allocations**.
 
 When you approve a paid task, you can accept the default split or customize it for that single payment.
 
@@ -184,7 +184,7 @@ If enabled in **Controls → Approvals**, when a child logs spending, a donation
 | **Donations** | `/donations` | Donation log for the selected child |
 | **History** | `/activity` | Full transaction ledger; export CSV |
 | **Reports** | `/reports` | Charts, date ranges, compare children |
-| **Controls** | `/controls` | Rules, allowances, catalogs, Sprout and app settings |
+| **Controls** | `/controls` | Rules, allowances, allocation, catalogs, Sprout and app settings |
 | **Family** | `/family` | Add/edit children, family-wide stats |
 
 ---
@@ -197,10 +197,11 @@ Your command center.
 
 - **Select a child** from the avatar menu to see that child's stats, active tasks, and balances on Home.
 - **Pending approvals** — Banner or list of tasks waiting for you; approve from here or go to Tasks.
-- **Quick actions** — Create a task, open allocation settings, account types, or savings goals.
+- **Quick actions** — Create a task, go to **Set Allocations** (opens **Controls → Allocation**), account types, or savings goals.
+- **Savings goals** — See active goals for all children (or only the selected child when using **View as child**). Open **Family** or **Goals** for more detail.
 - **Sprout** — If AI is enabled, Sprout buddy and daily brief appear here for kids; as parent you configure Sprout under Controls.
 
-**Allocation settings** — Opens a dialog to set Spending / Savings / Future Fund / Grow Fund percentages for the selected child. Percentages must add to 100% across **enabled** account types only.
+**Allocation summary** — Home displays Spending / Savings / Future Fund / Grow Fund percentages for the selected child. To edit, use **Set Allocations** (navigates to **Controls → Allocation**). Percentages must add to 100% across **enabled** account types only.
 
 **Account types** — Choose which buckets exist for your family (e.g. hide Roth IRA for younger kids).
 
@@ -211,10 +212,24 @@ Where most day-to-day parent work happens.
 **Creating a task**
 
 1. Click create / add task.
-2. Pick a **category** (self-care, allowance chores, one-time pay, etc.).
-3. Enter title, description, assign a **child**, set **recurrence** (once, daily, weekly, monthly).
-4. For paid categories, set amount or link to allowance as appropriate.
-5. Use **Browse library** under a category in Controls to import templates for faster creation.
+2. Choose **Pay type** (no pay / allowance / one-time pay) — you can override the category default.
+3. Pick a **category** (self-care, allowance chores, one-time pay, etc.), then enter title, description, icon, and **recurrence** (once, daily, weekly, monthly).
+4. **Assign to** — pick one child, or **All children** when you have two or more kids (creates one identical task per child).
+5. For **one-time pay**, enter the amount. For **allowance** with one child, pick which allowance to tie to; for **All children**, each child is linked automatically to their own allowance.
+
+Use **Browse library** under a category in **Controls → Tasks** to import templates for faster creation.
+
+**Assign to All children**
+
+When you have multiple children, **Assign to** includes **All children**. The button reads **Create for all**.
+
+| Pay type | What happens |
+|----------|----------------|
+| **No pay / family duty** | Every child gets the same task. |
+| **One-time pay** | Every child gets the same task at the same amount. |
+| **Allowance** | Each child is linked to their own enabled allowance. Children with **no** allowance or **more than one** enabled allowance are skipped — the success message lists who was skipped and why. |
+
+Keep **one enabled allowance per child** if you use bulk allowance tasks. Fix duplicates in **Controls → Allowances**.
 
 **Approving tasks**
 
@@ -257,8 +272,10 @@ Lessons visible to kids come from your **lesson catalog**, managed in **Controls
 
 ### Goals (`/savings`)
 
-- Children set savings goals (name, target amount, optional deadline).
-- Parents view and manage goals for the selected child; use **Add funds (parent)** on Goals to contribute without deducting the child's savings balance.
+- Children create savings goals (name, target amount, optional deadline).
+- Parents view and manage goals for the **selected child** (use **View as child** in the avatar menu first).
+- Use **Add funds (parent)** on Goals to contribute without deducting the child's savings balance.
+- To see **every child's goals** at once, use **Home** (summary card) or **Family** (full list with progress).
 - If **Require goal funding approval** is on in Controls, child-initiated funding waits for your approval.
 
 ### Spending (`/spending`)
@@ -293,12 +310,13 @@ Youngest children are redirected away from Reports (too complex for their UI mod
 - **Remove** children (also deletes their login).
 - Summary cards: total children, family earnings, active vs completed tasks.
 - Per-child cards show login username, earnings, and progress.
+- **Savings goals** — Lists every child's goals and progress (read-only overview). Use **Goals** for the selected child's details or to add parent funds.
 
 Removing a child is permanent — confirm carefully.
 
 ### Controls (`/controls`)
 
-Parent-only settings hub with five tabs.
+Parent-only settings hub with six tabs.
 
 #### Approvals
 
@@ -311,6 +329,13 @@ Parent-only settings hub with five tabs.
 - Weekly: set **period start**, **period end**, and **pay day**.
 - **Payout mode**: automatic vs manual.
 - Edit rules or delete an allowance; enable/disable without deleting.
+- For **Assign to All children** allowance tasks, keep **one enabled allowance per child**. If a child has multiple enabled allowances, they are skipped when you bulk-create allowance chores.
+
+#### Allocation
+
+- Set per-child **Spending / Savings / Future Fund / Grow Fund** percentages.
+- Select a child, adjust sliders or fields, then save. Enabled buckets must total **100%**.
+- Linked from **Home** via **Set Allocations** (`/controls?tab=allocation`).
 
 #### Tasks (categories and catalog)
 
@@ -359,8 +384,8 @@ Settings saved here override `.env` / Docker defaults immediately without restar
 
 ### 3. Set per-child allocation percentages
 
-1. Avatar menu → **View as child** → pick the child.
-2. **Home** → open **allocation settings** (or equivalent control on dashboard).
+1. Open **Controls → Allocation** (`/controls?tab=allocation`), or tap **Set Allocations** on Home.
+2. Select a child from the dropdown.
 3. Adjust Spending / Savings / Future Fund / Grow Fund percentages.
 4. Ensure enabled buckets total **100%** → Save.
 5. Repeat for each child if splits differ.
@@ -403,6 +428,15 @@ As parent, ensure Sprout is enabled and LLM/voice URLs work (**Controls → Spro
 5. Refresh the browser and log in. All family data, settings, and progress should match the backup.
 
 Alternatively, use automatic dumps in `MINTSPROUT_BACKUPS_DIR` (default `./data/backups/daily` and `.../weekly`) from the in-app scheduler (**Sprout & App**), or `./scripts/backup-db.sh manual` on the Docker host.
+
+### 8. Assign the same task to all children
+
+1. **Tasks** or **Home** → Create task.
+2. Set pay type, category, title, recurrence, and amount (if one-time pay) as usual.
+3. **Assign to** → **All children** → **Create for all**.
+4. Read the success message — it shows how many tasks were created and lists any skipped children (for example, no allowance set up).
+
+**Examples:** Daily "Make bed" for everyone (no pay); the same yard-work one-time pay amount for each child; allowance chores like "Take out trash" linked to each child's allowance.
 
 ---
 

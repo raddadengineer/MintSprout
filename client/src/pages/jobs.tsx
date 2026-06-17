@@ -235,6 +235,53 @@ export default function Jobs() {
     return child?.name || "Unknown";
   };
 
+  const exportCompletedTasksCsv = () => {
+    if (completedJobs.length === 0) return;
+    try {
+      const csvData = completedJobs.map((job: JobRow) => ({
+        Title: job.title,
+        Description: job.description || "",
+        Child: getChildName(job.assignedToId),
+        Status: job.status,
+        "Pay type": taskPayLabel(job),
+        Amount: isFamilyDuty(job) || job.allowanceId ? "" : parseFloat(job.amount || "0").toFixed(2),
+        Recurrence: job.recurrence,
+        Date: new Date(job.updatedAt || job.createdAt).toLocaleDateString(),
+      }));
+
+      const headers = Object.keys(csvData[0] || {});
+      const csvContent = [
+        headers.join(","),
+        ...csvData.map((row: Record<string, string>) =>
+          headers.map((header) => `"${String(row[header] ?? "").replace(/"/g, '""')}"`).join(","),
+        ),
+      ].join("\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      const stamp = new Date().toISOString().slice(0, 10);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `mintsprout-completed-tasks-${stamp}.csv`);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Exported",
+        description: `Downloaded ${completedJobs.length} completed ${labels.plural} as CSV.`,
+      });
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to export task data",
+        variant: "destructive",
+      });
+    }
+  };
+
   const filterJobs = (jobsList: any[]) => {
     if (!jobsList) return [];
     
@@ -542,7 +589,7 @@ export default function Jobs() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
-              placeholder="Search jobs..."
+              placeholder={`Search ${labels.plural}...`}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -764,7 +811,7 @@ export default function Jobs() {
                       variant="outline"
                       onClick={() => {
                         if (window.confirm(`Export ${completedJobs.length} completed ${labels.plural} to CSV?`)) {
-                          console.log("Exporting completed jobs...");
+                          exportCompletedTasksCsv();
                         }
                       }}
                       className="text-xs"
@@ -874,7 +921,7 @@ export default function Jobs() {
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No completed {labels.plural}</h3>
                 <p className="text-gray-500">
-                  Completed and approved jobs will appear here.
+                  Completed and approved {labels.plural} will appear here.
                 </p>
               </CardContent>
             </Card>

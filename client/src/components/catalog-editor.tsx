@@ -317,7 +317,7 @@ export function CatalogEditor({
         <div className="space-y-3">
           {!compact && (
             <p className="text-sm text-gray-600">
-              Quick-add templates for <strong>{categoryLabel}</strong>. Kids see these when you create jobs
+              Quick-add templates for <strong>{categoryLabel}</strong>. Kids see these when you create tasks
               {showPublish ? " or published lessons on Learn" : ""}.
             </p>
           )}

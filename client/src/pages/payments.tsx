@@ -282,10 +282,9 @@ export default function Payments() {
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">No payments yet</h3>
               <p className="text-gray-600">
-                {user?.role === "parent" 
-                  ? "Payments will appear here when you approve completed jobs"
-                  : "Complete jobs to start earning money across your accounts"
-                }
+                {user?.role === "parent"
+                  ? `Payments will appear here when you approve completed ${labels.plural}`
+                  : `Complete ${labels.plural} to start earning money across your accounts`}
               </p>
             </div>
           )}

@@ -622,7 +622,7 @@ export default function Reports() {
                           </div>
                           <div className="text-right">
                             <p className="font-bold text-primary text-lg">${child.totalEarned.toFixed(2)}</p>
-                            <p className="text-sm text-gray-600">{child.jobsCompleted} jobs completed</p>
+                            <p className="text-sm text-gray-600">{child.jobsCompleted} tasks completed</p>
                           </div>
                         </div>
                         

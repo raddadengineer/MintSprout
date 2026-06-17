@@ -372,7 +372,7 @@ function AllowancePenaltyEditor({
           <CurrencyInput className="mt-1" value={g} onChange={setG} placeholder="0.00" />
         </div>
         <div>
-          <Label>Penalty / incomplete job ($)</Label>
+          <Label>Penalty / incomplete task ($)</Label>
           <CurrencyInput className="mt-1" value={p} onChange={setP} placeholder="0.00" />
         </div>
         <Button className="mint-primary" type="button" onClick={() => onSave({ guaranteedMinimum: g, penaltyPerIncompleteJob: p })}>
@@ -757,7 +757,7 @@ export default function Controls() {
                   <CurrencyInput className="mt-1" value={newGuaranteedMin} onChange={setNewGuaranteedMin} placeholder="0.00" />
                 </div>
                 <div>
-                  <Label>Penalty / missed job ($)</Label>
+                  <Label>Penalty / missed task ($)</Label>
                   <CurrencyInput className="mt-1" value={newPenaltyPerJob} onChange={setNewPenaltyPerJob} placeholder="0.00" />
                 </div>
                 <div>
@@ -816,7 +816,7 @@ export default function Controls() {
               </div>
               <p className="text-sm text-gray-600">
                 Example: total <strong>$10</strong>, guaranteed <strong>$4</strong>, penalty <strong>$2</strong> → up to{" "}
-                <strong>$6</strong> can be reduced by incomplete jobs (never below <strong>$4</strong>).
+                <strong>$6</strong> can be reduced by incomplete tasks (never below <strong>$4</strong>).
               </p>
 
               <Button

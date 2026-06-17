@@ -11,7 +11,7 @@ See **[docs/parent-guide.md](docs/parent-guide.md)** for a full manual on using 
 ## ✨ Features
 
 ### 👨‍👩‍👧‍👦 For Families
-- **Job & Chore Management** — Parents create jobs, kids mark them complete, parents approve & pay
+- **Task & Chore Management** — Parents create tasks, kids mark them complete, parents approve & pay
 - **Automatic Money Allocation** — Payments are split into Spending, Savings, Future Fund (Roth IRA), and Grow Fund (Brokerage) buckets based on configurable percentages
 - **Multi-child Support** — Switch between children with a single tap; each child has their own profile
 - **Family Dashboard** — Parents see the big picture; kids see their own progress
@@ -20,8 +20,8 @@ See **[docs/parent-guide.md](docs/parent-guide.md)** for a full manual on using 
 - **Savings Goals** — Set and track goals (e.g. "New bike — $40 saved / $120 needed")
 - **Spending Log** — Record what you buy by category (food, toys, clothes, entertainment, education)
 - **Donations Tracker** — Log charitable giving and pick causes you care about
-- **Achievements** — Earn badges for completing jobs and finishing lessons
-- **Confetti Celebrations** 🎉 — Bursts of color when you complete a job or earn a payment
+- **Achievements** — Earn badges for completing tasks and finishing lessons
+- **Confetti Celebrations** 🎉 — Bursts of color when you complete a task or earn a payment
 
 ### 📚 Financial Education
 - **17 curated lessons** across 5 categories — Earning, Saving, Spending, Investing, Donating
