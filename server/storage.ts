@@ -100,6 +100,7 @@ export interface IStorage {
   // Savings Goals
   createSavingsGoal(goal: InsertSavingsGoal): Promise<SavingsGoal>;
   getSavingsGoals(childId: number): Promise<SavingsGoal[]>;
+  getSavingsGoalsByFamily(familyId: number): Promise<SavingsGoal[]>;
   getSavingsGoal(id: number): Promise<SavingsGoal | undefined>;
   updateSavingsGoal(id: number, updates: Partial<SavingsGoal>): Promise<SavingsGoal | undefined>;
   deleteSavingsGoal(id: number): Promise<boolean>;
@@ -791,6 +792,12 @@ export class MemStorage implements IStorage {
 
   async getSavingsGoals(childId: number): Promise<SavingsGoal[]> {
     return Array.from(this.savingsGoals.values()).filter(g => g.childId === childId);
+  }
+
+  async getSavingsGoalsByFamily(familyId: number): Promise<SavingsGoal[]> {
+    const familyChildren = await this.getChildrenByFamily(familyId);
+    const childIds = new Set(familyChildren.map((c) => c.id));
+    return Array.from(this.savingsGoals.values()).filter((g) => childIds.has(g.childId));
   }
 
   async getSavingsGoal(id: number): Promise<SavingsGoal | undefined> {

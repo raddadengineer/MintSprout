@@ -44,6 +44,12 @@ import {
   backfillCategorySlugs,
   applyCategoryPaymentFields,
 } from "./job-categories";
+import {
+  buildJobInsertPayload,
+  findEnabledAllowanceForChild,
+  resolveEffectivePayType,
+  type JobPayType,
+} from "./job-create";
 import { generateCatalogItems } from "./catalog-generator";
 import { ensureCatalogLibrary, ensureFamilyCatalog } from "./catalog-seed";
 import { importFromLibrary, publishLessonCatalogItem } from "./catalog-publish";
@@ -864,72 +870,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       let body = { ...req.body };
-      const payType = body.payType as "none" | "allowance" | "standalone" | undefined;
+      const payType = body.payType as JobPayType;
+      const assignToAllChildren = body.assignToAllChildren === true;
       delete body.payType;
+      delete body.assignToAllChildren;
 
+      const familyId = req.user.familyId as number;
+      const allowances = await storage.getAllowancesByFamily(familyId);
+
+      let category: Awaited<ReturnType<typeof storage.getJobCategory>> | null = null;
       if (body.categoryId != null && body.categoryId !== "") {
         const categoryId = Number(body.categoryId);
-        const category = await storage.getJobCategory(categoryId);
-        if (!category || category.familyId !== req.user.familyId || !category.enabled) {
+        category = (await storage.getJobCategory(categoryId)) ?? null;
+        if (!category || category.familyId !== familyId || !category.enabled) {
           return res.status(400).json({ message: "Invalid job category" });
         }
-        const effectiveMode = payType ?? category.paymentMode;
-        if (effectiveMode === "allowance") {
-          const allowanceId = Number(body.allowanceId);
-          const assignedToId = Number(body.assignedToId);
-          if (!Number.isFinite(allowanceId) || !Number.isFinite(assignedToId)) {
-            return res.status(400).json({ message: "Allowance tasks require selecting an allowance" });
-          }
-          const allowances = await storage.getAllowancesByFamily(req.user.familyId);
-          const allowance = allowances.find((a) => a.id === allowanceId);
-          if (!allowance || allowance.childId !== assignedToId) {
-            return res.status(400).json({ message: "Allowance does not belong to that child" });
-          }
-          body.amount = "0.00";
-          body.isFamilyDuty = false;
-        } else if (effectiveMode === "none") {
-          body.amount = "0.00";
-          body.isFamilyDuty = true;
-          delete body.allowanceId;
-        } else {
-          body.isFamilyDuty = false;
-          delete body.allowanceId;
-          if (body.amount == null || body.amount === "") {
-            return res.status(400).json({ message: "One-time payment tasks require an amount" });
-          }
-        }
-        if (!payType) {
-          body = applyCategoryPaymentFields(category, body);
-        }
-      } else if (payType === "none" || body?.isFamilyDuty === true || body?.isFamilyDuty === "true") {
-        body.amount = "0.00";
-        body.isFamilyDuty = true;
-        delete body.allowanceId;
-      } else if (body?.allowanceId != null && body?.allowanceId !== "") {
-        const allowanceId = Number(body.allowanceId);
-        const assignedToId = Number(body.assignedToId);
-        if (!Number.isFinite(allowanceId) || !Number.isFinite(assignedToId)) {
-          return res.status(400).json({ message: "Invalid allowance assignment" });
-        }
-        const allowances = await storage.getAllowancesByFamily(req.user.familyId);
-        const allowance = allowances.find((a) => a.id === allowanceId);
-        if (!allowance || allowance.childId !== assignedToId) {
-          return res.status(400).json({ message: "Allowance does not belong to that child" });
-        }
-        body.amount = "0.00";
-        body.isFamilyDuty = false;
-      } else {
-        delete body.allowanceId;
-        body.isFamilyDuty = false;
       }
 
-      const jobData = insertJobSchema.parse({
-        ...body,
-        familyId: req.user.familyId,
-        status: "assigned",
-      });
+      if (assignToAllChildren) {
+        const children = await storage.getChildrenByFamily(familyId);
+        if (children.length === 0) {
+          return res.status(400).json({ message: "Add a child before creating tasks" });
+        }
 
-      const job = await storage.createJob(jobData);
+        const effectiveMode = resolveEffectivePayType(payType, category);
+        const jobs: Awaited<ReturnType<typeof storage.createJob>>[] = [];
+        const skipped: { childId: number; childName: string; reason: string }[] = [];
+
+        for (const child of children) {
+          const childBody = { ...body };
+          if (effectiveMode === "allowance") {
+            const allowance = findEnabledAllowanceForChild(allowances, child.id);
+            if (!allowance) {
+              skipped.push({
+                childId: child.id,
+                childName: child.name,
+                reason: "No enabled allowance",
+              });
+              continue;
+            }
+            childBody.allowanceId = allowance.id;
+          }
+
+          const built = buildJobInsertPayload(childBody, {
+            payType,
+            familyId,
+            assignedToId: child.id,
+            category,
+            allowances,
+          });
+          if (!built.ok) {
+            skipped.push({
+              childId: child.id,
+              childName: child.name,
+              reason: built.message,
+            });
+            continue;
+          }
+          jobs.push(await storage.createJob(built.data));
+        }
+
+        if (jobs.length === 0) {
+          return res.status(400).json({
+            message:
+              effectiveMode === "allowance"
+                ? "No tasks created — no children have an enabled allowance"
+                : "No tasks could be created for your children",
+            skipped,
+          });
+        }
+
+        return res.json({
+          jobs,
+          created: jobs.length,
+          ...(skipped.length > 0 ? { skipped } : {}),
+        });
+      }
+
+      const assignedToId = Number(body.assignedToId);
+      if (!Number.isFinite(assignedToId)) {
+        return res.status(400).json({ message: "Select a child to assign this task" });
+      }
+
+      const built = buildJobInsertPayload(body, {
+        payType,
+        familyId,
+        assignedToId,
+        category,
+        allowances,
+      });
+      if (!built.ok) {
+        return res.status(400).json({ message: built.message });
+      }
+
+      const job = await storage.createJob(built.data);
       res.json(job);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -2058,15 +2092,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/savings-goals", verifyToken, async (req: any, res) => {
     try {
+      if (req.user.role === "parent" && (req.query.all === "true" || req.query.all === "1")) {
+        const children = await storage.getChildrenByFamily(req.user.familyId);
+        const nameById = new Map(children.map((c) => [c.id, c.name]));
+        const goals = await storage.getSavingsGoalsByFamily(req.user.familyId);
+        res.json(
+          goals.map((g) => ({
+            ...g,
+            childName: nameById.get(g.childId) ?? "Unknown",
+          })),
+        );
+        return;
+      }
+
       const childId = await resolveChildId(req);
       if (!childId) return res.status(404).json({ message: "Child not found" });
       const goals = await storage.getSavingsGoals(childId);
+      if (req.user.role === "parent") {
+        const child = await storage.getChild(childId);
+        res.json(goals.map((g) => ({ ...g, childName: child?.name ?? "Unknown" })));
+        return;
+      }
       res.json(goals);
     } catch { res.status(500).json({ message: "Internal server error" }); }
   });
 
   app.post("/api/savings-goals", verifyToken, async (req: any, res) => {
     try {
+      if (req.user.role === "parent") {
+        return res.status(403).json({ message: "Only children can create savings goals" });
+      }
       const childId = await resolveChildId(req);
       if (!childId) return res.status(404).json({ message: "Child not found" });
       const goalData = insertSavingsGoalSchema.parse({ ...req.body, childId });

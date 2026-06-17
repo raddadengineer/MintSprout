@@ -29,8 +29,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { Link } from "wouter";
 import { PageHeader, PageShell } from "@/components/page-shell";
+import { ChildAllocationForm } from "@/components/child-allocation-form";
 
-const CONTROLS_TABS = ["approvals", "allowances", "jobs", "lessons", "sprout"] as const;
+const CONTROLS_TABS = ["approvals", "allowances", "allocation", "jobs", "lessons", "sprout"] as const;
 type ControlsTab = (typeof CONTROLS_TABS)[number];
 
 function parseControlsTab(search: string): ControlsTab {
@@ -604,11 +605,11 @@ export default function Controls() {
     <PageShell wide="wide">
       <PageHeader
         title="🛡️ Parent Controls"
-        description="Approvals, allowances, and task & lesson catalogs."
+        description="Approvals, allowances, money allocation, and task & lesson catalogs."
       />
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 h-auto md:grid-cols-3 lg:grid-cols-5 gap-1 p-1">
+        <TabsList className="grid w-full grid-cols-2 h-auto md:grid-cols-3 lg:grid-cols-6 gap-1 p-1">
           <TabsTrigger value="approvals" className="text-xs sm:text-sm py-2">
             Approvals
             {pendingRequests.length > 0 && (
@@ -619,6 +620,9 @@ export default function Controls() {
           </TabsTrigger>
           <TabsTrigger value="allowances" className="text-xs sm:text-sm py-2">
             Allowances
+          </TabsTrigger>
+          <TabsTrigger value="allocation" className="text-xs sm:text-sm py-2">
+            Allocation
           </TabsTrigger>
           <TabsTrigger value="jobs" className="text-xs sm:text-sm py-2">
             Tasks
@@ -878,6 +882,45 @@ export default function Controls() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="allocation" className="space-y-6 mt-0">
+          <div className="mb-2">
+            <h2 className="text-xl font-semibold text-gray-900">Money allocation</h2>
+            <p className="text-sm text-gray-600">
+              Set how each child&apos;s earnings split across enabled accounts. Percentages must total 100% per child.
+            </p>
+          </div>
+          {children.length === 0 ? (
+            <Card className="mint-card">
+              <CardContent className="p-6 text-center text-gray-600">
+                <p className="mb-3">Add a child on the Family page to set allocation.</p>
+                <Button asChild variant="outline" className="font-bold">
+                  <Link href="/family">Go to Family</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {children.map((child) => (
+                <Card key={child.id} className="mint-card">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg">{child.name}</CardTitle>
+                    <p className="text-sm text-gray-500 font-normal">Age {child.age}</p>
+                  </CardHeader>
+                  <CardContent>
+                    {familyId != null && (
+                      <ChildAllocationForm
+                        childId={child.id}
+                        childName={child.name}
+                        familyId={familyId}
+                      />
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="jobs" className="space-y-6 mt-0">

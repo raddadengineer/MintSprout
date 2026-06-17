@@ -118,7 +118,8 @@ export function Navigation() {
               <span className="font-black text-gray-900 truncate hidden sm:inline">MintSprout</span>
             </Link>
 
-            {/* Pages menu — icon only, all routes inside */}
+            {/* Mobile only — pages menu */}
+            <div className="md:hidden">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -156,6 +157,7 @@ export function Navigation() {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+            </div>
 
             <div className="flex-1" />
 
@@ -201,7 +203,7 @@ export function Navigation() {
           </div>
 
           {/* Tablet/desktop: quick links without opening the menu */}
-          <div className="hidden md:block border-t border-primary/5">
+          <nav className="hidden md:block border-t border-primary/5" aria-label="Main navigation">
             <div className="flex gap-1 overflow-x-auto py-2 mint-scroll-tabs">
               <div className="inline-flex gap-1 min-w-0">
                 {navItems.map(({ href, icon, label }) => (
@@ -220,7 +222,7 @@ export function Navigation() {
                 ))}
               </div>
             </div>
-          </div>
+          </nav>
         </div>
       </nav>
     </SelectedChildContext.Provider>

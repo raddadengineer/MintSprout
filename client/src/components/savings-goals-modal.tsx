@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CurrencyInput } from "@/components/currency-input";
 
 interface SavingsGoalsModalProps {
     isOpen: boolean;
@@ -97,20 +98,15 @@ export function SavingsGoalsModal({ isOpen, onClose }: SavingsGoalsModalProps) {
                         <Label htmlFor="goal-amount" className="font-bold text-gray-700">
                             💰 How much do I need?
                         </Label>
-                        <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-lg">$</span>
-                            <Input
-                                id="goal-amount"
-                                type="number"
-                                placeholder="0.00"
-                                min="0.01"
-                                step="0.01"
-                                value={targetAmount}
-                                onChange={(e) => setTargetAmount(e.target.value)}
-                                className="mint-input pl-8 text-base"
-                                required
-                            />
-                        </div>
+                        <CurrencyInput
+                            id="goal-amount"
+                            value={targetAmount}
+                            onChange={setTargetAmount}
+                            placeholder="0.00"
+                            required
+                            prefixClassName="font-bold text-lg"
+                            inputClassName="text-base"
+                        />
                     </div>
 
                     <div className="space-y-2">

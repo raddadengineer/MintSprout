@@ -143,4 +143,200 @@ describe("HTTP routes", () => {
     expect(res.status).toBe(200);
     expect(res.text).toContain("PostgreSQL dump");
   });
+
+  it("creates one family-duty task per child when assignToAllChildren is set", async () => {
+    const { storage } = await import("./storage");
+    const { ensureFamilyJobCategories } = await import("./job-categories");
+    const parent = await storage.getUserByUsername("parent");
+    const familyId = parent!.familyId;
+
+    await ensureFamilyJobCategories(storage, familyId);
+    const categories = await storage.getJobCategoriesByFamily(familyId);
+    const dutyCategory = categories.find((c) => c.slug === "self_care");
+    expect(dutyCategory).toBeTruthy();
+
+    const kid1 = await storage.createChild({
+      familyId,
+      name: "Bulk Kid A",
+      age: 8,
+      username: "bulkkida",
+      password: "kidpass1",
+    });
+    const kid2 = await storage.createChild({
+      familyId,
+      name: "Bulk Kid B",
+      age: 10,
+      username: "bulkkidb",
+      password: "kidpass1",
+    });
+
+    const res = await request(app)
+      .post("/api/jobs")
+      .set("Authorization", `Bearer ${parentToken}`)
+      .send({
+        title: "Make bed",
+        description: "Daily habit",
+        amount: "0.00",
+        recurrence: "daily",
+        icon: "bed",
+        categoryId: dutyCategory!.id,
+        payType: "none",
+        assignToAllChildren: true,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.created).toBe(2);
+    expect(res.body.jobs).toHaveLength(2);
+    const assignedIds = res.body.jobs.map((j: { assignedToId: number }) => j.assignedToId).sort((a: number, b: number) => a - b);
+    expect(assignedIds).toEqual([kid1.id, kid2.id].sort((a, b) => a - b));
+  });
+
+  it("creates paid tasks for all children with assignToAllChildren", async () => {
+    const { storage } = await import("./storage");
+    const { ensureFamilyJobCategories } = await import("./job-categories");
+    const parent = await storage.getUserByUsername("parent");
+    const familyId = parent!.familyId;
+
+    await ensureFamilyJobCategories(storage, familyId);
+    const categories = await storage.getJobCategoriesByFamily(familyId);
+    const paidCategory = categories.find((c) => c.slug === "bonus_tasks");
+    expect(paidCategory).toBeTruthy();
+
+    await storage.createChild({
+      familyId,
+      name: "Paid Kid A",
+      age: 9,
+      username: "paidkida",
+      password: "kidpass1",
+    });
+    await storage.createChild({
+      familyId,
+      name: "Paid Kid B",
+      age: 11,
+      username: "paidkidb",
+      password: "kidpass1",
+    });
+
+    const childCount = (await storage.getChildrenByFamily(familyId)).length;
+
+    const res = await request(app)
+      .post("/api/jobs")
+      .set("Authorization", `Bearer ${parentToken}`)
+      .send({
+        title: "Wash car",
+        description: "Extra job",
+        amount: "15.00",
+        recurrence: "once",
+        icon: "car",
+        categoryId: paidCategory!.id,
+        payType: "standalone",
+        assignToAllChildren: true,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.created).toBe(childCount);
+    expect(res.body.jobs).toHaveLength(childCount);
+    expect(res.body.jobs.every((j: { amount: string }) => j.amount === "15.00")).toBe(true);
+  });
+
+  it("skips children without allowance on bulk allowance create", async () => {
+    const { storage } = await import("./storage");
+    const { ensureFamilyJobCategories } = await import("./job-categories");
+    const parent = await storage.getUserByUsername("parent");
+    const familyId = parent!.familyId;
+
+    await ensureFamilyJobCategories(storage, familyId);
+    const categories = await storage.getJobCategoriesByFamily(familyId);
+    const allowanceCategory = categories.find((c) => c.slug === "allowance");
+    expect(allowanceCategory).toBeTruthy();
+
+    const withAllowance = await storage.createChild({
+      familyId,
+      name: "Allow Kid",
+      age: 9,
+      username: "allowkid",
+      password: "kidpass1",
+    });
+    const withoutAllowance = await storage.createChild({
+      familyId,
+      name: "No Allow Kid",
+      age: 10,
+      username: "noallowkid",
+      password: "kidpass1",
+    });
+
+    await storage.createAllowance({
+      familyId,
+      childId: withAllowance.id,
+      amount: "10.00",
+      cadence: "weekly",
+      dayOfWeek: 0,
+      enabled: true,
+    });
+
+    const familyChildren = await storage.getChildrenByFamily(familyId);
+    const familyAllowances = await storage.getAllowancesByFamily(familyId);
+    const childrenWithAllowance = familyChildren.filter((c) =>
+      familyAllowances.some((a) => a.childId === c.id && (a.enabled ?? true)),
+    ).length;
+
+    const res = await request(app)
+      .post("/api/jobs")
+      .set("Authorization", `Bearer ${parentToken}`)
+      .send({
+        title: "Take out trash",
+        description: "Weekly chore",
+        amount: "0.00",
+        recurrence: "weekly",
+        icon: "trash2",
+        categoryId: allowanceCategory!.id,
+        payType: "allowance",
+        assignToAllChildren: true,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.created).toBe(childrenWithAllowance);
+    expect(res.body.skipped).toHaveLength(familyChildren.length - childrenWithAllowance);
+    expect(res.body.jobs.some((j: { assignedToId: number }) => j.assignedToId === withAllowance.id)).toBe(true);
+    expect(
+      res.body.skipped.some((s: { childId: number }) => s.childId === withoutAllowance.id),
+    ).toBe(true);
+  });
+
+  it("still creates a single task when assignToAllChildren is not set", async () => {
+    const { storage } = await import("./storage");
+    const { ensureFamilyJobCategories } = await import("./job-categories");
+    const parent = await storage.getUserByUsername("parent");
+    const familyId = parent!.familyId;
+
+    await ensureFamilyJobCategories(storage, familyId);
+    const categories = await storage.getJobCategoriesByFamily(familyId);
+    const dutyCategory = categories.find((c) => c.slug === "self_care");
+    const child = await storage.createChild({
+      familyId,
+      name: "Single Kid",
+      age: 7,
+      username: "singlekid",
+      password: "kidpass1",
+    });
+
+    const res = await request(app)
+      .post("/api/jobs")
+      .set("Authorization", `Bearer ${parentToken}`)
+      .send({
+        title: "Brush teeth",
+        description: "Morning and night",
+        amount: "0.00",
+        recurrence: "daily",
+        icon: "sparkles",
+        categoryId: dutyCategory!.id,
+        payType: "none",
+        assignedToId: child.id,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBeTruthy();
+    expect(res.body.assignedToId).toBe(child.id);
+    expect(res.body.created).toBeUndefined();
+  });
 });

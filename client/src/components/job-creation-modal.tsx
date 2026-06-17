@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { IconSelector } from "@/components/icon-selector";
+import { CurrencyInput } from "@/components/currency-input";
 import { PAYMENT_MODE_LABELS, categoryPaymentLabel, isFlexiblePayCategory } from "@shared/job-categories";
 import type { JobCategoryPaymentMode } from "@shared/job-categories";
 import { JobIcon } from "@/components/job-icon";
@@ -148,18 +149,46 @@ export function JobCreationModal({ isOpen, onClose }: JobCreationModalProps) {
       });
   }, [catalogItems]);
 
-  const selectedChildId = formData.assignedToId ? parseInt(formData.assignedToId) : null;
+  const selectedChildId =
+    formData.assignedToId && formData.assignedToId !== "all"
+      ? parseInt(formData.assignedToId)
+      : null;
+  const assignToAll = formData.assignedToId === "all";
   const childAllowances = allowances.filter(
     (a) => selectedChildId != null && a.childId === selectedChildId && (a.enabled ?? true),
   );
 
   const createJobMutation = useMutation({
-    mutationFn: (jobData: Record<string, unknown>) => apiRequest("POST", "/api/jobs", jobData),
-    onSuccess: () => {
-      toast({
-        title: "Success!",
-        description: "Task created successfully",
-      });
+    mutationFn: async (jobData: Record<string, unknown>) => {
+      const res = await apiRequest("POST", "/api/jobs", jobData);
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      const isBulk =
+        data &&
+        typeof data === "object" &&
+        "created" in data &&
+        Array.isArray((data as { jobs?: unknown }).jobs);
+      if (isBulk) {
+        const bulk = data as {
+          created: number;
+          skipped?: { childName: string; reason: string }[];
+        };
+        let description = `Created ${bulk.created} task${bulk.created === 1 ? "" : "s"}`;
+        if (bulk.skipped?.length) {
+          const names = bulk.skipped.map((s) => s.childName).join(", ");
+          description += `. Skipped: ${names}`;
+        }
+        toast({
+          title: "Success!",
+          description,
+        });
+      } else {
+        toast({
+          title: "Success!",
+          description: "Task created successfully",
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard-stats"] });
       onClose();
@@ -205,7 +234,7 @@ export function JobCreationModal({ isOpen, onClose }: JobCreationModalProps) {
       return;
     }
 
-    if (effectivePayType === "allowance" && !formData.allowanceId) {
+    if (effectivePayType === "allowance" && !assignToAll && !formData.allowanceId) {
       toast({
         title: "Error",
         description: "Select which allowance this chore belongs to",
@@ -214,7 +243,7 @@ export function JobCreationModal({ isOpen, onClose }: JobCreationModalProps) {
       return;
     }
 
-    createJobMutation.mutate({
+    const basePayload = {
       title: formData.title,
       description: formData.description,
       amount:
@@ -222,13 +251,30 @@ export function JobCreationModal({ isOpen, onClose }: JobCreationModalProps) {
           ? parseFloat(formData.amount).toFixed(2)
           : "0.00",
       recurrence: formData.recurrence,
-      assignedToId: parseInt(formData.assignedToId),
       icon: formData.icon,
       categoryId: parseInt(formData.categoryId),
       payType: effectivePayType,
+    };
+
+    if (assignToAll) {
+      createJobMutation.mutate({ ...basePayload, assignToAllChildren: true });
+      return;
+    }
+
+    createJobMutation.mutate({
+      ...basePayload,
+      assignedToId: parseInt(formData.assignedToId),
       ...(effectivePayType === "allowance" ? { allowanceId: parseInt(formData.allowanceId) } : {}),
     });
   };
+
+  const submitButtonLabel = createJobMutation.isPending
+    ? assignToAll
+      ? "Creating..."
+      : "Creating..."
+    : assignToAll
+      ? "Create for all"
+      : labels.create;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -370,23 +416,22 @@ export function JobCreationModal({ isOpen, onClose }: JobCreationModalProps) {
           {effectivePayType === "standalone" && (
             <div>
               <Label className="block text-sm font-medium text-gray-700 mb-2">Payment Amount</Label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  className="mint-input pl-8"
-                  placeholder="0.00"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  required
-                />
-              </div>
+              <CurrencyInput
+                value={formData.amount}
+                onChange={(amount) => setFormData({ ...formData, amount })}
+                placeholder="0.00"
+                required
+              />
             </div>
           )}
 
-          {effectivePayType === "allowance" && (
+          {effectivePayType === "allowance" && assignToAll && (
+            <p className="text-xs text-gray-500 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+              Each child will be linked to their own allowance. Children without an allowance will be skipped.
+            </p>
+          )}
+
+          {effectivePayType === "allowance" && !assignToAll && (
             <div>
               <Label className="block text-sm font-medium text-gray-700 mb-2">Tie to allowance</Label>
               <Select
@@ -453,6 +498,9 @@ export function JobCreationModal({ isOpen, onClose }: JobCreationModalProps) {
                 <SelectValue placeholder="Select a child" />
               </SelectTrigger>
               <SelectContent>
+                {children.length > 1 && (
+                  <SelectItem value="all">All children</SelectItem>
+                )}
                 {children.map((child) => (
                   <SelectItem key={child.id} value={child.id.toString()}>
                     {child.name} (Age {child.age})
@@ -476,7 +524,7 @@ export function JobCreationModal({ isOpen, onClose }: JobCreationModalProps) {
               className="flex-1 mint-primary mint-button"
               disabled={createJobMutation.isPending}
             >
-              {createJobMutation.isPending ? "Creating..." : labels.create}
+              {submitButtonLabel}
             </Button>
           </div>
         </form>

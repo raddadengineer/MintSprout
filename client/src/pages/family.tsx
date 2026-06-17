@@ -19,6 +19,7 @@ import { PaymentApprovalModal } from "@/components/payment-approval-modal";
 import { PageHeader, PageShell } from "@/components/page-shell";
 import { taskLabels } from "@/lib/task-labels";
 import { needsPaymentModal, taskPayKind } from "@/lib/task-pay-type";
+import { ParentSavingsGoals, type SavingsGoalRow } from "@/components/parent-savings-goals";
 
 const childFormSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -43,6 +44,19 @@ export default function FamilyPage() {
 
   const { data: children, isLoading: childrenLoading } = useQuery<ChildWithLogin[]>({
     queryKey: ["/api/children"],
+  });
+
+  const { data: savingsGoals = [] } = useQuery<SavingsGoalRow[]>({
+    queryKey: ["/api/savings-goals", "all"],
+    queryFn: async () => {
+      const token = localStorage.getItem("auth_token");
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch("/api/savings-goals?all=true", { headers, credentials: "include" });
+      if (!res.ok) throw new Error(await res.text());
+      return await res.json();
+    },
+    enabled: user?.role === "parent",
   });
 
   const { data: jobs, isLoading: jobsLoading } = useQuery<JobRow[]>({
@@ -470,6 +484,15 @@ export default function FamilyPage() {
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Learning Streak:</span>
                       <span className="font-medium">{child.learningStreak || 0} days</span>
+                    </div>
+                    <div className="pt-2 border-t border-gray-100">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Savings goals</p>
+                      <ParentSavingsGoals
+                        goals={savingsGoals}
+                        childFilterId={child.id}
+                        compact
+                        showViewAll={false}
+                      />
                     </div>
                   </CardContent>
                 </Card>

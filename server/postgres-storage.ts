@@ -400,6 +400,14 @@ export class PostgresStorage implements IStorage {
       .where(eq(schema.savingsGoals.childId, childId));
   }
 
+  async getSavingsGoalsByFamily(familyId: number): Promise<SavingsGoal[]> {
+    const familyChildren = await this.getChildrenByFamily(familyId);
+    const childIds = familyChildren.map((c) => c.id);
+    if (childIds.length === 0) return [];
+    return await db.select().from(schema.savingsGoals)
+      .where(inArray(schema.savingsGoals.childId, childIds));
+  }
+
   async getSavingsGoal(id: number): Promise<SavingsGoal | undefined> {
     const result = await db.select().from(schema.savingsGoals).where(eq(schema.savingsGoals.id, id));
     return result[0] || undefined;

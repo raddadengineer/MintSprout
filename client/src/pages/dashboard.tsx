@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { JobCreationModal } from "@/components/job-creation-modal";
 import { PaymentApprovalModal } from "@/components/payment-approval-modal";
-import { AllocationModal } from "@/components/allocation-modal";
 import { AccountTypesModal } from "@/components/account-types-modal";
 import { SavingsGoalsModal } from "@/components/savings-goals-modal";
 import { Confetti } from "@/components/confetti";
@@ -24,16 +23,15 @@ import { JobIcon } from "@/components/job-icon";
 import type { ChildRow, JobRow } from "@/lib/api-types";
 import { taskLabels } from "@/lib/task-labels";
 import { needsPaymentModal, taskPayKind, taskPayLabel } from "@/lib/task-pay-type";
+import { ParentSavingsGoalsCard, type SavingsGoalRow } from "@/components/parent-savings-goals";
 
 export default function Dashboard() {
   const { user } = useAuth();
   const { mode: kidMode, age: kidAge } = useKidMode();
   const [, navigate] = useLocation();
   const [showJobModal, setShowJobModal] = useState(false);
-  const [showAllocationModal, setShowAllocationModal] = useState(false);
   const [showAccountTypesModal, setShowAccountTypesModal] = useState(false);
   const [showSavingsGoalModal, setShowSavingsGoalModal] = useState(false);
-  const [selectedChildIdForAllocation, setSelectedChildIdForAllocation] = useState<number | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedJobForPayment, setSelectedJobForPayment] = useState<JobRow | null>(null);
@@ -96,9 +94,23 @@ export default function Dashboard() {
     enabled: user?.role === "child",
   });
 
-  const { data: savingsGoals = [] } = useQuery<any[]>({
-    queryKey: ["/api/savings-goals"],
-    enabled: user?.role === "child",
+  const { data: savingsGoals = [] } = useQuery<SavingsGoalRow[]>({
+    queryKey: ["/api/savings-goals", user?.role === "parent" ? "all" : "self"],
+    queryFn: async () => {
+      const token = localStorage.getItem("auth_token");
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const url =
+        user?.role === "parent"
+          ? "/api/savings-goals?all=true"
+          : "/api/savings-goals";
+
+      const res = await fetch(url, { headers, credentials: "include" });
+      if (!res.ok) throw new Error(await res.text());
+      return await res.json();
+    },
+    enabled: !!user,
   });
 
   const { data: jobCategories = [] } = useQuery<JobCategoryRow[]>({
@@ -111,31 +123,6 @@ export default function Dashboard() {
   });
 
   const labels = taskLabels(user?.role === "parent" ? "parent" : "child", kidMode);
-
-  const resolveAllocationChildId = (): number | null => {
-    if (dashboardData?.child?.id) return dashboardData.child.id;
-    if (selectedChildId) {
-      const parsed = parseInt(selectedChildId, 10);
-      if (Number.isFinite(parsed)) return parsed;
-    }
-    const familyChildren = children as ChildRow[];
-    if (familyChildren.length > 0) return familyChildren[0].id;
-    return null;
-  };
-
-  const openAllocationModal = () => {
-    const id = resolveAllocationChildId();
-    if (!id) {
-      toast({
-        title: "Select a child",
-        description: "Add a child on the Family page, or pick one from the account menu first.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setSelectedChildIdForAllocation(id);
-    setShowAllocationModal(true);
-  };
 
   const triggerConfetti = () => {
     setShowConfetti(true);
@@ -329,9 +316,11 @@ export default function Dashboard() {
     return { cat, count: catProgress.filter((p: any) => p.completed).length, total: catProgress.length };
   });
 
-  const topGoal = Array.isArray(savingsGoals) && savingsGoals.length > 0
-    ? savingsGoals.find((g: any) => !g.completed) || savingsGoals[0]
+  const topGoal = user?.role === "child" && Array.isArray(savingsGoals) && savingsGoals.length > 0
+    ? savingsGoals.find((g) => !g.completed) || savingsGoals[0]
     : null;
+
+  const parentSelectedChildId = selectedChildId ? parseInt(selectedChildId, 10) : null;
 
   const goalPercent = topGoal
     ? Math.min(100, Math.round((parseFloat(topGoal.currentAmount || "0") / parseFloat(topGoal.targetAmount || "1")) * 100))
@@ -415,7 +404,7 @@ export default function Dashboard() {
                   💰 Tasks & Payments
                 </Button>
                 <Button
-                  onClick={openAllocationModal}
+                  onClick={() => navigate("/controls?tab=allocation")}
                   variant="outline"
                   className="shadow-lg hover:shadow-xl font-bold"
                 >
@@ -803,6 +792,13 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
+          {user?.role === "parent" && (
+            <ParentSavingsGoalsCard
+              goals={savingsGoals}
+              childFilterId={parentSelectedChildId && Number.isFinite(parentSelectedChildId) ? parentSelectedChildId : null}
+            />
+          )}
+
           {/* Money Allocation */}
           {allocation && (
             <Card className="mint-card">
@@ -866,7 +862,7 @@ export default function Dashboard() {
 
                 {user?.role === "parent" && (
                   <Button
-                    onClick={openAllocationModal}
+                    onClick={() => navigate("/controls?tab=allocation")}
                     variant="outline"
                     className="w-full font-bold"
                   >
@@ -1003,16 +999,6 @@ export default function Dashboard() {
         }}
         job={selectedJobForPayment}
       />
-      {showAllocationModal && selectedChildIdForAllocation != null && (
-        <AllocationModal
-          isOpen={showAllocationModal}
-          onClose={() => {
-            setShowAllocationModal(false);
-            setSelectedChildIdForAllocation(null);
-          }}
-          childId={selectedChildIdForAllocation}
-        />
-      )}
       <AccountTypesModal
         isOpen={showAccountTypesModal}
         onClose={() => setShowAccountTypesModal(false)}
