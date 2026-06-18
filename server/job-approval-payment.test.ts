@@ -151,4 +151,43 @@ describe("applyJobPatch payment allocation", () => {
     expect(payments).toHaveLength(1);
     expect(parseFloat(payments[0]!.amount)).toBe(15);
   });
+
+  it("uses customAllocation when parent approves with a custom split", async () => {
+    const children = await storage.getChildrenByFamily(1);
+    const child = children[0]!;
+    const job = await storage.createJob({
+      title: "Extra yard work",
+      description: null,
+      amount: "10.00",
+      status: "completed",
+      recurrence: "once",
+      assignedToId: child.id,
+      familyId: 1,
+      categoryId: null,
+      allowanceId: null,
+      isFamilyDuty: false,
+      icon: "briefcase",
+    });
+
+    await applyJobPatch(storage, { familyId: 1, role: "parent" }, job.id, {
+      status: "approved",
+      customAllocation: {
+        spendingAmount: 7,
+        savingsAmount: 3,
+        rothIraAmount: 0,
+        brokerageAmount: 0,
+      },
+    });
+
+    const payments = await storage.getPaymentsByChild(child.id);
+    expect(payments).toHaveLength(1);
+    expect(parseFloat(payments[0]!.spendingAmount)).toBe(7);
+    expect(parseFloat(payments[0]!.savingsAmount)).toBe(3);
+    expect(parseFloat(payments[0]!.rothIraAmount)).toBe(0);
+    expect(parseFloat(payments[0]!.brokerageAmount)).toBe(0);
+
+    const refreshed = await storage.getChild(child.id);
+    expect(parseFloat(refreshed!.spendingBalance || "0")).toBe(7);
+    expect(parseFloat(refreshed!.savingsBalance || "0")).toBe(3);
+  });
 });

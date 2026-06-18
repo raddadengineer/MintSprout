@@ -24,6 +24,7 @@ import type { AccountTypesRow, ChildRow, JobRow, PaymentRow } from "@/lib/api-ty
 import { taskLabels } from "@/lib/task-labels";
 import { PageHeader } from "@/components/page-shell";
 import { needsPaymentModal, taskPayKind, taskPayLabel } from "@/lib/task-pay-type";
+import { normalizeAllocation, sumEnabledAllocation } from "@/lib/payment-allocation";
 import { CurrencyInput, isValidCurrencyAmount } from "@/components/currency-input";
 import { Search, Edit, Trash2, Calendar, DollarSign, User, Eye } from "lucide-react";
 
@@ -1178,7 +1179,7 @@ export default function Jobs() {
                     </div>
                     <div className="bg-gray-50 p-3 rounded-lg">
                       <p className="text-sm text-gray-600">
-                        Total: ${(paymentAllocation.spendingAmount + paymentAllocation.savingsAmount + paymentAllocation.rothIraAmount + paymentAllocation.brokerageAmount).toFixed(2)} 
+                        Total: ${sumEnabledAllocation(paymentAllocation, accountTypes).toFixed(2)}
                         {selectedJob && ` of $${parseFloat(selectedJob.amount).toFixed(2)}`}
                       </p>
                     </div>
@@ -1195,8 +1196,8 @@ export default function Jobs() {
               <Button 
                 onClick={() => {
                   if (editingPayment) {
-                    const total = paymentAllocation.spendingAmount + paymentAllocation.savingsAmount + 
-                                 paymentAllocation.rothIraAmount + paymentAllocation.brokerageAmount;
+                    const normalized = normalizeAllocation(paymentAllocation, accountTypes);
+                    const total = sumEnabledAllocation(normalized, accountTypes);
                     const jobAmount = parseFloat(selectedJob.amount);
                     
                     if (Math.abs(total - jobAmount) > 0.01) {
@@ -1211,7 +1212,7 @@ export default function Jobs() {
                     updatePaymentMutation.mutate(
                       {
                         jobId: selectedJob.id,
-                        allocation: paymentAllocation,
+                        allocation: normalized,
                       },
                       {
                         onSuccess: () => {

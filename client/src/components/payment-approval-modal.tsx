@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,12 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { AccountTypesRow, AllocationRow, PaymentRow } from "@/lib/api-types";
 import { taskLabels } from "@/lib/task-labels";
+import {
+  buildAllocationAmounts,
+  normalizeAllocation,
+  sumEnabledAllocation,
+  type PaymentAllocationAmounts,
+} from "@/lib/payment-allocation";
 
 interface PaymentApprovalModalProps {
   isOpen: boolean;
@@ -17,21 +23,11 @@ interface PaymentApprovalModalProps {
   job: any;
 }
 
-interface CustomAllocation {
-  spendingAmount: number;
-  savingsAmount: number;
-  rothIraAmount: number;
-  brokerageAmount: number;
-}
-
-function allocationFromAmount(allocation: AllocationRow, amount: number): CustomAllocation {
-  return {
-    spendingAmount: parseFloat((((allocation.spendingPercentage ?? 0) / 100) * amount).toFixed(2)),
-    savingsAmount: parseFloat((((allocation.savingsPercentage ?? 0) / 100) * amount).toFixed(2)),
-    rothIraAmount: parseFloat((((allocation.rothIraPercentage ?? 0) / 100) * amount).toFixed(2)),
-    brokerageAmount: parseFloat((((allocation.brokeragePercentage ?? 0) / 100) * amount).toFixed(2)),
-  };
-}
+type ApprovePayload = {
+  useCustom: boolean;
+  allocation: PaymentAllocationAmounts | null;
+  amount: string;
+};
 
 export function PaymentApprovalModal({ isOpen, onClose, job }: PaymentApprovalModalProps) {
   const { user } = useAuth();
@@ -40,12 +36,13 @@ export function PaymentApprovalModal({ isOpen, onClose, job }: PaymentApprovalMo
   const queryClient = useQueryClient();
   const [useCustomAllocation, setUseCustomAllocation] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
-  const [customAllocation, setCustomAllocation] = useState<CustomAllocation>({
+  const [customAllocation, setCustomAllocation] = useState<PaymentAllocationAmounts>({
     spendingAmount: 0,
     savingsAmount: 0,
     rothIraAmount: 0,
     brokerageAmount: 0,
   });
+  const initializedJobIdRef = useRef<number | null>(null);
 
   const { data: allocation } = useQuery<AllocationRow>({
     queryKey: [`/api/allocation/${job?.assignedToId}`],
@@ -57,7 +54,6 @@ export function PaymentApprovalModal({ isOpen, onClose, job }: PaymentApprovalMo
     enabled: isOpen && !!user?.familyId,
   });
 
-  // Fetch existing payment data for approved jobs
   const { data: existingPayment, refetch: refetchPayment } = useQuery<PaymentRow>({
     queryKey: [`/api/payments/job/${job?.id}`],
     enabled: isOpen && !!job?.id && job?.status === "approved",
@@ -72,24 +68,29 @@ export function PaymentApprovalModal({ isOpen, onClose, job }: PaymentApprovalMo
   }, [isOpen, job?.status, job?.id, refetchPayment]);
 
   useEffect(() => {
-    if (isOpen && job?.amount != null) {
-      setPaymentAmount(parseFloat(job.amount).toFixed(2));
+    if (!isOpen) {
+      initializedJobIdRef.current = null;
+      return;
     }
+    if (!job?.id || initializedJobIdRef.current === job.id) return;
+    setUseCustomAllocation(false);
+    setPaymentAmount(parseFloat(job.amount).toFixed(2));
+    initializedJobIdRef.current = job.id;
   }, [isOpen, job?.id, job?.amount]);
 
   useEffect(() => {
-    if (!allocation || !paymentAmount) return;
+    if (!allocation || !accountTypes || !paymentAmount || useCustomAllocation) return;
     const amount = parseFloat(paymentAmount);
     if (!Number.isFinite(amount)) return;
-    setCustomAllocation(allocationFromAmount(allocation, amount));
-  }, [allocation, paymentAmount]);
+    setCustomAllocation(buildAllocationAmounts(amount, allocation, accountTypes));
+  }, [allocation, accountTypes, paymentAmount, useCustomAllocation]);
 
   const approveJobMutation = useMutation({
-    mutationFn: ({ allocationData, amount }: { allocationData: CustomAllocation | null; amount: string }) =>
+    mutationFn: ({ useCustom, allocation: allocationData, amount }: ApprovePayload) =>
       apiRequest("PATCH", `/api/jobs/${job.id}`, {
         status: "approved",
         amount,
-        customAllocation: useCustomAllocation ? allocationData : null,
+        customAllocation: useCustom ? allocationData : null,
       }),
     onSuccess: () => {
       toast({
@@ -123,9 +124,10 @@ export function PaymentApprovalModal({ isOpen, onClose, job }: PaymentApprovalMo
     }
 
     const jobAmount = parseFloat(paymentAmount);
+    const normalized = normalizeAllocation(customAllocation, accountTypes);
 
     if (useCustomAllocation) {
-      const total = Object.values(customAllocation).reduce((sum, amount) => sum + amount, 0);
+      const total = sumEnabledAllocation(normalized, accountTypes);
 
       if (Math.abs(total - jobAmount) > 0.01) {
         toast({
@@ -138,26 +140,24 @@ export function PaymentApprovalModal({ isOpen, onClose, job }: PaymentApprovalMo
     }
 
     approveJobMutation.mutate({
-      allocationData: useCustomAllocation ? customAllocation : null,
+      useCustom: useCustomAllocation,
+      allocation: useCustomAllocation ? normalized : null,
       amount: jobAmount.toFixed(2),
     });
   };
 
-  const handleCustomAmountChange = (field: keyof CustomAllocation, value: string) => {
+  const handleCustomAmountChange = (field: keyof PaymentAllocationAmounts, value: string) => {
     const numValue = parseFloat(value) || 0;
     setCustomAllocation((prev) => ({ ...prev, [field]: numValue }));
   };
 
   const parsedPaymentAmount = parseFloat(paymentAmount);
   const defaultAllocation =
-    job && allocation && Number.isFinite(parsedPaymentAmount)
-      ? {
-          spendingAmount: (((allocation.spendingPercentage ?? 0) / 100) * parsedPaymentAmount).toFixed(2),
-          savingsAmount: (((allocation.savingsPercentage ?? 0) / 100) * parsedPaymentAmount).toFixed(2),
-          rothIraAmount: (((allocation.rothIraPercentage ?? 0) / 100) * parsedPaymentAmount).toFixed(2),
-          brokerageAmount: (((allocation.brokeragePercentage ?? 0) / 100) * parsedPaymentAmount).toFixed(2),
-        }
+    job && allocation && accountTypes && Number.isFinite(parsedPaymentAmount)
+      ? buildAllocationAmounts(parsedPaymentAmount, allocation, accountTypes)
       : null;
+
+  const enabledAllocationTotal = sumEnabledAllocation(customAllocation, accountTypes);
 
   if (!job) return null;
 
@@ -260,25 +260,25 @@ export function PaymentApprovalModal({ isOpen, onClose, job }: PaymentApprovalMo
                     {accountTypes?.spendingEnabled && (
                       <div className="flex justify-between">
                         <span>Spending:</span>
-                        <span className="font-medium">${defaultAllocation.spendingAmount}</span>
+                        <span className="font-medium">${defaultAllocation.spendingAmount.toFixed(2)}</span>
                       </div>
                     )}
                     {accountTypes?.savingsEnabled && (
                       <div className="flex justify-between">
                         <span>Savings:</span>
-                        <span className="font-medium">${defaultAllocation.savingsAmount}</span>
+                        <span className="font-medium">${defaultAllocation.savingsAmount.toFixed(2)}</span>
                       </div>
                     )}
                     {accountTypes?.rothIraEnabled && (
                       <div className="flex justify-between">
                         <span>Roth IRA:</span>
-                        <span className="font-medium">${defaultAllocation.rothIraAmount}</span>
+                        <span className="font-medium">${defaultAllocation.rothIraAmount.toFixed(2)}</span>
                       </div>
                     )}
                     {accountTypes?.brokerageEnabled && (
                       <div className="flex justify-between">
                         <span>Brokerage:</span>
-                        <span className="font-medium">${defaultAllocation.brokerageAmount}</span>
+                        <span className="font-medium">${defaultAllocation.brokerageAmount.toFixed(2)}</span>
                       </div>
                     )}
                   </div>
@@ -359,7 +359,7 @@ export function PaymentApprovalModal({ isOpen, onClose, job }: PaymentApprovalMo
                     )}
 
                     <div className="text-sm text-gray-600">
-                      Total: ${Object.values(customAllocation).reduce((sum, amount) => sum + amount, 0).toFixed(2)}
+                      Total: ${enabledAllocationTotal.toFixed(2)}
                       / ${Number.isFinite(parsedPaymentAmount) ? parsedPaymentAmount.toFixed(2) : "0.00"}
                     </div>
                   </div>
