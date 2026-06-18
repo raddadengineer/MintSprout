@@ -1,7 +1,6 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
-import { useSelectedChild } from "@/components/navigation";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { PageHeader, PageShell } from "@/components/page-shell";
@@ -14,6 +13,7 @@ import { CurrencyInput } from "@/components/currency-input";
 type SavingsGoal = {
   id: number;
   childId: number;
+  childName?: string;
   name: string;
   targetAmount: string;
   currentAmount: string;
@@ -49,34 +49,32 @@ function todayIsoDate(): string {
 
 export default function Savings() {
   const { user } = useAuth();
-  const { selectedChildId } = useSelectedChild();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const isParent = user?.role === "parent";
   const isChild = user?.role === "child";
 
-  const effectiveChildId = isParent ? selectedChildId : null;
-  const goalsUrl = useMemo(() => {
-    if (isParent && effectiveChildId) return `/api/savings-goals?childId=${encodeURIComponent(effectiveChildId)}`;
-    return "/api/savings-goals";
-  }, [effectiveChildId, isParent]);
-
-  const { data: goals = [], isLoading } = useQuery<SavingsGoal[]>({
-    queryKey: ["/api/savings-goals", effectiveChildId],
+  const { data: goals = [], isLoading, isError, error } = useQuery<SavingsGoal[]>({
+    queryKey: ["/api/savings-goals", isParent ? "all" : "self"],
     queryFn: async () => {
       const token = localStorage.getItem("auth_token");
       const headers: Record<string, string> = {};
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      const res = await fetch(goalsUrl, { headers, credentials: "include" });
+      const url =
+        user?.role === "parent"
+          ? "/api/savings-goals?all=true"
+          : "/api/savings-goals";
+
+      const res = await fetch(url, { headers, credentials: "include" });
       if (!res.ok) {
         const text = await res.text();
         throw new Error(`${res.status}: ${text}`);
       }
       return await res.json();
     },
-    enabled: !isParent || !!effectiveChildId,
+    enabled: !!user,
   });
 
   const [name, setName] = useState("");
@@ -147,7 +145,7 @@ export default function Savings() {
       <PageHeader
         title="🎯 Savings Goals"
         description={
-          isParent ? "Review goals for the selected child." : "Set goals and track your progress."
+          isParent ? "Review savings goals for your family." : "Set goals and track your progress."
         }
       />
 
@@ -160,6 +158,11 @@ export default function Savings() {
             <CardContent>
               {isLoading ? (
                 <div className="text-gray-500">Loading…</div>
+              ) : isError ? (
+                <div className="text-center py-10 text-red-600">
+                  <p className="font-medium">Could not load goals.</p>
+                  <p className="text-sm mt-1">{errorMessage(error)}</p>
+                </div>
               ) : goals.length === 0 ? (
                 <div className="text-center py-10 text-gray-500">
                   <div className="text-4xl mb-2">🌱</div>
@@ -188,6 +191,9 @@ export default function Savings() {
                                 )}
                               </div>
                               <div className="text-sm text-gray-600 mt-1">
+                                {isParent && g.childName ? (
+                                  <span className="font-semibold">{g.childName} · </span>
+                                ) : null}
                                 ${current.toFixed(2)} / ${target.toFixed(2)} • {pct}%
                                 {g.deadline ? (
                                   <>

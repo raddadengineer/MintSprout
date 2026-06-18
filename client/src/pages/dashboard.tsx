@@ -25,6 +25,33 @@ import { taskLabels } from "@/lib/task-labels";
 import { needsPaymentModal, taskPayKind, taskPayLabel } from "@/lib/task-pay-type";
 import { ParentSavingsGoalsCard, type SavingsGoalRow } from "@/components/parent-savings-goals";
 
+function ClickableStatCard({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
+  const [, go] = useLocation();
+
+  return (
+    <Card
+      className="mint-card cursor-pointer transition-shadow hover:shadow-md"
+      onClick={() => go(href)}
+      role="link"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          go(href);
+        }
+      }}
+    >
+      {children}
+    </Card>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const { mode: kidMode, age: kidAge } = useKidMode();
@@ -526,7 +553,7 @@ export default function Dashboard() {
       {user?.role === "parent" ? (
         // Parent Dashboard Stats
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="mint-card">
+          <ClickableStatCard href="/jobs?tab=active">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -541,9 +568,9 @@ export default function Dashboard() {
                 <span className="text-blue-600 font-bold">For selected child</span>
               </div>
             </CardContent>
-          </Card>
+          </ClickableStatCard>
 
-          <Card className="mint-card">
+          <ClickableStatCard href="/jobs?tab=awaiting">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -558,9 +585,9 @@ export default function Dashboard() {
                 <span className="text-orange-600 font-bold">Across all children</span>
               </div>
             </CardContent>
-          </Card>
+          </ClickableStatCard>
 
-          <Card className="mint-card">
+          <ClickableStatCard href="/jobs?tab=completed">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -575,9 +602,9 @@ export default function Dashboard() {
                 <span className="text-green-600 font-bold">By your kids</span>
               </div>
             </CardContent>
-          </Card>
+          </ClickableStatCard>
 
-          <Card className="mint-card">
+          <ClickableStatCard href="/payments">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -594,9 +621,9 @@ export default function Dashboard() {
                 <span className="text-primary font-bold">Total earned</span>
               </div>
             </CardContent>
-          </Card>
+          </ClickableStatCard>
 
-          <Card className="mint-card">
+          <ClickableStatCard href="/family">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -611,12 +638,12 @@ export default function Dashboard() {
                 <span className="text-orange-500 font-bold">In your family</span>
               </div>
             </CardContent>
-          </Card>
+          </ClickableStatCard>
         </div>
       ) : (
         // Child Dashboard Stats
         <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 ${kidMode === "youngest" ? "grid-cols-2" : ""}`}>
-          <Card className="mint-card">
+          <ClickableStatCard href="/payments">
             <CardContent className={kidMode === "youngest" ? "p-5" : "p-6"}>
               {kidMode === "youngest" ? (
                 <div className="text-center space-y-2">
@@ -643,9 +670,9 @@ export default function Dashboard() {
                 </>
               )}
             </CardContent>
-          </Card>
+          </ClickableStatCard>
 
-          <Card className="mint-card">
+          <ClickableStatCard href={kidMode === "youngest" ? "/jobs?tab=active" : "/jobs?tab=completed"}>
             <CardContent className={kidMode === "youngest" ? "p-5" : "p-6"}>
               {kidMode === "youngest" ? (
                 <div className="text-center space-y-2">
@@ -670,9 +697,9 @@ export default function Dashboard() {
                 </>
               )}
             </CardContent>
-          </Card>
+          </ClickableStatCard>
 
-          <Card className="mint-card">
+          <ClickableStatCard href="/savings">
             <CardContent className={kidMode === "youngest" ? "p-5" : "p-6"}>
               {kidMode === "youngest" ? (
                 <div className="text-center space-y-2">
@@ -703,9 +730,9 @@ export default function Dashboard() {
                 </>
               )}
             </CardContent>
-          </Card>
+          </ClickableStatCard>
 
-          <Card className="mint-card">
+          <ClickableStatCard href="/learn">
             <CardContent className={kidMode === "youngest" ? "p-5" : "p-6"}>
               {kidMode === "youngest" ? (
                 <div className="text-center space-y-2">
@@ -730,7 +757,7 @@ export default function Dashboard() {
                 </>
               )}
             </CardContent>
-          </Card>
+          </ClickableStatCard>
         </div>
       )}
 
