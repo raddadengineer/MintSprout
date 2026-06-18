@@ -71,4 +71,84 @@ describe("applyJobPatch payment allocation", () => {
       applyJobPatch(storage, { familyId: 1, role: "child" }, job.id, { status: "approved" }),
     ).rejects.toMatchObject({ statusCode: 403 });
   });
+
+  it("allows parent to patch amount on an in_progress job without creating payment", async () => {
+    const children = await storage.getChildrenByFamily(1);
+    const child = children[0]!;
+    const job = await storage.createJob({
+      title: "Mow lawn",
+      description: null,
+      amount: "10.00",
+      status: "in_progress",
+      recurrence: "once",
+      assignedToId: child.id,
+      familyId: 1,
+      categoryId: null,
+      allowanceId: null,
+      isFamilyDuty: false,
+      icon: "briefcase",
+    });
+
+    const updated = await applyJobPatch(storage, { familyId: 1, role: "parent" }, job.id, {
+      amount: "12.50",
+    });
+
+    expect(updated.amount).toBe("12.50");
+    expect(updated.status).toBe("in_progress");
+
+    const payments = await storage.getPaymentsByChild(child.id);
+    expect(payments).toHaveLength(0);
+  });
+
+  it("rejects amount patch from child role", async () => {
+    const children = await storage.getChildrenByFamily(1);
+    const child = children[0]!;
+    const job = await storage.createJob({
+      title: "Sweep porch",
+      description: null,
+      amount: "4.00",
+      status: "in_progress",
+      recurrence: "once",
+      assignedToId: child.id,
+      familyId: 1,
+      categoryId: null,
+      allowanceId: null,
+      isFamilyDuty: false,
+      icon: "briefcase",
+    });
+
+    await expect(
+      applyJobPatch(storage, { familyId: 1, role: "child" }, job.id, { amount: "8.00" }),
+    ).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  it("uses body.amount when parent approves with a new price in the same request", async () => {
+    const children = await storage.getChildrenByFamily(1);
+    const child = children[0]!;
+    const job = await storage.createJob({
+      title: "Wash car",
+      description: null,
+      amount: "10.00",
+      status: "completed",
+      recurrence: "once",
+      assignedToId: child.id,
+      familyId: 1,
+      categoryId: null,
+      allowanceId: null,
+      isFamilyDuty: false,
+      icon: "briefcase",
+    });
+
+    const updated = await applyJobPatch(storage, { familyId: 1, role: "parent" }, job.id, {
+      status: "approved",
+      amount: "15.00",
+    });
+
+    expect(updated.status).toBe("approved");
+    expect(updated.amount).toBe("15.00");
+
+    const payments = await storage.getPaymentsByChild(child.id);
+    expect(payments).toHaveLength(1);
+    expect(parseFloat(payments[0]!.amount)).toBe(15);
+  });
 });

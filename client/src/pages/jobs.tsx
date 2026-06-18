@@ -24,6 +24,7 @@ import type { AccountTypesRow, ChildRow, JobRow, PaymentRow } from "@/lib/api-ty
 import { taskLabels } from "@/lib/task-labels";
 import { PageHeader } from "@/components/page-shell";
 import { needsPaymentModal, taskPayKind, taskPayLabel } from "@/lib/task-pay-type";
+import { CurrencyInput, isValidCurrencyAmount } from "@/components/currency-input";
 import { Search, Edit, Trash2, Calendar, DollarSign, User, Eye } from "lucide-react";
 
 function parseMutationError(err: unknown, fallback: string): string {
@@ -78,6 +79,12 @@ export default function Jobs() {
   const queryClient = useQueryClient();
   const labels = taskLabels(user?.role === "parent" ? "parent" : "child", kidMode);
   const isParent = user?.role === "parent";
+
+  const openEditJob = (job: JobRow) => {
+    setSelectedJob(job);
+    setEditingPayment(false);
+    setShowEditModal(true);
+  };
 
   // Force refresh all data on component mount to sync with database
   useEffect(() => {
@@ -366,18 +373,35 @@ export default function Jobs() {
   ))) : [];
 
   useEffect(() => {
-    if (!isParent || !jobs) return;
     const params = new URLSearchParams(window.location.search);
-    const awaitingCount = jobs.filter((j: JobRow) => j.status === "completed").length;
+
     if (params.get("view") === "payments") {
-      if (awaitingCount > 0) setActiveTab("awaiting");
+      if (isParent && jobs) {
+        const awaitingCount = jobs.filter((j: JobRow) => j.status === "completed").length;
+        if (awaitingCount > 0) setActiveTab("awaiting");
+      }
       requestAnimationFrame(() => {
         paymentsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
-    } else if (params.get("filter") === "awaiting" || awaitingCount > 0) {
+      return;
+    }
+
+    const tabParam = params.get("tab");
+    if (tabParam === "active" || tabParam === "awaiting" || tabParam === "completed") {
+      if (tabParam === "awaiting" && !isParent) {
+        setActiveTab("active");
+      } else if (tabParam === "completed" && isYoungestChild) {
+        setActiveTab("active");
+      } else {
+        setActiveTab(tabParam);
+      }
+      return;
+    }
+
+    if (params.get("filter") === "awaiting") {
       setActiveTab("awaiting");
     }
-  }, [isParent, jobs, location]);
+  }, [isParent, isYoungestChild, jobs, location]);
 
   const activeFamilyDuties = activeJobs.filter((job: any) => isFamilyDuty(job));
   const activePaidJobs = activeJobs.filter((job: any) => !isFamilyDuty(job));
@@ -541,10 +565,7 @@ export default function Jobs() {
               <Button 
                 size="sm" 
                 variant="outline" 
-                onClick={() => {
-                  setSelectedJob(job);
-                  setShowEditModal(true);
-                }}
+                onClick={() => openEditJob(job)}
                 className="text-xs px-2"
               >
                 <Edit className="h-3 w-3" />
@@ -970,11 +991,7 @@ export default function Jobs() {
                             <Button 
                               size="sm" 
                               variant="outline" 
-                              onClick={() => {
-                                setSelectedJob(job);
-                                setEditingPayment(false);
-                                setShowEditModal(true);
-                              }}
+                              onClick={() => openEditJob(job)}
                               className="text-xs px-3"
                             >
                               <Edit className="h-3 w-3 mr-1" />
@@ -1052,20 +1069,24 @@ export default function Jobs() {
                 onChange={(e) => setSelectedJob((prev: any) => ({ ...prev, description: e.target.value }))}
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Amount ($)</label>
-              <Input 
-                type="number"
-                step="0.01"
-                value={selectedJob?.amount || ""} 
-                onChange={(e) => setSelectedJob((prev: any) => ({ ...prev, amount: e.target.value }))}
-              />
-              {selectedJob?.status === "approved" && (
-                <p className="text-xs text-orange-600 mt-1">
-                  ⚠️ Changing the amount of a completed job will not update payment balances
-                </p>
-              )}
-            </div>
+            {selectedJob && taskPayKind(selectedJob) === "one_time" && (
+              <div>
+                <label className="block text-sm font-medium mb-2">Payment amount</label>
+                <CurrencyInput
+                  value={selectedJob.amount || ""}
+                  onChange={(value) => setSelectedJob((prev: any) => ({ ...prev, amount: value }))}
+                />
+                {selectedJob.status === "approved" ? (
+                  <p className="text-xs text-orange-600 mt-1">
+                    Changing the amount of a completed task will not update payment balances
+                  </p>
+                ) : (
+                  <p className="text-xs text-gray-500 mt-1">
+                    This amount will be used when you approve payment.
+                  </p>
+                )}
+              </div>
+            )}
             
             {selectedJob?.status === "approved" && (
               <div className="space-y-3">
@@ -1200,20 +1221,30 @@ export default function Jobs() {
                       },
                     );
                   } else {
-                    updateJobMutation.mutate(
-                      {
-                        id: selectedJob.id,
-                        title: selectedJob.title,
-                        description: selectedJob.description,
-                        amount: selectedJob.amount,
+                    if (taskPayKind(selectedJob) === "one_time" && !isValidCurrencyAmount(selectedJob.amount || "")) {
+                      toast({
+                        title: "Invalid amount",
+                        description: "Enter a valid payment amount for this task",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+
+                    const payload: Record<string, unknown> = {
+                      id: selectedJob.id,
+                      title: selectedJob.title,
+                      description: selectedJob.description,
+                    };
+                    if (taskPayKind(selectedJob) === "one_time") {
+                      payload.amount = parseFloat(selectedJob.amount).toFixed(2);
+                    }
+
+                    updateJobMutation.mutate(payload as { id: number; [key: string]: unknown }, {
+                      onSuccess: () => {
+                        setShowEditModal(false);
+                        setEditingPayment(false);
                       },
-                      {
-                        onSuccess: () => {
-                          setShowEditModal(false);
-                          setEditingPayment(false);
-                        },
-                      },
-                    );
+                    });
                   }
                 }}
                 disabled={updateJobMutation.isPending || updatePaymentMutation.isPending}

@@ -17,12 +17,57 @@ function stripJobBody(body: Record<string, any>): Record<string, any> {
   return rest;
 }
 
+function isStandalonePaidJob(job: Job): boolean {
+  return (job as any).allowanceId == null && !(job as any).isFamilyDuty;
+}
+
+function normalizeJobAmount(raw: unknown): string | undefined {
+  const n = parseFloat(String(raw));
+  if (!Number.isFinite(n) || n <= 0) return undefined;
+  return n.toFixed(2);
+}
+
+function effectiveJobAmount(job: Job, body: Record<string, any>): string {
+  if (body.amount != null && body.amount !== "") {
+    const normalized = normalizeJobAmount(body.amount);
+    if (normalized) return normalized;
+  }
+  return job.amount;
+}
+
+function assertParentCanEditFields(ctx: { role: string }, body: Record<string, any>): void {
+  if (ctx.role === "parent") return;
+  if (
+    body.amount !== undefined ||
+    body.title !== undefined ||
+    body.description !== undefined
+  ) {
+    throw Object.assign(new Error("Only parents can edit task details"), { statusCode: 403 });
+  }
+}
+
+function validateAndNormalizeAmountPatch(job: Job, body: Record<string, any>): void {
+  if (body.amount == null) return;
+
+  if (!isStandalonePaidJob(job)) {
+    throw Object.assign(new Error("Cannot change amount on allowance or family-duty tasks"), {
+      statusCode: 400,
+    });
+  }
+
+  const normalized = normalizeJobAmount(body.amount);
+  if (!normalized) {
+    throw Object.assign(new Error("Amount must be a positive number"), { statusCode: 400 });
+  }
+  body.amount = normalized;
+}
+
 async function computePaymentAmounts(
   storage: IStorage,
   job: Job,
   body: any,
 ): Promise<PaymentAmounts | undefined> {
-  const amount = parseFloat(job.amount);
+  const amount = parseFloat(effectiveJobAmount(job, body));
   if (!Number.isFinite(amount)) return undefined;
 
   if (body.customAllocation) {
@@ -49,8 +94,9 @@ async function applyPaymentSideEffects(
   storage: IStorage,
   job: Job,
   paymentAmounts: PaymentAmounts,
+  payAmount: string,
 ): Promise<void> {
-  const amount = parseFloat(job.amount);
+  const amount = parseFloat(payAmount);
   const existingPayments = await storage.getPaymentsByFamily(job.familyId);
   const existingPayment = existingPayments.find((p) => p.jobId === job.id);
   if (existingPayment) return;
@@ -58,7 +104,7 @@ async function applyPaymentSideEffects(
   await storage.createPayment({
     jobId: job.id,
     childId: job.assignedToId,
-    amount: job.amount,
+    amount: payAmount,
     ...paymentAmounts,
   });
 
@@ -152,13 +198,14 @@ async function approveWithPgTransaction(job: Job, body: any, paymentAmounts: Pay
 
     const pays = await tx.select().from(schema.payments).where(eq(schema.payments.jobId, row.id));
     const existingPayment = pays[0];
+    const payAmount = effectiveJobAmount(row as Job, body);
 
     if (!existingPayment && paymentAmounts) {
-      const amount = parseFloat(row.amount);
+      const amount = parseFloat(payAmount);
       await tx.insert(schema.payments).values({
         jobId: row.id,
         childId: row.assignedToId,
-        amount: row.amount,
+        amount: payAmount,
         ...paymentAmounts,
         createdAt: new Date(),
       } as any);
@@ -252,7 +299,9 @@ export async function applyJobPatch(
   }
 
   if (body.status !== "approved") {
-    const updated = await storage.updateJob(jobId, body);
+    assertParentCanEditFields(ctx, body);
+    validateAndNormalizeAmountPatch(job, body);
+    const updated = await storage.updateJob(jobId, stripJobBody(body));
     if (!updated) throw Object.assign(new Error("Job not found"), { statusCode: 404 });
     return updated;
   }
@@ -280,14 +329,23 @@ export async function applyJobPatch(
     return updated;
   }
 
+  if (body.amount != null) {
+    const normalized = normalizeJobAmount(body.amount);
+    if (!normalized) {
+      throw Object.assign(new Error("Amount must be a positive number"), { statusCode: 400 });
+    }
+    body.amount = normalized;
+  }
+
   const paymentAmounts = await computePaymentAmounts(storage, job, body);
+  const payAmount = effectiveJobAmount(job, body);
 
   if (supportsInteractiveTransactions) {
     return await approveWithPgTransaction(job, body, paymentAmounts);
   }
 
   if (paymentAmounts) {
-    await applyPaymentSideEffects(storage, job, paymentAmounts);
+    await applyPaymentSideEffects(storage, job, paymentAmounts, payAmount);
   }
 
   const updated = await storage.updateJob(jobId, stripJobBody(body));
